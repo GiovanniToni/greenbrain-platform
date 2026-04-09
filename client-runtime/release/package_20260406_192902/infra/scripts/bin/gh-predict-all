@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -e
+
+cd /opt/greenbrain-platform/apps/ml-worker || exit 1
+source /opt/greenbrain-platform/apps/ml-worker/.venv/bin/activate
+
+RUN_TRIGGER_SOURCE=manual python3 -u -m jobs.predict_all

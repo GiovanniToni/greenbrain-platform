@@ -1,0 +1,106 @@
+=== ENV ===
+DATABASE_URL=postgresql://greenbrain:greenbrain@127.0.0.1:55432/greenbrain
+PG_HOST=127.0.0.1
+PG_PORT=55432
+PG_DB=greenbrain
+PG_USER=greenbrain
+STORAGE_BACKEND=local
+LOCAL_STORAGE_ROOT=/opt/greenbrain/storage
+GH_MODELS_DIR=/opt/greenbrain/models_v4
+PRIORS_CACHE_DIR=/opt/greenbrain-platform/apps/ml-worker/priors_cache
+
+=== ROUTING VIEW ===
+  family_name   |    model_code     | effective_execution_engine |  routing_source   
+----------------+-------------------+----------------------------+-------------------
+ ficus elastica | V4_TWEEDIE_BUNDLE | V4_TWEEDIE_BUNDLE          | trained_v4_bundle
+ lavanda        | V4_TWEEDIE_BUNDLE | V4_TWEEDIE_BUNDLE          | trained_v4_bundle
+ rosa           | V4_TWEEDIE_BUNDLE | V4_TWEEDIE_BUNDLE          | trained_v4_bundle
+(3 rows)
+
+
+=== LAST PIPELINE RUNS ===
+                run_id                |    job_type    | status  |          started_at           |          finished_at          | rows_processed |                                    notes                                     
+--------------------------------------+----------------+---------+-------------------------------+-------------------------------+----------------+------------------------------------------------------------------------------
+ 2d740afd-54ba-4e1e-9ee9-d67e144cec47 | predict_family | success | 2026-04-06 14:55:37.090392+00 | 2026-04-06 14:55:39.855579+00 |             20 | family=rosa slug=rosa rows_written=20 fallback_used=True
+ 804c540b-fac9-4cd8-8e01-6407c1be829c | train_family   | success | 2026-04-06 14:55:34.615618+00 | 2026-04-06 14:55:36.666374+00 |              1 | family=rosa slug=rosa
+ 6ed04467-f6e6-4b9d-91e2-0f95ca8f4ee6 | predict_family | success | 2026-04-06 14:44:43.333091+00 | 2026-04-06 14:44:46.083739+00 |             20 | family=ficus elastica slug=ficus-elastica rows_written=20 fallback_used=True
+ e3620c29-37b9-429f-ad22-2c982fafbac9 | predict_family | success | 2026-04-06 14:44:40.135376+00 | 2026-04-06 14:44:42.895564+00 |             20 | family=lavanda slug=lavanda rows_written=20 fallback_used=True
+ e17c58f4-e11b-4542-aecb-34a8a511c466 | predict_family | success | 2026-04-06 14:44:37.140566+00 | 2026-04-06 14:44:39.721476+00 |             20 | family=rosa slug=rosa rows_written=20 fallback_used=True
+ 2e669719-a892-413b-8f6f-0df888e79c21 | train_family   | success | 2026-04-06 14:44:35.227365+00 | 2026-04-06 14:44:36.738862+00 |              1 | family=ficus elastica slug=ficus-elastica
+ 60f5b55f-0da2-49c7-9ade-57501ea929b0 | train_family   | success | 2026-04-06 14:44:33.381724+00 | 2026-04-06 14:44:34.828072+00 |              1 | family=lavanda slug=lavanda
+ dc02ee68-7f39-4a1b-9b1a-5da5636a1130 | train_family   | success | 2026-04-06 14:44:31.405709+00 | 2026-04-06 14:44:32.939217+00 |              1 | family=rosa slug=rosa
+ a0a5a527-c782-44f9-8e63-1d0fd56cccc6 | predict_family | success | 2026-04-06 09:42:29.160404+00 | 2026-04-06 09:42:31.776553+00 |             20 | family=ficus elastica slug=ficus-elastica rows_written=20 fallback_used=True
+ ba65eac9-e251-4bb3-9ed0-6c72046849c4 | predict_family | success | 2026-04-06 09:42:26.024724+00 | 2026-04-06 09:42:28.714446+00 |             20 | family=lavanda slug=lavanda rows_written=20 fallback_used=True
+ 003f27d0-13f5-47dd-905f-8fabd9e0fb93 | predict_family | success | 2026-04-06 09:42:23.007967+00 | 2026-04-06 09:42:25.595192+00 |             20 | family=rosa slug=rosa rows_written=20 fallback_used=True
+ 1157bbfc-14e8-4783-9971-d8db35520330 | predict_family | success | 2026-04-06 09:38:47.226561+00 | 2026-04-06 09:38:49.943092+00 |              0 | family=ficus elastica slug=ficus-elastica rows_written=0 fallback_used=True
+ eab3abae-e3c6-4583-9c57-abd77a46bf68 | predict_family | success | 2026-04-06 09:38:44.016731+00 | 2026-04-06 09:38:46.790498+00 |              0 | family=lavanda slug=lavanda rows_written=0 fallback_used=True
+ cdca56fc-a68b-452d-954c-0e7fc11bf6a3 | predict_family | success | 2026-04-06 09:38:40.789936+00 | 2026-04-06 09:38:43.569213+00 |              0 | family=rosa slug=rosa rows_written=0 fallback_used=True
+ c8234bf9-05cc-4391-9623-034c5b5365a5 | predict_family | success | 2026-04-06 09:33:07.216704+00 | 2026-04-06 09:33:09.355735+00 |              0 | family=ficus elastica slug=ficus-elastica
+ 982ae225-ffa8-4dd2-bf05-6813f862f911 | predict_family | success | 2026-04-06 09:33:04.806761+00 | 2026-04-06 09:33:06.806125+00 |              0 | family=lavanda slug=lavanda
+ 1ff682dd-3772-4e29-8865-83f38b7c68c8 | predict_family | success | 2026-04-06 09:33:02.270478+00 | 2026-04-06 09:33:04.391091+00 |              0 | family=rosa slug=rosa
+ 8f14148f-d5fb-42c5-8dce-a73ea9c6e90a | train_family   | success | 2026-04-06 09:30:17.481368+00 | 2026-04-06 09:30:19.117836+00 |              1 | family=rosa slug=rosa
+ e289e0b4-682d-4f52-bd19-28d548c1d9b8 | predict_family | success | 2026-04-06 09:30:15.585507+00 | 2026-04-06 09:30:17.053892+00 |              0 | family=rosa slug=rosa
+ 220c8444-c616-4b29-a1fc-df35815b9264 | train_family   | success | 2026-04-06 09:26:50.971238+00 | 2026-04-06 09:26:52.571611+00 |              1 | family=ficus elastica slug=ficus-elastica
+(20 rows)
+
+
+=== LAST FAMILY RUNS ===
+            family_run_id             |           pipeline_run_id            |  family_name   |    job_type    | status  | rows_written |                     artifact_path                      | error_message 
+--------------------------------------+--------------------------------------+----------------+----------------+---------+--------------+--------------------------------------------------------+---------------
+ d69d6ea2-e800-42a1-810d-81198396e3c5 | 2d740afd-54ba-4e1e-9ee9-d67e144cec47 | rosa           | predict_family | success |           20 |                                                        | 
+ 8b650edd-edba-448b-b031-46fb59a8a590 | 804c540b-fac9-4cd8-8e01-6407c1be829c | rosa           | train_family   | success |            1 | /opt/greenbrain/models_v4/bundle_rosa_v4.pkl           | 
+ 729d879f-3925-4430-9c7a-1f4f6b2dea1a | 6ed04467-f6e6-4b9d-91e2-0f95ca8f4ee6 | ficus elastica | predict_family | success |           20 |                                                        | 
+ 316cd872-5616-47ac-aff5-f76548ef0755 | e3620c29-37b9-429f-ad22-2c982fafbac9 | lavanda        | predict_family | success |           20 |                                                        | 
+ fa090408-a95b-4280-a14e-09a04d77a563 | e17c58f4-e11b-4542-aecb-34a8a511c466 | rosa           | predict_family | success |           20 |                                                        | 
+ cae7fa10-77b5-4dd2-bd5b-ae7eb895de39 | 2e669719-a892-413b-8f6f-0df888e79c21 | ficus elastica | train_family   | success |            1 | /opt/greenbrain/models_v4/bundle_ficus-elastica_v4.pkl | 
+ aa574c7e-1084-4784-bb70-bddc48a78066 | 60f5b55f-0da2-49c7-9ade-57501ea929b0 | lavanda        | train_family   | success |            1 | /opt/greenbrain/models_v4/bundle_lavanda_v4.pkl        | 
+ 88348cfd-e667-48d8-b791-9ac295fe5d44 | dc02ee68-7f39-4a1b-9b1a-5da5636a1130 | rosa           | train_family   | success |            1 | /opt/greenbrain/models_v4/bundle_rosa_v4.pkl           | 
+ 41dbd309-ae1b-4904-a6c6-78e2db5b2b51 | a0a5a527-c782-44f9-8e63-1d0fd56cccc6 | ficus elastica | predict_family | success |           20 |                                                        | 
+ a8d7b51e-2a97-4693-9faf-33999fd69c8d | ba65eac9-e251-4bb3-9ed0-6c72046849c4 | lavanda        | predict_family | success |           20 |                                                        | 
+ a3f9e6e9-2730-4b4b-af93-987537be191d | 003f27d0-13f5-47dd-905f-8fabd9e0fb93 | rosa           | predict_family | success |           20 |                                                        | 
+ 98b4dffc-138d-44ef-984f-14aa8729f0c4 | 1157bbfc-14e8-4783-9971-d8db35520330 | ficus elastica | predict_family | success |            0 |                                                        | 
+ e82b65e0-0562-42a5-936d-63f5ce994df5 | eab3abae-e3c6-4583-9c57-abd77a46bf68 | lavanda        | predict_family | success |            0 |                                                        | 
+ 3dbf533f-20db-45a3-9bf1-c5b88078acef | cdca56fc-a68b-452d-954c-0e7fc11bf6a3 | rosa           | predict_family | success |            0 |                                                        | 
+ ee1af931-d995-44ce-921b-bcdd62e4f60a | c8234bf9-05cc-4391-9623-034c5b5365a5 | ficus elastica | predict_family | success |            0 |                                                        | 
+ c252f70d-eca5-492d-8d60-f18680d0e88c | 982ae225-ffa8-4dd2-bf05-6813f862f911 | lavanda        | predict_family | success |            0 |                                                        | 
+ 0506b2f9-a739-42ab-a4c3-cc3d46b67fce | 1ff682dd-3772-4e29-8865-83f38b7c68c8 | rosa           | predict_family | success |            0 |                                                        | 
+ 1a4d8ae1-fd15-49cf-b51c-228e90f4d964 | 8f14148f-d5fb-42c5-8dce-a73ea9c6e90a | rosa           | train_family   | success |            1 | /opt/greenbrain/models_v4/bundle_rosa_v4.pkl           | 
+ aa13df4a-5878-4142-ab19-fe394da27804 | e289e0b4-682d-4f52-bd19-28d548c1d9b8 | rosa           | predict_family | success |            0 |                                                        | 
+ bf571790-3802-460f-a2e4-b6015a726724 | 220c8444-c616-4b29-a1fc-df35815b9264 | ficus elastica | train_family   | success |            1 | /opt/greenbrain/models_v4/bundle_ficus-elastica_v4.pkl | 
+(20 rows)
+
+
+=== PIPELINE MONITOR ===
+ id |            snap_ts            | ok 
+----+-------------------------------+----
+ 56 | 2026-04-06 14:55:39.873961+00 | t
+ 55 | 2026-04-06 14:55:39.855579+00 | f
+ 54 | 2026-04-06 14:55:36.683853+00 | t
+ 53 | 2026-04-06 14:55:36.666374+00 | f
+ 52 | 2026-04-06 14:44:46.10029+00  | t
+ 51 | 2026-04-06 14:44:46.083739+00 | f
+ 50 | 2026-04-06 14:44:42.915395+00 | t
+ 49 | 2026-04-06 14:44:42.895564+00 | f
+ 48 | 2026-04-06 14:44:39.73839+00  | t
+ 47 | 2026-04-06 14:44:39.721476+00 | f
+ 46 | 2026-04-06 14:44:36.757419+00 | t
+ 45 | 2026-04-06 14:44:36.738862+00 | f
+ 44 | 2026-04-06 14:44:34.846457+00 | t
+ 43 | 2026-04-06 14:44:34.828072+00 | f
+ 42 | 2026-04-06 14:44:32.956037+00 | t
+ 41 | 2026-04-06 14:44:32.939217+00 | f
+ 40 | 2026-04-06 09:42:31.792233+00 | t
+ 39 | 2026-04-06 09:42:31.776553+00 | f
+ 38 | 2026-04-06 09:42:28.733897+00 | t
+ 37 | 2026-04-06 09:42:28.714446+00 | f
+(20 rows)
+
+
+=== FORECAST SUMMARY ===
+    famiglia    | rows_n |  min_day   |  max_day   
+----------------+--------+------------+------------
+ ficus elastica |     20 | 2026-04-06 | 2026-04-15
+ lavanda        |     20 | 2026-04-06 | 2026-04-15
+ rosa           |     20 | 2026-04-06 | 2026-04-15
+(3 rows)
+

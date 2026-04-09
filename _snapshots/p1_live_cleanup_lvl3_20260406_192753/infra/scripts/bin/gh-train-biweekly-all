@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd /opt/greenhouse/repo
+source /opt/greenhouse/venv/bin/activate
+export RUN_TRIGGER_SOURCE="${RUN_TRIGGER_SOURCE:-manual}"
+python3 -u -m jobs.train_all_monitor

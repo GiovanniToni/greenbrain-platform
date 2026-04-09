@@ -1,0 +1,15 @@
+=== BACKEND MAIN FILES ===
+./apps/backend/app/main.py
+
+=== PYTHON CONFIG FILES ===
+./apps/backend/requirements.txt
+./apps/ml-worker/requirements.txt
+
+=== FRONTEND CONFIG FILES ===
+./apps/frontend/package.json
+./apps/frontend/vite.config.ts
+
+=== DOCKER FILES ===
+./apps/backend/Dockerfile
+./apps/frontend/Dockerfile
+./client-runtime/docker/docker-compose.yml

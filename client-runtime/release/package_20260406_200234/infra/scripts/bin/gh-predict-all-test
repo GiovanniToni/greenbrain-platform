@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+N="${1:-5}"
+
+cd /opt/greenbrain-platform/apps/ml-worker
+source /opt/greenbrain-platform/apps/ml-worker/.venv/bin/activate
+set +H
+set -a
+set +a
+
+unset PREDICT_ONLY_FAMILY
+export PREDICT_LIMIT="$N"
+export RUN_TRIGGER_SOURCE=manual
+
+python3 -u -m jobs.predict_all

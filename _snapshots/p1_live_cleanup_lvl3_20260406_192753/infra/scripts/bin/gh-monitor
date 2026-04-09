@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd /opt/greenhouse/repo || exit 1
+source /opt/greenhouse/venv/bin/activate
+
+echo
+echo "============================================================"
+echo " GREENHOUSE ML MONITOR DASHBOARD"
+echo "============================================================"
+echo "HOST: $(hostname)"
+echo "UTC : $(date -u +"%Y-%m-%d %H:%M:%S")"
+echo
+
+echo "-------------------- MODEL STATE --------------------"
+psql "$DATABASE_URL" -P pager=off -c "
+select model_state, count(*) as n
+from ml_monitor.v_model_status
+group by 1
+order by 1;"
+echo
+
+echo "-------------------- PROBLEM FAMILIES --------------------"
+psql "$DATABASE_URL" -P pager=off -c "
+select family_slug, model_state, bundle_age_days, train_status, predict_status, bundle_mtime
+from ml_monitor.v_model_stale
+order by model_state, bundle_age_days desc nulls last, family_slug
+limit 50;"
+echo
+
+echo "-------------------- LAST RUNS --------------------"
+psql "$DATABASE_URL" -P pager=off -c "
+select run_id, run_type, status, started_at, finished_at, duration_min, summary
+from ml_monitor.v_run_recent
+limit 20;"
+echo
+
+echo "-------------------- LAST TRAINS --------------------"
+psql "$DATABASE_URL" -P pager=off -c "
+select family_slug, train_started_at, train_status, bundle_mtime, bundle_age_days
+from ml_monitor.v_model_status
+where train_started_at is not null
+order by train_started_at desc
+limit 20;"
+echo
+
+echo "-------------------- LAST PREDICTS --------------------"
+psql "$DATABASE_URL" -P pager=off -c "
+select family_slug, predict_started_at, predict_status, predict_rows_written
+from ml_monitor.v_model_status
+where predict_started_at is not null
+order by predict_started_at desc
+limit 20;"
+echo
+
+echo "-------------------- MISSING BUNDLES --------------------"
+psql "$DATABASE_URL" -P pager=off -c "
+select count(*) as missing_bundles
+from ml_monitor.v_model_status
+where model_state = 'missing_bundle';"
+echo

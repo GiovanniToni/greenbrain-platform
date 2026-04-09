@@ -1,0 +1,1 @@
+0 21 * * * /opt/greenbrain-platform/apps/ml-worker/run_nightly_runtime.sh >> /opt/greenbrain-platform/runtime-reports/nightly.log 2>&1

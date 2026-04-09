@@ -1,0 +1,200 @@
+===== src =====
+apps/frontend/src/App.css
+apps/frontend/src/App.tsx
+apps/frontend/src/components/NavLink.tsx
+apps/frontend/src/components/analytics/AnalyticsEntitySearch.tsx
+apps/frontend/src/components/analytics/AnalyticsKpiCards.tsx
+apps/frontend/src/components/analytics/AnalyticsOperationalKpis.tsx
+apps/frontend/src/components/analytics/CatalogBrowserDialog.tsx
+apps/frontend/src/components/analytics/CompareEntitySelector.tsx
+apps/frontend/src/components/analytics/CompareSalesChart.tsx
+apps/frontend/src/components/analytics/ComponentsTable.tsx
+apps/frontend/src/components/analytics/DateField.tsx
+apps/frontend/src/components/analytics/EntitySummaryCard.tsx
+apps/frontend/src/components/analytics/ForecastMetricsCard.tsx
+apps/frontend/src/components/analytics/FutureWindowsKpiCard.tsx
+apps/frontend/src/components/analytics/SalesHistoryChart.tsx
+apps/frontend/src/components/analytics/SeasonalityChart.tsx
+apps/frontend/src/components/analytics/WeeklySeasonalityChart.tsx
+apps/frontend/src/components/auth/ProtectedRoute.tsx
+apps/frontend/src/components/dashboard/EventsCard.tsx
+apps/frontend/src/components/dashboard/KpiCard.tsx
+apps/frontend/src/components/dashboard/MonthlyCalendar.tsx
+apps/frontend/src/components/dashboard/MonthlySalesChart.tsx
+apps/frontend/src/components/dashboard/ReorderSuggestionsCard.tsx
+apps/frontend/src/components/dashboard/WeatherCard.tsx
+apps/frontend/src/components/layout/AppLayout.tsx
+apps/frontend/src/components/layout/Sidebar.tsx
+apps/frontend/src/components/layout/TopBar.tsx
+apps/frontend/src/components/ui/accordion.tsx
+apps/frontend/src/components/ui/alert-dialog.tsx
+apps/frontend/src/components/ui/alert.tsx
+apps/frontend/src/components/ui/aspect-ratio.tsx
+apps/frontend/src/components/ui/avatar.tsx
+apps/frontend/src/components/ui/badge.tsx
+apps/frontend/src/components/ui/breadcrumb.tsx
+apps/frontend/src/components/ui/button.tsx
+apps/frontend/src/components/ui/calendar.tsx
+apps/frontend/src/components/ui/card.tsx
+apps/frontend/src/components/ui/carousel.tsx
+apps/frontend/src/components/ui/chart.tsx
+apps/frontend/src/components/ui/checkbox.tsx
+apps/frontend/src/components/ui/collapsible.tsx
+apps/frontend/src/components/ui/command.tsx
+apps/frontend/src/components/ui/context-menu.tsx
+apps/frontend/src/components/ui/dialog.tsx
+apps/frontend/src/components/ui/drawer.tsx
+apps/frontend/src/components/ui/dropdown-menu.tsx
+apps/frontend/src/components/ui/form.tsx
+apps/frontend/src/components/ui/hover-card.tsx
+apps/frontend/src/components/ui/input-otp.tsx
+apps/frontend/src/components/ui/input.tsx
+apps/frontend/src/components/ui/label.tsx
+apps/frontend/src/components/ui/menubar.tsx
+apps/frontend/src/components/ui/navigation-menu.tsx
+apps/frontend/src/components/ui/pagination.tsx
+apps/frontend/src/components/ui/popover.tsx
+apps/frontend/src/components/ui/progress.tsx
+apps/frontend/src/components/ui/radio-group.tsx
+apps/frontend/src/components/ui/resizable.tsx
+apps/frontend/src/components/ui/scroll-area.tsx
+apps/frontend/src/components/ui/select.tsx
+apps/frontend/src/components/ui/separator.tsx
+apps/frontend/src/components/ui/sheet.tsx
+apps/frontend/src/components/ui/sidebar.tsx
+apps/frontend/src/components/ui/skeleton.tsx
+apps/frontend/src/components/ui/slider.tsx
+apps/frontend/src/components/ui/sonner.tsx
+apps/frontend/src/components/ui/switch.tsx
+apps/frontend/src/components/ui/table.tsx
+apps/frontend/src/components/ui/tabs.tsx
+apps/frontend/src/components/ui/textarea.tsx
+apps/frontend/src/components/ui/toast.tsx
+apps/frontend/src/components/ui/toaster.tsx
+apps/frontend/src/components/ui/toggle-group.tsx
+apps/frontend/src/components/ui/toggle.tsx
+apps/frontend/src/components/ui/tooltip.tsx
+apps/frontend/src/components/ui/use-toast.ts
+apps/frontend/src/features/planner/components/AssortmentCalendar.tsx
+apps/frontend/src/features/planner/components/HeatCell.tsx
+apps/frontend/src/features/planner/components/HeatmapNodeChart.tsx
+apps/frontend/src/features/planner/components/HeatmapTreeTable.tsx
+apps/frontend/src/features/planner/components/SpaceBudgetTimeline.tsx
+apps/frontend/src/features/planner/hooks/usePlannerAssortmentCalendar.ts
+apps/frontend/src/features/planner/hooks/usePlannerCurrentWeek.ts
+apps/frontend/src/features/planner/hooks/usePlannerHeatmapCells.ts
+apps/frontend/src/features/planner/hooks/usePlannerHeatmapNodes.ts
+apps/frontend/src/features/planner/hooks/usePlannerHeatmapRanges.ts
+apps/frontend/src/features/planner/hooks/usePlannerSpaceBudget.ts
+apps/frontend/src/features/planner/types.ts
+apps/frontend/src/features/planner/utils/exportExcel.ts
+apps/frontend/src/features/planner/utils/fetchPaged.ts
+apps/frontend/src/hooks/use-mobile.tsx
+apps/frontend/src/hooks/use-toast.ts
+apps/frontend/src/hooks/useAnalyticsCatalog.ts
+apps/frontend/src/hooks/useAnalyticsCompareSeries.ts
+apps/frontend/src/hooks/useAnalyticsComponents.ts
+apps/frontend/src/hooks/useAnalyticsEntitySummary.ts
+apps/frontend/src/hooks/useAnalyticsFutureWindowsKpi.ts
+apps/frontend/src/hooks/useAnalyticsProMetrics.ts
+apps/frontend/src/hooks/useAnalyticsRangeTotals.ts
+apps/frontend/src/hooks/useAnalyticsRollingTotals.ts
+apps/frontend/src/hooks/useAnalyticsSeasonality.ts
+apps/frontend/src/hooks/useAnalyticsSeries.ts
+apps/frontend/src/hooks/useAnalyticsSeriesAllTime.ts
+apps/frontend/src/hooks/useAnalyticsStockAndReorder.ts
+apps/frontend/src/hooks/useAuth.tsx
+apps/frontend/src/hooks/useCalendarEvents.ts
+apps/frontend/src/hooks/useCatalogTree.ts
+apps/frontend/src/hooks/useDashboardKpis.ts
+apps/frontend/src/hooks/useDashboardReorderSuggestions.ts
+apps/frontend/src/hooks/useDashboardSalesMonthly.ts
+apps/frontend/src/hooks/useDashboardSalesWeekly.ts
+apps/frontend/src/hooks/useDashboardSalesYearly.ts
+apps/frontend/src/hooks/useGardenCenterSettings.ts
+apps/frontend/src/hooks/useOrderSuggestions.ts
+apps/frontend/src/index.css
+apps/frontend/src/lib/apiClient.ts
+apps/frontend/src/lib/utils.ts
+apps/frontend/src/main.tsx
+apps/frontend/src/pages/Account.tsx
+apps/frontend/src/pages/Analytics.tsx
+apps/frontend/src/pages/AssortmentPlanner.tsx
+apps/frontend/src/pages/Dashboard.tsx
+apps/frontend/src/pages/Index.tsx
+apps/frontend/src/pages/Landing.tsx
+apps/frontend/src/pages/Login.tsx
+apps/frontend/src/pages/NotFound.tsx
+apps/frontend/src/pages/Reorders.tsx
+apps/frontend/src/pages/Suppliers.tsx
+apps/frontend/src/vite-env.d.ts
+
+===== files with api/base url/auth =====
+apps/frontend/src/features/planner/utils/fetchPaged.ts:6:  t_core_planner__assortment_calendar: "/api/v1/planner/assortment-calendar-export",
+apps/frontend/src/features/planner/hooks/usePlannerSpaceBudget.ts:17:  const resp = await apiGet("/api/v1/planner/space-budget", { mode, level });
+apps/frontend/src/features/planner/hooks/usePlannerCurrentWeek.ts:6:  const data = await apiGet("/api/v1/planner/current-week");
+apps/frontend/src/features/planner/hooks/usePlannerAssortmentCalendar.ts:17:  const resp = await apiGet("/api/v1/planner/assortment-calendar", { mode, level });
+apps/frontend/src/features/planner/hooks/usePlannerHeatmapRanges.ts:68:        core_planner__get_heatmap_week_ranges: "/api/v1/planner/heatmap-week-ranges",
+apps/frontend/src/features/planner/hooks/usePlannerHeatmapRanges.ts:69:        core_planner__get_heatmap_roll4_ranges: "/api/v1/planner/heatmap-roll4-ranges",
+apps/frontend/src/features/planner/hooks/usePlannerHeatmapCells.ts:73:        const resp = await apiPost("/api/v1/planner/heatmap-cells", {
+apps/frontend/src/features/planner/hooks/usePlannerHeatmapNodes.ts:19:  const resp = await apiGet("/api/v1/planner/heatmap-nodes", { mode });
+apps/frontend/src/App.tsx:8:import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+apps/frontend/src/App.tsx:33:          <Route path="/login" element={<Login />} />
+apps/frontend/src/components/ui/toggle.tsx:3:import { cva, type VariantProps } from "class-variance-authority";
+apps/frontend/src/components/ui/toggle-group.tsx:3:import { type VariantProps } from "class-variance-authority";
+apps/frontend/src/components/ui/sheet.tsx:2:import { cva, type VariantProps } from "class-variance-authority";
+apps/frontend/src/components/ui/button.tsx:3:import { cva, type VariantProps } from "class-variance-authority";
+apps/frontend/src/components/ui/label.tsx:3:import { cva, type VariantProps } from "class-variance-authority";
+apps/frontend/src/components/ui/toast.tsx:3:import { cva, type VariantProps } from "class-variance-authority";
+apps/frontend/src/components/ui/badge.tsx:2:import { cva, type VariantProps } from "class-variance-authority";
+apps/frontend/src/components/ui/sidebar.tsx:3:import { VariantProps, cva } from "class-variance-authority";
+apps/frontend/src/components/ui/navigation-menu.tsx:3:import { cva } from "class-variance-authority";
+apps/frontend/src/components/ui/alert.tsx:2:import { cva, type VariantProps } from "class-variance-authority";
+apps/frontend/src/components/layout/TopBar.tsx:35:    navigate("/login");
+apps/frontend/src/components/auth/ProtectedRoute.tsx:16:    return <Navigate to="/login" replace />;
+apps/frontend/src/components/analytics/SalesHistoryChart.tsx:402:        const resp = await apiGet("/api/v1/forecast/series", {
+apps/frontend/src/pages/Landing.tsx:28:                <Link to="/login">Accedi</Link>
+apps/frontend/src/pages/Landing.tsx:54:                    <Link to="/login">Accedi alla piattaforma</Link>
+apps/frontend/src/pages/Landing.tsx:57:                    <Link to="/login">Richiedi accesso</Link>
+apps/frontend/src/pages/Landing.tsx:204:                  <Link to="/login">Accedi</Link>
+apps/frontend/src/pages/Landing.tsx:207:                  <Link to="/login">Richiedi una demo</Link>
+apps/frontend/src/pages/Login.tsx:20:  const { user, loading, login } = useAuth();
+apps/frontend/src/pages/Login.tsx:35:      await login(email, password);
+apps/frontend/src/pages/AssortmentPlanner.tsx:264:        const resp = await apiGet("/api/v1/planner/heatmap-week-pivot", { metric, page, page_size: pageSize });
+apps/frontend/src/hooks/useCatalogTree.ts:38:        const resp = await apiGet("/api/v1/catalog/children", {
+apps/frontend/src/hooks/useAnalyticsCompareSeries.ts:47:        const resp = await apiGet("/api/v1/analytics/compare-series", {
+apps/frontend/src/hooks/useDashboardSalesYearly.ts:20:        resp = await apiGet("/api/v1/dashboard/sales-yearly");
+apps/frontend/src/hooks/useDashboardKpis.ts:42:        row = await apiGet("/api/v1/dashboard/kpis");
+apps/frontend/src/hooks/useDashboardReorderSuggestions.ts:39:        resp = await apiGet("/api/v1/dashboard/reorder-suggestions", { limit });
+apps/frontend/src/hooks/useDashboardSalesWeekly.ts:20:        resp = await apiGet("/api/v1/dashboard/sales-weekly");
+apps/frontend/src/hooks/useAnalyticsRangeTotals.ts:96:        const _fpResp = await apiGet("/api/v1/analytics/series", {
+apps/frontend/src/hooks/useAnalyticsRangeTotals.ts:175:      const row = await apiGet("/api/v1/analytics/range-totals", {
+apps/frontend/src/hooks/useAnalyticsComponents.ts:34:      const resp = await apiGet("/api/v1/analytics/components", {
+apps/frontend/src/hooks/useGardenCenterSettings.ts:22:    apiGet('/api/v1/settings/garden-center')
+apps/frontend/src/hooks/useGardenCenterSettings.ts:37:      await apiPost('/api/v1/settings/garden-center', newSettings);
+apps/frontend/src/hooks/useAnalyticsSeriesAllTime.ts:33:      const row = await apiGet("/api/v1/analytics/series-bounds", {
+apps/frontend/src/hooks/useAnalyticsRollingTotals.ts:75:        const resp = await apiGet("/api/v1/analytics/series", {
+apps/frontend/src/hooks/useAnalyticsRollingTotals.ts:117:      const resp = await apiGet("/api/v1/analytics/series", {
+apps/frontend/src/hooks/useDashboardSalesMonthly.ts:19:        resp = await apiGet("/api/v1/dashboard/sales-monthly");
+apps/frontend/src/hooks/useCalendarEvents.ts:23:        const resp = await apiGet('/api/v1/planner/calendar-events', {
+apps/frontend/src/hooks/useAnalyticsSeasonality.ts:47:      const resp = await apiGet("/api/v1/analytics/seasonality", {
+apps/frontend/src/hooks/useAnalyticsStockAndReorder.ts:33:        const row = await apiGet("/api/v1/analytics/stock-and-reorder", {
+apps/frontend/src/hooks/useOrderSuggestions.ts:34:        resp = await apiGet("/api/v1/planner/order-suggestions");
+apps/frontend/src/hooks/useAnalyticsSeries.ts:288:        const _artResp = await apiGet("/api/v1/analytics/series", {
+apps/frontend/src/hooks/useAnalyticsSeries.ts:319:        const _fpResp = await apiGet("/api/v1/analytics/series", {
+apps/frontend/src/hooks/useAnalyticsSeries.ts:341:      const _totResp = await apiGet("/api/v1/analytics/series", {
+apps/frontend/src/hooks/useAnalyticsSeries.ts:379:        _bResp = await apiGet("/api/v1/analytics/series-breakdown", {
+apps/frontend/src/hooks/useAnalyticsFutureWindowsKpi.ts:65:      const resp = await apiGet("/api/v1/analytics/future-windows-stats", {
+apps/frontend/src/hooks/useAnalyticsEntitySummary.ts:98:      const rpcData = await apiGet("/api/v1/analytics/entity-summary", {
+apps/frontend/src/hooks/useAuth.tsx:27:    apiGet('/api/v1/auth/me')
+apps/frontend/src/hooks/useAuth.tsx:36:  const login = useCallback(async (email: string, password: string) => {
+apps/frontend/src/hooks/useAuth.tsx:37:    const data = await apiPost('/api/v1/auth/login', { email, password });
+apps/frontend/src/hooks/useAuth.tsx:39:    const me: AuthUser = await apiGet('/api/v1/auth/me');
+apps/frontend/src/hooks/useAuth.tsx:48:  return { user, loading, login, logout };
+apps/frontend/src/hooks/useAnalyticsCatalog.ts:46:      const resp = await apiGet("/api/v1/catalog/search", { term: t, limit: 50 });
+apps/frontend/src/hooks/useAnalyticsCatalog.ts:76:      const resp = await apiGet("/api/v1/catalog/list", { entity_type: et, limit });
+apps/frontend/src/lib/apiClient.ts:1:const BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
+apps/frontend/src/lib/apiClient.ts:17:function authHeaders(): Record<string, string> {
+apps/frontend/src/lib/apiClient.ts:50:  const res = await fetch(url.toString(), { headers: authHeaders() });
+apps/frontend/src/lib/apiClient.ts:70:  const res = await fetch(url.toString(), {
+apps/frontend/src/lib/apiClient.ts:72:    headers: { "Content-Type": "application/json", ...authHeaders() },

@@ -1,0 +1,75 @@
+===== client-runtime/etl/.env =====
+# SQL Server sorgente cliente
+SQLSERVER_SERVER=localhost
+SQLSERVER_DB=CLIENT_DB
+SQLSERVER_USER=readonly_user
+SQLSERVER_PASSWORD=CHANGE_ME
+SQLSERVER_DRIVER=ODBC Driver 18 for SQL Server
+SQLSERVER_SOURCE_OBJECT=GREENHOUSE_VIEW_STAT
+
+# Postgres GreenBrain cliente
+PG_HOST=127.0.0.1
+PG_PORT=55432
+PG_DB=greenbrain
+PG_USER=greenbrain
+PG_PASSWORD=greenbrain
+PG_SSLMODE=disable
+
+# Modalità ETL
+RUN_TYPE=incremental_daily
+FULL_BULK=0
+BATCH_SIZE=5000
+MAX_RETRIES=3
+
+DATABASE_URL=postgresql://greenbrain:greenbrain@127.0.0.1:55432/greenbrain
+
+STORAGE_BACKEND=local
+LOCAL_STORAGE_ROOT=/opt/greenbrain/storage
+
+PARQUET_ENABLE=1
+PARQUET_CACHE_DIR=/opt/greenbrain/storage
+GH_MODELS_DIR=/opt/greenbrain/models_v4
+MODEL_STORAGE_PREFIX=models_v4
+
+FULL_EXPORT=1
+
+===== client-runtime/etl/.env.ml.runtime =====
+DATABASE_URL=postgresql://greenbrain:greenbrain@127.0.0.1:55432/greenbrain
+
+PG_HOST=127.0.0.1
+PG_PORT=55432
+PG_DB=greenbrain
+PG_USER=greenbrain
+PG_PASSWORD=greenbrain
+PG_SSLMODE=disable
+
+STORAGE_BACKEND=local
+LOCAL_STORAGE_ROOT=/opt/greenbrain/storage
+
+PARQUET_ENABLE=1
+PARQUET_CACHE_DIR=/opt/greenbrain/storage
+GH_MODELS_DIR=/opt/greenbrain/models_v4
+MODEL_STORAGE_PREFIX=models_v4
+
+FULL_EXPORT=1
+PRIORS_CACHE_DIR=/opt/greenbrain-platform/apps/ml-worker/priors_cache
+
+===== client-runtime/etl/.env.ml =====
+DATABASE_URL=postgresql://postgres:PASSWORD@HOST:5432/postgres
+
+PG_HOST=HOST
+PG_PORT=5432
+PG_DB=postgres
+PG_USER=postgres
+PG_PASSWORD=PASSWORD
+PG_SSLMODE=prefer
+
+STORAGE_BACKEND=local
+LOCAL_STORAGE_ROOT=/opt/greenbrain/storage
+
+PARQUET_ENABLE=1
+PARQUET_CACHE_DIR=/opt/greenbrain/storage
+GH_MODELS_DIR=/opt/greenbrain/models_v4
+MODEL_STORAGE_PREFIX=models_v4
+
+FULL_EXPORT=1

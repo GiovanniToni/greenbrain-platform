@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd /opt/greenhouse/repo
+source /opt/greenhouse/venv/bin/activate
+
+# ---- new env loader ----
+export APP_ENV="${APP_ENV:-dev}"
+source /opt/greenbrain-platform/infra/scripts/load_env.sh
+
+export RUN_TRIGGER_SOURCE="${RUN_TRIGGER_SOURCE:-manual}"
+python3 -u -m jobs.sync_local_artifacts

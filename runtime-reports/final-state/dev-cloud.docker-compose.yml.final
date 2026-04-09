@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  dev_postgres:
+    image: postgres:16-alpine
+    container_name: dev_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: greenbrain_dev
+      POSTGRES_USER: greenbrain_dev
+      POSTGRES_PASSWORD: GreenbrainTest123!
+    ports:
+      - "55443:5432"
+    volumes:
+      - dev_postgres_data:/var/lib/postgresql/data
+      - ../../client-runtime/sql/init:/docker-entrypoint-initdb.d:ro
+
+  dev_backend:
+    build:
+      context: ../../apps/backend
+      dockerfile: Dockerfile
+    container_name: dev_backend
+    restart: unless-stopped
+    env_file:
+      - ../env/dev-cloud.env
+    ports:
+      - "8002:8000"
+    depends_on:
+      - dev_postgres
+
+volumes:
+  dev_postgres_data:

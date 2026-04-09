@@ -1,0 +1,204 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd /opt/greenhouse/repo || exit 1
+source /opt/greenhouse/venv/bin/activate
+
+RED='\033[0;31m'
+YEL='\033[1;33m'
+GRN='\033[0;32m'
+NC='\033[0m'
+
+warn=0
+fail=0
+
+section() {
+  echo
+  echo "============================================================"
+  echo " $1"
+  echo "============================================================"
+}
+
+section "GREENHOUSE ML AUDIT"
+echo "HOST: $(hostname)"
+echo "UTC : $(date -u +"%Y-%m-%d %H:%M:%S")"
+
+section "1) TIMERS"
+systemctl list-timers | egrep "gh-predict-all|gh-train-quarterly" || true
+
+echo
+echo "--- gh-predict-all.timer ---"
+systemctl status gh-predict-all.timer --no-pager || true
+
+echo
+echo "--- gh-train-quarterly.timer ---"
+systemctl status gh-train-quarterly.timer --no-pager || true
+
+section "2) RUNNING PROCESSES"
+PROCS="$(ps aux | grep -E "[t]rain_all_monitor.py|[r]un_train_all_parallel.sh|[t]rain_one_safe.sh|[t]rain_v4_single_family_tweedie.py|[p]redict_all.py|[r]un_predict_all.sh|[p]redict_v4_single_family_tweedie.py" || true)"
+if [ -n "$PROCS" ]; then
+  echo "$PROCS"
+  warn=1
+else
+  echo "No active train/predict processes."
+fi
+
+section "3) SCRIPT / CODE SYNTAX"
+bash -n jobs/run_predict_all.sh && echo "OK bash jobs/run_predict_all.sh"
+bash -n jobs/train_one_safe.sh && echo "OK bash jobs/train_one_safe.sh"
+python3 -m py_compile jobs/predict_all.py && echo "OK py_compile jobs/predict_all.py"
+python3 -m py_compile jobs/train_all_monitor.py && echo "OK py_compile jobs/train_all_monitor.py"
+python3 -m py_compile jobs/train_missing_batches.py && echo "OK py_compile jobs/train_missing_batches.py"
+python3 -m py_compile jobs/ml_monitor_db.py && echo "OK py_compile jobs/ml_monitor_db.py"
+python3 -m py_compile train_v4_single_family_tweedie.py && echo "OK py_compile train_v4_single_family_tweedie.py"
+
+section "4) RUNS STILL RUNNING"
+RUNS_RUNNING="$(psql "$DATABASE_URL" -At -c "
+select count(*)
+from ml_monitor.runs
+where status='running';
+")"
+echo "runs_running=$RUNS_RUNNING"
+if [ "${RUNS_RUNNING:-0}" != "0" ]; then
+  warn=1
+fi
+
+psql "$DATABASE_URL" -P pager=off -c "
+select run_id, run_type, status, started_at, finished_at, summary
+from ml_monitor.runs
+where status='running'
+order by started_at desc;
+"
+
+section "5) FAMILY_RUNS STILL RUNNING"
+FAMILY_RUNNING="$(psql "$DATABASE_URL" -At -c "
+select count(*)
+from ml_monitor.family_runs
+where status='running';
+")"
+echo "family_runs_running=$FAMILY_RUNNING"
+if [ "${FAMILY_RUNNING:-0}" != "0" ]; then
+  warn=1
+fi
+
+psql "$DATABASE_URL" -P pager=off -c "
+select family_run_id, run_id, family_name, family_slug, step, status, rc, started_at, finished_at
+from ml_monitor.family_runs
+where status='running'
+order by started_at desc;
+"
+
+section "6) MODEL STATE"
+psql "$DATABASE_URL" -P pager=off -c "
+select model_state, count(*) as n
+from ml_monitor.v_model_status
+group by 1
+order by 1;
+"
+
+PROBLEM_MODELS="$(psql "$DATABASE_URL" -At -c "
+select count(*)
+from ml_monitor.v_model_status
+where model_state <> 'ok';
+")"
+echo "problem_models=$PROBLEM_MODELS"
+if [ "${PROBLEM_MODELS:-0}" != "0" ]; then
+  warn=1
+fi
+
+section "7) PROBLEM FAMILIES"
+psql "$DATABASE_URL" -P pager=off -c "
+select family_slug, model_state, bundle_age_days, train_status, predict_status, bundle_mtime
+from ml_monitor.v_model_stale
+order by model_state, bundle_age_days desc nulls last, family_slug
+limit 100;
+"
+
+section "8) MISSING BUNDLES"
+MISSING_BUNDLES="$(psql "$DATABASE_URL" -At -c "
+select count(*)
+from ml_monitor.v_model_status
+where model_state='missing_bundle';
+")"
+echo "missing_bundles=$MISSING_BUNDLES"
+if [ "${MISSING_BUNDLES:-0}" != "0" ]; then
+  fail=1
+fi
+
+psql "$DATABASE_URL" -P pager=off -c "
+select family_slug
+from ml_monitor.v_model_status
+where model_state='missing_bundle'
+order by family_slug;
+"
+
+section "9) BUNDLE REGISTRY"
+BUNDLES_IN_REGISTRY="$(psql "$DATABASE_URL" -At -c "
+select count(*)
+from ml_monitor.bundle_registry;
+")"
+echo "bundles_in_registry=$BUNDLES_IN_REGISTRY"
+
+psql "$DATABASE_URL" -P pager=off -c "
+select family_slug, bundle_mtime, bundle_size, run_id_last, updated_at
+from ml_monitor.bundle_registry
+order by updated_at desc
+limit 20;
+"
+
+ORPHAN_RUN_ID_LAST="$(psql "$DATABASE_URL" -At -c "
+select count(*)
+from ml_monitor.bundle_registry b
+left join ml_monitor.runs r
+  on r.run_id = b.run_id_last
+where b.run_id_last is not null
+  and r.run_id is null;
+")"
+echo "bundle_registry_orphans=$ORPHAN_RUN_ID_LAST"
+if [ "${ORPHAN_RUN_ID_LAST:-0}" != "0" ]; then
+  fail=1
+fi
+
+section "10) RECENT RUNS"
+psql "$DATABASE_URL" -P pager=off -c "
+select run_id, run_type, status, started_at, finished_at, duration_min, summary
+from ml_monitor.v_run_recent
+limit 30;
+"
+
+section "11) LAST TRAINS"
+psql "$DATABASE_URL" -P pager=off -c "
+select family_slug, train_started_at, train_status, bundle_mtime, bundle_age_days
+from ml_monitor.v_model_status
+where train_started_at is not null
+order by train_started_at desc
+limit 30;
+"
+
+section "12) LAST PREDICTS"
+psql "$DATABASE_URL" -P pager=off -c "
+select family_slug, predict_started_at, predict_status, predict_rows_written
+from ml_monitor.v_model_status
+where predict_started_at is not null
+order by predict_started_at desc
+limit 30;
+"
+
+section "13) JOURNAL ERRORS"
+echo "--- predict journal errors ---"
+journalctl -u gh-predict-all.service -n 200 --no-pager 2>/dev/null | grep -Ei "error|fail|traceback|unexpected EOF|killed|timeout" || true
+echo
+echo "--- train journal errors ---"
+journalctl -u gh-train-quarterly.service -n 200 --no-pager 2>/dev/null | grep -Ei "error|fail|traceback|killed|timeout" || true
+
+section "FINAL RESULT"
+if [ "$fail" -gt 0 ]; then
+  echo -e "${RED}AUDIT RESULT: FAIL${NC}"
+  exit 2
+elif [ "$warn" -gt 0 ]; then
+  echo -e "${YEL}AUDIT RESULT: WARNING${NC}"
+  exit 1
+else
+  echo -e "${GRN}AUDIT RESULT: OK${NC}"
+  exit 0
+fi

@@ -1,0 +1,120 @@
+# =============================================================================
+# Seasonal priors gate (soft) - v1
+# Uses priors_cache/priors_v1.parquet (or per_family/priors_<slug>_v1.parquet)
+# Toggle: V4_SEASONAL_GATE=1/0
+# =============================================================================
+_PRIORS_CACHE = {"_global_loaded": False, "_global_df": None, "by_key": {}}
+
+def load_seasonal_priors(fam: str, slug: str = None, *, base_dir: str = "/opt/greenhouse/repo/priors_cache"):
+    import os
+    import pandas as pd
+
+    fam_l = (fam or "").strip().lower()
+    slug_l = (slug or "").strip().lower()
+
+    cache_key = f"slug:{slug_l}" if slug_l else f"fam:{fam_l}"
+    if cache_key in _PRIORS_CACHE["by_key"]:
+        return _PRIORS_CACHE["by_key"][cache_key]
+
+    # 1) per-family file
+    if slug_l:
+        pf = os.path.join(base_dir, "per_family", f"priors_{slug_l}_v1.parquet")
+        if os.path.exists(pf):
+            d = pd.read_parquet(pf)
+            _PRIORS_CACHE["by_key"][cache_key] = d
+            return d
+
+    # 2) global file filtered by famiglia
+    gf = os.path.join(base_dir, "priors_v1.parquet")
+    if not _PRIORS_CACHE["_global_loaded"]:
+        _PRIORS_CACHE["_global_df"] = pd.read_parquet(gf)
+        _PRIORS_CACHE["_global_loaded"] = True
+
+    g = _PRIORS_CACHE["_global_df"]
+    d = g[(g["famiglia"].str.lower() == fam_l)].copy()
+    _PRIORS_CACHE["by_key"][cache_key] = d
+    return d
+
+
+def compute_season_scale(forecast_dates, priors_df, *,
+                         w_doy=0.45, w_week=0.35, w_month=0.20,
+                         alpha=1.6, min_scale=0.05, eps=1e-6):
+    import numpy as np
+    import pandas as pd
+
+    if priors_df is None or getattr(priors_df, "empty", True):
+        return pd.Series(1.0, index=pd.to_datetime(pd.Index(forecast_dates)))
+
+    dts = pd.to_datetime(pd.Index(forecast_dates))
+    doy = dts.dayofyear.astype(int)
+    week = dts.isocalendar().week.astype(int)
+    month = dts.month.astype(int)
+
+    def _map(grain):
+        return priors_df[priors_df["grain"] == grain].set_index("key")["pos_rate"]
+
+    g_global = priors_df[priors_df["grain"] == "global"]
+    p_global = float(g_global["pos_rate"].iloc[0]) if len(g_global) else 0.0
+
+    m_doy = _map("doy") if (priors_df["grain"] == "doy").any() else None
+    m_week = _map("week") if (priors_df["grain"] == "week").any() else None
+    m_month = _map("month") if (priors_df["grain"] == "month").any() else None
+
+    p_doy = np.array([float(m_doy.get(k, 0.0)) if m_doy is not None else 0.0 for k in doy], dtype=float)
+    p_week = np.array([float(m_week.get(k, 0.0)) if m_week is not None else 0.0 for k in week], dtype=float)
+    p_month = np.array([float(m_month.get(k, 0.0)) if m_month is not None else 0.0 for k in month], dtype=float)
+
+    p_mix = w_doy*p_doy + w_week*p_week + w_month*p_month
+
+    denom = max(p_global, eps)
+    raw = (p_mix / denom)
+    scale = np.power(raw, alpha)
+    scale = np.clip(scale, min_scale, 1.0)
+
+    return pd.Series(scale, index=dts)
+
+
+def apply_soft_seasonal_gate_forecast(df_fam_pred, fam: str, slug: str = None):
+    import os
+    import pandas as pd
+
+    enabled = str(os.getenv("V4_SEASONAL_GATE", "1")).lower() in ("1","true","yes")
+    if not enabled:
+        return df_fam_pred
+
+    if df_fam_pred is None or len(df_fam_pred) == 0:
+        return df_fam_pred
+    if "data" not in df_fam_pred.columns or "qty_forecast" not in df_fam_pred.columns:
+        return df_fam_pred
+
+    w_doy = float(os.getenv("V4_GATE_W_DOY", "0.45"))
+    w_week = float(os.getenv("V4_GATE_W_WEEK", "0.35"))
+    w_month = float(os.getenv("V4_GATE_W_MONTH", "0.20"))
+    alpha = float(os.getenv("V4_GATE_ALPHA", "1.6"))
+    min_scale = float(os.getenv("V4_GATE_MIN_SCALE", "0.05"))
+
+    pri = load_seasonal_priors(fam, slug)
+
+    dates = pd.to_datetime(df_fam_pred["data"])
+    scale_s = compute_season_scale(dates.unique(), pri,
+                                   w_doy=w_doy, w_week=w_week, w_month=w_month,
+                                   alpha=alpha, min_scale=min_scale)
+
+    out = df_fam_pred.copy()
+    out["data"] = pd.to_datetime(out["data"])
+
+    before = float(out["qty_forecast"].sum())
+    out = out.merge(scale_s.rename("season_scale"), left_on="data", right_index=True, how="left")
+    out["season_scale"] = out["season_scale"].fillna(1.0)
+
+    out["qty_forecast"] = out["qty_forecast"] * out["season_scale"]
+    after = float(out["qty_forecast"].sum())
+
+    print(
+        f"[SEASON-GATE] {fam} ({slug or 'no-slug'}): sum {before:.3f} -> {after:.3f} | "
+        f"scale[min/mean/max]={out['season_scale'].min():.3f}/{out['season_scale'].mean():.3f}/{out['season_scale'].max():.3f}",
+        flush=True
+    )
+
+    out.drop(columns=["season_scale"], inplace=True, errors="ignore")
+    return out

@@ -1,0 +1,45 @@
+apps/ml-worker/jobs/predict_family_logged.py:121:                "storage_backend": os.getenv("STORAGE_BACKEND"),
+apps/ml-worker/jobs/predict_family_logged.py:122:                "local_storage_root": os.getenv("LOCAL_STORAGE_ROOT"),
+apps/ml-worker/jobs/upload_priors_to_supabase.py:25:    storage = get_storage()
+apps/ml-worker/jobs/train_family_logged.py:94:                "storage_backend": os.getenv("STORAGE_BACKEND"),
+apps/ml-worker/jobs/train_family_logged.py:95:                "local_storage_root": os.getenv("LOCAL_STORAGE_ROOT"),
+apps/ml-worker/jobs/ensure_model_bundle.py:52:    storage = get_storage()
+apps/ml-worker/jobs/ensure_model_bundle.py:87:    storage = get_storage()
+apps/ml-worker/jobs/download_priors_from_supabase.py:22:    storage = get_storage()
+apps/ml-worker/jobs/run_predict_all.sh:52:if [ "${STORAGE_BACKEND:-supabase}" = "supabase" ]; then
+apps/ml-worker/jobs/run_predict_all.sh:53:  python3 -u -m jobs.upload_priors_to_supabase | tee -a "$PRIOR_LOG"
+apps/ml-worker/jobs/run_predict_all.sh:54:  python3 -u -m jobs.download_priors_from_supabase | tee -a "$PRIOR_LOG"
+apps/ml-worker/storage/supabase_backend.py:10:        self.url = os.environ["SUPABASE_URL"]
+apps/ml-worker/storage/supabase_backend.py:11:        self.key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+apps/ml-worker/storage/supabase_backend.py:12:        self.bucket = os.getenv("SUPABASE_BUCKET", "ml-snapshots")
+apps/ml-worker/storage/factory.py:8:def get_storage(backend: str | None = None) -> StorageInterface:
+apps/ml-worker/storage/factory.py:11:    STORAGE_BACKEND environment variable.
+apps/ml-worker/storage/factory.py:14:        local    — local filesystem (STORAGE_BASE_PATH or LOCAL_STORAGE_ROOT)
+apps/ml-worker/storage/factory.py:16:        supabase — Supabase Storage (default; requires SUPABASE_URL + key)
+apps/ml-worker/storage/factory.py:18:    name = (backend or os.getenv("STORAGE_BACKEND", "supabase")).strip().lower()
+apps/ml-worker/storage/factory.py:33:        f"Unknown STORAGE_BACKEND={name!r}. Valid values: local, s3, supabase"
+apps/ml-worker/storage/local_storage.py:8:    p = os.getenv("STORAGE_BASE_PATH") or os.getenv("LOCAL_STORAGE_ROOT", "/opt/greenbrain/storage")
+apps/ml-worker/storage/local_storage.py:17:    LOCAL_STORAGE_ROOT env var).  No network I/O.
+apps/ml-worker/storage/storage_interface.py:15:        STORAGE_BACKEND   local | s3 | supabase   (default: supabase)
+apps/ml-worker/storage/storage_interface.py:16:        STORAGE_BASE_PATH path for local backend   (default: LOCAL_STORAGE_ROOT or
+apps/ml-worker/storage/backend.py:30:    return os.getenv("STORAGE_BACKEND", "supabase").strip().lower()
+apps/ml-worker/storage/backend.py:34:    return Path(os.getenv("LOCAL_STORAGE_ROOT", "/opt/greenbrain/storage")).resolve()
+apps/ml-worker/storage/backend.py:46:    """Backward-compatible alias for storage.factory.get_storage()."""
+apps/ml-worker/storage/backend.py:48:    return get_storage()
+apps/ml-worker/data_access_v1.py:68:    storage = get_storage()
+apps/ml-worker/scripts/spaces_io.py:5:storage.factory.get_storage() so that STORAGE_BACKEND=local|s3|supabase controls
+apps/ml-worker/scripts/spaces_io.py:18:    storage = get_storage()
+apps/ml-worker/scripts/spaces_io.py:24:    storage = get_storage()
+apps/ml-worker/scripts/spaces_io.py:32:    storage = get_storage()
+client-runtime/etl/.env.ml.runtime:10:STORAGE_BACKEND=local
+client-runtime/etl/.env.ml.runtime:11:LOCAL_STORAGE_ROOT=/opt/greenbrain/storage
+client-runtime/etl/.env:25:STORAGE_BACKEND=local
+client-runtime/etl/.env:26:LOCAL_STORAGE_ROOT=/opt/greenbrain/storage
+client-runtime/etl/.env.ml.example:10:STORAGE_BACKEND=local
+client-runtime/etl/.env.ml.example:11:LOCAL_STORAGE_ROOT=/opt/greenbrain/storage
+client-runtime/etl/.env.ml:10:STORAGE_BACKEND=local
+client-runtime/etl/.env.ml:11:LOCAL_STORAGE_ROOT=/opt/greenbrain/storage
+client-runtime/env/backend.env:19:STORAGE_BACKEND=local
+client-runtime/env/backend.env:20:LOCAL_STORAGE_ROOT=/opt/greenbrain/storage
+client-runtime/docker/docker-compose.yml.wave7a_baseline:66:    # Blocked by: auth layer still requires VITE_SUPABASE_URL + VITE_SUPABASE_PUBLISHABLE_KEY
+client-runtime/docker/docker-compose.yml.wave7b1_baseline:71:    # Blocked by: auth layer still requires VITE_SUPABASE_URL + VITE_SUPABASE_PUBLISHABLE_KEY

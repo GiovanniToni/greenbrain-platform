@@ -1,0 +1,6 @@
+apps/ml-worker/jobs/ensure_model_bundle.py.bak_20260405_223202:127:        print("Usage: python jobs/ensure_model_bundle.py <famiglia_or_slug>")
+apps/ml-worker/jobs/train_missing_batches.py:27:from jobs.ensure_model_bundle import ensure_bundle, ensure_bundle_any_engine, upload_bundle  # noqa: E402
+apps/ml-worker/jobs/train_all_batches.py:21:from jobs.ensure_model_bundle import upload_bundle  # noqa: E402
+apps/ml-worker/jobs/ensure_model_bundle.py:127:        print("Usage: python jobs/ensure_model_bundle.py <famiglia_or_slug>")
+apps/ml-worker/jobs/train_one_safe.sh:211:    python -c "from jobs.ensure_model_bundle import upload_bundle; ok,msg=upload_bundle('$FAMILY_SLUG_CANON'); print(msg)" >>"$LOG_RUN" 2>&1 || true
+apps/ml-worker/jobs/predict_all.py:33:from jobs.ensure_model_bundle import ensure_bundle, ensure_bundle_any_engine, upload_bundle  # noqa: E402

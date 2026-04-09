@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd /opt/greenhouse/repo
+source /opt/greenhouse/venv/bin/activate
+set +H
+set -a
+set +a
+
+unset PREDICT_ONLY_FAMILY
+unset PREDICT_LIMIT
+
+export RUN_TRIGGER_SOURCE=manual
+python3 -u -m jobs.predict_all

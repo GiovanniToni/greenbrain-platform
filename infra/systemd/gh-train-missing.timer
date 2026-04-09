@@ -1,0 +1,11 @@
+[Unit]
+Description=Run greenhouse train_missing daily before predict
+
+[Timer]
+OnCalendar=*-*-* 01:10:00
+Persistent=true
+RandomizedDelaySec=120
+Unit=gh-train-missing.service
+
+[Install]
+WantedBy=timers.target

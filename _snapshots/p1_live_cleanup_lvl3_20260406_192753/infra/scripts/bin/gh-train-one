@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -e
+
+FAM="$1"
+
+cd /opt/greenhouse/repo || exit 1
+source /opt/greenhouse/venv/bin/activate
+
+RUN_TYPE=train_family_manual RUN_TRIGGER_SOURCE=manual jobs/train_one_safe.sh "$FAM"

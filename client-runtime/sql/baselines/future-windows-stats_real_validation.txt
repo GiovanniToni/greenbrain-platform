@@ -1,0 +1,99 @@
+=== future-windows-stats / famiglia ===
+{
+    "count": 3,
+    "items": [
+        {
+            "window_days": 7,
+            "min_qty": 0,
+            "max_qty": 25,
+            "avg_qty": 3.55
+        },
+        {
+            "window_days": 14,
+            "min_qty": 0,
+            "max_qty": 40,
+            "avg_qty": 5.15
+        },
+        {
+            "window_days": 30,
+            "min_qty": 0,
+            "max_qty": 40,
+            "avg_qty": 5.15
+        }
+    ]
+}
+
+=== future-windows-stats / categoria ===
+{
+    "count": 3,
+    "items": [
+        {
+            "window_days": 7,
+            "min_qty": 0,
+            "max_qty": 25,
+            "avg_qty": 3.55
+        },
+        {
+            "window_days": 14,
+            "min_qty": 0,
+            "max_qty": 40,
+            "avg_qty": 5.15
+        },
+        {
+            "window_days": 30,
+            "min_qty": 0,
+            "max_qty": 40,
+            "avg_qty": 5.15
+        }
+    ]
+}
+
+=== future-windows-stats / fascia ===
+{
+    "count": 3,
+    "items": [
+        {
+            "window_days": 7,
+            "min_qty": 0,
+            "max_qty": 25,
+            "avg_qty": 3.55
+        },
+        {
+            "window_days": 14,
+            "min_qty": 0,
+            "max_qty": 40,
+            "avg_qty": 5.15
+        },
+        {
+            "window_days": 30,
+            "min_qty": 0,
+            "max_qty": 40,
+            "avg_qty": 5.15
+        }
+    ]
+}
+
+=== future-windows-stats / fascia_prezzo ===
+{
+    "count": 3,
+    "items": [
+        {
+            "window_days": 7,
+            "min_qty": 0,
+            "max_qty": 25,
+            "avg_qty": 3.55
+        },
+        {
+            "window_days": 14,
+            "min_qty": 0,
+            "max_qty": 40,
+            "avg_qty": 5.15
+        },
+        {
+            "window_days": 30,
+            "min_qty": 0,
+            "max_qty": 40,
+            "avg_qty": 5.15
+        }
+    ]
+}

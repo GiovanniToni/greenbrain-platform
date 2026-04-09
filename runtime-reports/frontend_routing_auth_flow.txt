@@ -1,0 +1,661 @@
+===== App.tsx =====
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+
+import { AppLayout } from "@/components/layout/AppLayout";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+
+import Login from "@/pages/Login";
+import Landing from "@/pages/Landing";
+import Dashboard from "@/pages/Dashboard";
+import Reorders from "@/pages/Reorders";
+import Analytics from "@/pages/Analytics";
+import Suppliers from "@/pages/Suppliers";
+import Account from "@/pages/Account";
+import AssortmentPlanner from "@/pages/AssortmentPlanner";
+import NotFound from "@/pages/NotFound";
+
+const queryClient = new QueryClient();
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <Routes>
+          {/* Landing pubblica */}
+          <Route path="/" element={<Landing />} />
+
+          {/* Login pubblico */}
+          <Route path="/login" element={<Login />} />
+
+          {/* Area protetta con layout */}
+          <Route element={<ProtectedRoute />}>
+            <Route element={<AppLayout />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/dashboard/reorders" element={<Reorders />} />
+              <Route path="/analytics" element={<Analytics />} />
+              <Route path="/assortment-planner" element={<AssortmentPlanner />} />
+              <Route path="/suppliers" element={<Suppliers />} />
+              <Route path="/account" element={<Account />} />
+            </Route>
+          </Route>
+
+          {/* 404 */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
+
+export default App;
+
+===== pages/Login.tsx =====
+// src/pages/Login.tsx
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Leaf, Mail, Lock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { ApiError } from "@/lib/apiClient";
+
+export default function Login() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { user, loading, login } = useAuth();
+
+  // Redirect se già autenticato
+  useEffect(() => {
+    if (!loading && user) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [user, loading, navigate]);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setErrorMessage(null);
+
+    try {
+      await login(email, password);
+      toast({
+        title: "Benvenuto!",
+        description: "Accesso effettuato con successo.",
+      });
+      navigate("/dashboard", { replace: true });
+    } catch (err) {
+      const msg =
+        err instanceof ApiError && err.status === 401
+          ? "Credenziali non valide. Riprova."
+          : (err instanceof Error ? err.message : "Errore di accesso.");
+      setErrorMessage(msg);
+      toast({
+        title: "Errore di accesso",
+        description: msg,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-pulse text-muted-foreground">Caricamento...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Card className="w-full max-w-md p-8 animate-fade-in">
+        {/* Logo */}
+        <div className="flex items-center justify-center gap-3 mb-8">
+          <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
+            <Leaf className="w-7 h-7 text-primary-foreground" />
+          </div>
+          <span className="text-2xl font-bold">GreenBrain</span>
+        </div>
+
+        <h1 className="text-xl font-semibold text-center mb-2">Bentornato!</h1>
+        <p className="text-sm text-muted-foreground text-center mb-8">Accedi al tuo Garden Center</p>
+
+        {/* ✅ Disabilita suggerimenti browser/password manager (per quanto possibile) */}
+        <form onSubmit={handleLogin} className="space-y-4" autoComplete="off">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Email</label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                type="email"
+                name="gb_email"
+                autoComplete="off"
+                data-lpignore="true"
+                data-1p-ignore="true"
+                placeholder="nome@gardencenter.it"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="pl-10"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Password</label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                type="password"
+                name="gb_password"
+                autoComplete="new-password"
+                data-lpignore="true"
+                data-1p-ignore="true"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="pl-10"
+                required
+              />
+            </div>
+          </div>
+
+          {errorMessage && <p className="text-sm text-destructive text-center">{errorMessage}</p>}
+
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? "Accesso in corso..." : "Accedi"}
+          </Button>
+        </form>
+
+        <p className="text-xs text-muted-foreground text-center mt-6">
+          {/* TODO: Implementare reset password */}
+          Hai dimenticato la password? Contatta l&apos;amministratore.
+        </p>
+      </Card>
+    </div>
+  );
+}
+
+===== pages/Landing.tsx =====
+import { Link } from 'react-router-dom';
+import { Leaf, TrendingUp, BarChart3, Calendar, ShoppingCart, FileSpreadsheet, Users, Clock, ArrowRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { useAuth } from '@/hooks/useAuth';
+
+export default function Landing() {
+  const { user, loading } = useAuth();
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b border-border/50 bg-card/80 backdrop-blur-sm sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
+              <Leaf className="w-6 h-6 text-primary-foreground" />
+            </div>
+            <span className="text-xl font-bold">GreenBrain</span>
+          </div>
+          <div className="flex items-center gap-3">
+            {!loading && user ? (
+              <Button asChild>
+                <Link to="/dashboard">Vai alla Dashboard</Link>
+              </Button>
+            ) : (
+              <Button asChild>
+                <Link to="/login">Accedi</Link>
+              </Button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Hero Section */}
+      <section className="py-24 lg:py-32">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto text-center">
+            <h1 className="text-4xl lg:text-5xl xl:text-6xl font-bold leading-tight text-foreground tracking-tight">
+              Decisioni di riordino basate sui dati.
+              <span className="block text-primary mt-2">Non sull'intuito.</span>
+            </h1>
+            <p className="text-lg lg:text-xl text-muted-foreground mt-6 max-w-2xl mx-auto leading-relaxed">
+              Una piattaforma avanzata per Garden Center che vogliono controllare stock, prevedere la domanda e ottimizzare gli ordini.
+            </p>
+            <div className="flex flex-wrap justify-center gap-4 mt-10">
+              {!loading && user ? (
+                <Button size="lg" asChild>
+                  <Link to="/dashboard">Vai alla Dashboard</Link>
+                </Button>
+              ) : (
+                <>
+                  <Button size="lg" asChild>
+                    <Link to="/login">Accedi alla piattaforma</Link>
+                  </Button>
+                  <Button size="lg" variant="outline" asChild>
+                    <Link to="/login">Richiedi accesso</Link>
+                  </Button>
+                </>
+              )}
+            </div>
+            {/* Trust text */}
+            <div className="mt-16 flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm text-muted-foreground font-medium tracking-wide">
+              <span>Forecast</span>
+              <span className="hidden sm:inline">•</span>
+              <span>Analytics</span>
+              <span className="hidden sm:inline">•</span>
+              <span>Pianificazione</span>
+              <span className="hidden sm:inline">•</span>
+              <span>Controllo operativo</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Executive Summary - Metrics */}
+      <section className="py-20 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            <Card className="p-8 text-center bg-card border-border/50">
+              <p className="text-4xl font-bold text-primary">–25%</p>
+              <p className="text-foreground font-medium mt-2">Riduzione stock-out</p>
+            </Card>
+            <Card className="p-8 text-center bg-card border-border/50">
+              <p className="text-4xl font-bold text-primary">–18%</p>
+              <p className="text-foreground font-medium mt-2">Riduzione overstock stagionale</p>
+            </Card>
+            <Card className="p-8 text-center bg-card border-border/50">
+              <p className="text-4xl font-bold text-primary">+12%</p>
+              <p className="text-foreground font-medium mt-2">Migliore rotazione assortimento</p>
+            </Card>
+          </div>
+          <p className="text-center text-sm text-muted-foreground mt-8">
+            Indicatori stimati su analisi storiche e simulazioni operative.
+          </p>
+        </div>
+      </section>
+
+      {/* Processo Decisionale */}
+      <section className="py-24">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl font-bold text-center mb-16">Un processo di riordino strutturato</h2>
+          <div className="grid md:grid-cols-3 gap-12 max-w-5xl mx-auto">
+            {/* Analizza */}
+            <div className="text-center">
+              <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <BarChart3 className="w-7 h-7 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold mb-4">Analizza</h3>
+              <ul className="space-y-2 text-muted-foreground">
+                <li>Vendite storiche</li>
+                <li>Stagionalità</li>
+                <li>Performance per categoria</li>
+              </ul>
+            </div>
+            {/* Prevede */}
+            <div className="text-center">
+              <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <TrendingUp className="w-7 h-7 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold mb-4">Prevede</h3>
+              <ul className="space-y-2 text-muted-foreground">
+                <li>Forecast settimanale</li>
+                <li>Eventi e festività</li>
+                <li>Meteo locale</li>
+              </ul>
+            </div>
+            {/* Ottimizza */}
+            <div className="text-center">
+              <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <ShoppingCart className="w-7 h-7 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold mb-4">Ottimizza</h3>
+              <ul className="space-y-2 text-muted-foreground">
+                <li>Quantità suggerite</li>
+                <li>Copertura stock</li>
+                <li>Ordini per fornitore</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Controllo Operativo */}
+      <section className="py-24 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="max-w-3xl mx-auto">
+            <h2 className="text-3xl font-bold text-center mb-12">Controllo operativo completo</h2>
+            <div className="grid sm:grid-cols-2 gap-x-12 gap-y-4">
+              <div className="flex items-center gap-3">
+                <ArrowRight className="w-4 h-4 text-primary flex-shrink-0" />
+                <span className="text-foreground">Pianificazione settimanale e mensile</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <ArrowRight className="w-4 h-4 text-primary flex-shrink-0" />
+                <span className="text-foreground">Anticipo dei picchi di domanda</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <ArrowRight className="w-4 h-4 text-primary flex-shrink-0" />
+                <span className="text-foreground">Confronto anno su anno</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <ArrowRight className="w-4 h-4 text-primary flex-shrink-0" />
+                <span className="text-foreground">Gestione fornitori e lead time</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <ArrowRight className="w-4 h-4 text-primary flex-shrink-0" />
+                <span className="text-foreground">Report pronti (Excel, PDF, Email)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Target Section */}
+      <section className="py-24">
+        <div className="container mx-auto px-4">
+          <div className="max-w-2xl mx-auto text-center">
+            <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <Users className="w-7 h-7 text-primary" />
+            </div>
+            <h2 className="text-3xl font-bold mb-6">Progettata per strutture professionali</h2>
+            <p className="text-lg text-muted-foreground leading-relaxed">
+              GreenBrain è pensata per Garden Center strutturati, catene retail green e responsabili acquisti che lavorano su volumi, margini e stagionalità reali.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className="py-24 bg-primary/5">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="text-3xl lg:text-4xl font-bold mb-6">
+            Porta metodo e dati nel processo di riordino.
+          </h2>
+          <div className="flex flex-wrap justify-center gap-4 mt-8">
+            {!loading && user ? (
+              <Button size="lg" asChild>
+                <Link to="/dashboard">Vai alla Dashboard</Link>
+              </Button>
+            ) : (
+              <>
+                <Button size="lg" asChild>
+                  <Link to="/login">Accedi</Link>
+                </Button>
+                <Button size="lg" variant="outline" asChild>
+                  <Link to="/login">Richiedi una demo</Link>
+                </Button>
+              </>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground mt-6">
+            Implementazione rapida. Nessun software da installare.
+          </p>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-border py-8">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                <Leaf className="w-4 h-4 text-primary-foreground" />
+              </div>
+              <span className="font-semibold">GreenBrain</span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              © {new Date().getFullYear()} GreenBrain. Tutti i diritti riservati.
+            </p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+===== components/auth/ProtectedRoute.tsx =====
+import { Navigate, Outlet } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
+
+export function ProtectedRoute() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-pulse text-muted-foreground">Caricamento...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <Outlet />;
+}
+
+===== components/layout/TopBar.tsx =====
+import { useEffect, useState } from "react";
+import { Bell, LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+
+import { AnalyticsEntitySearch } from "@/components/analytics/AnalyticsEntitySearch";
+import type { CatalogItem } from "@/hooks/useAnalyticsCatalog";
+
+export function TopBar() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, logout } = useAuth();
+
+  const isAnalytics = location.pathname.startsWith("/analytics");
+
+  // ✅ pagine dove vuoi la search "smart"
+  const showSmartSearch =
+    location.pathname === "/dashboard" ||
+    location.pathname.startsWith("/dashboard/reorders") ||
+    location.pathname.startsWith("/assortment-planner");
+
+  const [now, setNow] = useState<Date>(() => new Date());
+
+  // serve per la prop `selectedItem` (anche se non la usi davvero)
+  const [lastSelected, setLastSelected] = useState<CatalogItem | null>(null);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
+  const handleTopSearchSelect = (item: CatalogItem) => {
+    setLastSelected(item);
+    navigate("/analytics", { state: { preselect: item } });
+  };
+
+  return (
+    <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6">
+      {/* Left: Search */}
+      <div className="relative w-[520px] max-w-full">
+        {/* ✅ in Analytics la search è già nella pagina */}
+        {!isAnalytics && showSmartSearch && (
+          <AnalyticsEntitySearch onSelect={handleTopSearchSelect} selectedItem={lastSelected} />
+        )}
+
+        {/* opzionale: placeholder sulle altre pagine */}
+        {!isAnalytics && !showSmartSearch && <div className="h-9" />}
+      </div>
+
+      {/* Right */}
+      <div className="flex items-center gap-4">
+        <div className="text-right text-xs text-muted-foreground leading-tight">
+          <div className="font-medium text-foreground">
+            {now.toLocaleDateString("it-IT", {
+              weekday: "long",
+              day: "2-digit",
+              month: "long",
+              year: "numeric",
+            })}
+          </div>
+          <div className="tabular-nums">{now.toLocaleTimeString("it-IT", { hour12: false })}</div>
+        </div>
+
+        <Button variant="ghost" size="icon" className="relative">
+          <Bell className="w-5 h-5" />
+          <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full" />
+        </Button>
+
+        <div className="flex items-center gap-3 pl-4 border-l border-border">
+          <div className="text-right">
+            <p className="text-sm font-medium">{user?.full_name || "Garden Center"}</p>
+            <p className="text-xs text-muted-foreground">{user?.email || "utente"}</p>
+          </div>
+          <Button variant="ghost" size="icon" onClick={handleLogout}>
+            <LogOut className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+===== pages/Index.tsx =====
+import { Navigate } from 'react-router-dom';
+
+const Index = () => {
+  return <Navigate to="/dashboard" replace />;
+};
+
+export default Index;
+
+===== pages/Account.tsx =====
+import { useState, useEffect } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { Building2, User, Users, Settings, MapPin } from "lucide-react";
+import { useGardenCenterSettings } from "@/hooks/useGardenCenterSettings";
+import { useToast } from "@/hooks/use-toast";
+
+// TODO: Fetch dati garden center da Supabase
+const mockGardenCenter = {
+  nome: "Garden Center Demo",
+  indirizzo: "Via delle Rose 123, 20100 Milano",
+  telefono: "+39 02 1234567",
+  email: "info@gardendemo.it",
+  partitaIva: "IT12345678901",
+};
+
+const mockUser = {
+  nome: "Mario",
+  cognome: "Rossi",
+  email: "mario.rossi@gardendemo.it",
+  ruolo: "Amministratore",
+};
+
+export default function Account() {
+  const { settings, loading: settingsLoading, saving, saveSettings } = useGardenCenterSettings();
+  const { toast } = useToast();
+
+  const [city, setCity] = useState("");
+  const [lat, setLat] = useState("");
+  const [lon, setLon] = useState("");
+
+  // ✅ FIX: usare useEffect (non useState)
+  useEffect(() => {
+    if (settings.city) setCity(settings.city);
+    if (settings.lat !== null && settings.lat !== undefined) setLat(String(settings.lat));
+    if (settings.lon !== null && settings.lon !== undefined) setLon(String(settings.lon));
+  }, [settings.city, settings.lat, settings.lon]);
+
+  const handleSaveLocation = async () => {
+    const result = await saveSettings({
+      city,
+      lat: lat ? parseFloat(lat) : null,
+      lon: lon ? parseFloat(lon) : null,
+    });
+
+    if (result.error) {
+      toast({
+        title: "Errore",
+        description: result.error,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Salvato!",
+        description: "Preferenze località aggiornate.",
+      });
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Account</h1>
+        <p className="text-muted-foreground">Gestisci le impostazioni del tuo account</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Dati Garden Center */}
+        <Card className="p-6 animate-fade-in">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+              <Building2 className="w-5 h-5 text-primary" />
+            </div>
+            <h2 className="text-lg font-semibold">Dati Garden Center</h2>
+          </div>
+
+          <div className="space-y-4">
+            <Input defaultValue={mockGardenCenter.nome} />
+            <Input defaultValue={mockGardenCenter.indirizzo} />
+            <Input defaultValue={mockGardenCenter.telefono} />
+            <Input defaultValue={mockGardenCenter.email} />
+            <Input defaultValue={mockGardenCenter.partitaIva} />
+            <Button className="w-full mt-4">Salva Modifiche</Button>
+          </div>
+        </Card>
+
+        {/* Preferenze Località */}
+        <Card className="p-6 animate-fade-in">
+          <div className="space-y-4">
+            <Input value={city} onChange={(e) => setCity(e.target.value)} />
+            <Input value={lat} onChange={(e) => setLat(e.target.value)} />
+            <Input value={lon} onChange={(e) => setLon(e.target.value)} />
+            <Button className="w-full mt-4" onClick={handleSaveLocation} disabled={saving || settingsLoading}>
+              {saving ? "Salvataggio..." : "Salva Località"}
+            </Button>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+===== main.tsx =====
+import { createRoot } from "react-dom/client";
+import App from "./App.tsx";
+import "./index.css";
+
+createRoot(document.getElementById("root")!).render(<App />);

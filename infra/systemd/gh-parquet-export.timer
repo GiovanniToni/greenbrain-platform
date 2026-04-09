@@ -1,0 +1,11 @@
+[Unit]
+Description=Run greenhouse parquet export daily after ETL
+
+[Timer]
+OnCalendar=*-*-* 21:35:00
+Persistent=true
+RandomizedDelaySec=120
+Unit=gh-parquet-export.service
+
+[Install]
+WantedBy=timers.target

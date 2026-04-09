@@ -1,0 +1,16 @@
+apps/ml-worker/jobs/model_control.py:37:load_dotenv("/opt/greenhouse/.env")
+apps/ml-worker/storage/storage_interface.py:17:                                                    /opt/greenhouse/storage)
+apps/ml-worker/scripts/spaces_io.py:2:spaces_io — thin adapter over the StorageInterface factory.
+apps/ml-worker/scripts/patch_get_engine_urlcreate.py:5:p = Path("/opt/greenhouse/repo/predict_v4_single_family_tweedie.py")
+apps/ml-worker/scripts/patch_get_engine_urlcreate.py:23:    load_dotenv("/opt/greenhouse/.env")
+apps/ml-worker/scripts/patch_predict_safe.py:5:TARGET = Path("/opt/greenhouse/repo/predict_v4_single_family_tweedie.py")
+apps/ml-worker/test_spaces.py:5:load_dotenv("/opt/greenhouse/.env")
+infra/systemd/gh-parquet-export.service:13:ExecStart=/bin/bash -lc 'source /opt/greenhouse/venv/bin/activate && cd /opt/greenbrain-platform/apps/ml-worker && bash jobs/parquet_export/scripts/run_daily_parquet_batches.sh'
+infra/systemd/gh-predict-all.service:12:ExecStart=/bin/bash -lc 'source /opt/greenhouse/venv/bin/activate && cd /opt/greenbrain-platform/apps/ml-worker && bash jobs/run_predict_all.sh'
+infra/systemd/gh-train-missing.service:12:ExecStart=/bin/bash -lc 'source /opt/greenhouse/venv/bin/activate && cd /opt/greenbrain-platform/apps/ml-worker && bash jobs/run_train_missing.sh'
+infra/systemd/gh-train-missing.service:13:ExecStartPost=/bin/bash -lc 'source /opt/greenhouse/venv/bin/activate && cd /opt/greenbrain-platform/apps/ml-worker && /opt/greenbrain-platform/infra/scripts/bin/gh-sync-local-artifacts'
+infra/systemd/gh-train-biweekly-all.service:12:ExecStart=/bin/bash -lc 'source /opt/greenbrain-platform/infra/scripts/load_env.sh && source /opt/greenhouse/venv/bin/activate && export RUN_TRIGGER_SOURCE=systemd_timer && python3 -u jobs/train_all_monitor.py'
+infra/systemd/gh-train-biweekly-all.service:14:ExecStartPost=/bin/bash -lc 'source /opt/greenhouse/venv/bin/activate && cd /opt/greenbrain-platform/apps/ml-worker && /opt/greenbrain-platform/infra/scripts/bin/gh-sync-local-artifacts'
+infra/systemd/gh-refresh-registry.service:14:ExecStart=/bin/bash -lc 'source /opt/greenhouse/venv/bin/activate && cd /opt/greenbrain-platform/apps/ml-worker && /opt/greenbrain-platform/infra/scripts/bin/gh-refresh-registry'
+infra/systemd/gh-train-quarterly.service:12:ExecStart=/bin/bash -lc 'source /opt/greenbrain-platform/infra/scripts/load_env.sh && source /opt/greenhouse/venv/bin/activate && export RUN_TRIGGER_SOURCE=systemd_timer && export GIT_SHA="$(cd "${GH_REPO_DIR}" && git rev-parse --short HEAD 2>/dev/null || true)" && python3 -u jobs/train_all_monitor.py'
+infra/systemd/gh-train-quarterly.service:14:ExecStartPost=/bin/bash -lc 'source /opt/greenhouse/venv/bin/activate && cd /opt/greenbrain-platform/apps/ml-worker && /opt/greenbrain-platform/infra/scripts/bin/gh-sync-local-artifacts'

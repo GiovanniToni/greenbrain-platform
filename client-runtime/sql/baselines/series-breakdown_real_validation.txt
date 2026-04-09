@@ -1,0 +1,311 @@
+=== famiglia / day ===
+{
+    "count": 6,
+    "items": [
+        {
+            "data": "2026-03-01",
+            "entity_key_lc": "sb_family_a",
+            "fascia_prezzo_iva_inc": "A",
+            "qty_venduta": 5.0,
+            "imponibile_netto_tot": 50.0,
+            "num_articoli": 5,
+            "qty_forecast": 6.0,
+            "dow": 7,
+            "is_holiday": false,
+            "holiday_name": null
+        },
+        {
+            "data": "2026-03-01",
+            "entity_key_lc": "sb_family_a",
+            "fascia_prezzo_iva_inc": "B",
+            "qty_venduta": 2.0,
+            "imponibile_netto_tot": 20.0,
+            "num_articoli": 2,
+            "qty_forecast": 1.0,
+            "dow": 7,
+            "is_holiday": false,
+            "holiday_name": null
+        },
+        {
+            "data": "2026-03-02",
+            "entity_key_lc": "sb_family_a",
+            "fascia_prezzo_iva_inc": "A",
+            "qty_venduta": 6.0,
+            "imponibile_netto_tot": 60.0,
+            "num_articoli": 6,
+            "qty_forecast": 6.0,
+            "dow": 1,
+            "is_holiday": false,
+            "holiday_name": null
+        },
+        {
+            "data": "2026-03-02",
+            "entity_key_lc": "sb_family_a",
+            "fascia_prezzo_iva_inc": "B",
+            "qty_venduta": 3.0,
+            "imponibile_netto_tot": 30.0,
+            "num_articoli": 3,
+            "qty_forecast": 2.0,
+            "dow": 1,
+            "is_holiday": false,
+            "holiday_name": null
+        },
+        {
+            "data": "2026-03-03",
+            "entity_key_lc": "sb_family_a",
+            "fascia_prezzo_iva_inc": "A",
+            "qty_venduta": 7.0,
+            "imponibile_netto_tot": 70.0,
+            "num_articoli": 7,
+            "qty_forecast": 6.0,
+            "dow": 2,
+            "is_holiday": false,
+            "holiday_name": null
+        },
+        {
+            "data": "2026-03-03",
+            "entity_key_lc": "sb_family_a",
+            "fascia_prezzo_iva_inc": "B",
+            "qty_venduta": 4.0,
+            "imponibile_netto_tot": 40.0,
+            "num_articoli": 4,
+            "qty_forecast": 3.0,
+            "dow": 2,
+            "is_holiday": false,
+            "holiday_name": null
+        }
+    ]
+}
+
+=== famiglia / week ===
+{
+    "count": 2,
+    "items": [
+        {
+            "data": "2026-02-23",
+            "entity_key_lc": "sb_family_a",
+            "fascia_prezzo_iva_inc": "A",
+            "qty_venduta": 18.0,
+            "imponibile_netto_tot": 180.0,
+            "num_articoli": 18,
+            "qty_forecast": 18.0
+        },
+        {
+            "data": "2026-02-23",
+            "entity_key_lc": "sb_family_a",
+            "fascia_prezzo_iva_inc": "B",
+            "qty_venduta": 9.0,
+            "imponibile_netto_tot": 90.0,
+            "num_articoli": 9,
+            "qty_forecast": 6.0
+        }
+    ]
+}
+
+=== famiglia / month ===
+{
+    "count": 2,
+    "items": [
+        {
+            "data": "2026-03-01",
+            "entity_key_lc": "sb_family_a",
+            "fascia_prezzo_iva_inc": "A",
+            "qty_venduta": 18.0,
+            "imponibile_netto_tot": 180.0,
+            "num_articoli": 18,
+            "qty_forecast": 18.0
+        },
+        {
+            "data": "2026-03-01",
+            "entity_key_lc": "sb_family_a",
+            "fascia_prezzo_iva_inc": "B",
+            "qty_venduta": 9.0,
+            "imponibile_netto_tot": 90.0,
+            "num_articoli": 9,
+            "qty_forecast": 6.0
+        }
+    ]
+}
+
+=== famiglia / year ===
+{
+    "count": 2,
+    "items": [
+        {
+            "data": "2026-01-01",
+            "entity_key_lc": "sb_family_a",
+            "fascia_prezzo_iva_inc": "A",
+            "qty_venduta": 18.0,
+            "imponibile_netto_tot": 180.0,
+            "num_articoli": 18,
+            "qty_forecast": 18.0
+        },
+        {
+            "data": "2026-01-01",
+            "entity_key_lc": "sb_family_a",
+            "fascia_prezzo_iva_inc": "B",
+            "qty_venduta": 9.0,
+            "imponibile_netto_tot": 90.0,
+            "num_articoli": 9,
+            "qty_forecast": 6.0
+        }
+    ]
+}
+
+=== categoria / day ===
+{
+    "count": 6,
+    "items": [
+        {
+            "data": "2026-03-01",
+            "entity_key_lc": "sb_categoria_x",
+            "fascia_prezzo_iva_inc": "A",
+            "qty_venduta": 15.0,
+            "imponibile_netto_tot": 150.0,
+            "num_articoli": 15,
+            "qty_forecast": 15.0,
+            "dow": 7,
+            "is_holiday": false,
+            "holiday_name": null
+        },
+        {
+            "data": "2026-03-01",
+            "entity_key_lc": "sb_categoria_x",
+            "fascia_prezzo_iva_inc": "B",
+            "qty_venduta": 2.0,
+            "imponibile_netto_tot": 20.0,
+            "num_articoli": 2,
+            "qty_forecast": 1.0,
+            "dow": 7,
+            "is_holiday": false,
+            "holiday_name": null
+        },
+        {
+            "data": "2026-03-02",
+            "entity_key_lc": "sb_categoria_x",
+            "fascia_prezzo_iva_inc": "A",
+            "qty_venduta": 14.0,
+            "imponibile_netto_tot": 140.0,
+            "num_articoli": 14,
+            "qty_forecast": 15.0,
+            "dow": 1,
+            "is_holiday": false,
+            "holiday_name": null
+        },
+        {
+            "data": "2026-03-02",
+            "entity_key_lc": "sb_categoria_x",
+            "fascia_prezzo_iva_inc": "B",
+            "qty_venduta": 3.0,
+            "imponibile_netto_tot": 30.0,
+            "num_articoli": 3,
+            "qty_forecast": 2.0,
+            "dow": 1,
+            "is_holiday": false,
+            "holiday_name": null
+        },
+        {
+            "data": "2026-03-03",
+            "entity_key_lc": "sb_categoria_x",
+            "fascia_prezzo_iva_inc": "A",
+            "qty_venduta": 13.0,
+            "imponibile_netto_tot": 130.0,
+            "num_articoli": 13,
+            "qty_forecast": 15.0,
+            "dow": 2,
+            "is_holiday": false,
+            "holiday_name": null
+        },
+        {
+            "data": "2026-03-03",
+            "entity_key_lc": "sb_categoria_x",
+            "fascia_prezzo_iva_inc": "B",
+            "qty_venduta": 4.0,
+            "imponibile_netto_tot": 40.0,
+            "num_articoli": 4,
+            "qty_forecast": 3.0,
+            "dow": 2,
+            "is_holiday": false,
+            "holiday_name": null
+        }
+    ]
+}
+
+=== fascia / day ===
+{
+    "count": 6,
+    "items": [
+        {
+            "data": "2026-03-01",
+            "entity_key_lc": "sb_fascia_z",
+            "fascia_prezzo_iva_inc": "A",
+            "qty_venduta": 20.0,
+            "imponibile_netto_tot": 200.0,
+            "num_articoli": 20,
+            "qty_forecast": 18.0,
+            "dow": 7,
+            "is_holiday": false,
+            "holiday_name": null
+        },
+        {
+            "data": "2026-03-01",
+            "entity_key_lc": "sb_fascia_z",
+            "fascia_prezzo_iva_inc": "B",
+            "qty_venduta": 5.0,
+            "imponibile_netto_tot": 50.0,
+            "num_articoli": 5,
+            "qty_forecast": 4.0,
+            "dow": 7,
+            "is_holiday": false,
+            "holiday_name": null
+        },
+        {
+            "data": "2026-03-02",
+            "entity_key_lc": "sb_fascia_z",
+            "fascia_prezzo_iva_inc": "A",
+            "qty_venduta": 18.0,
+            "imponibile_netto_tot": 180.0,
+            "num_articoli": 18,
+            "qty_forecast": 18.0,
+            "dow": 1,
+            "is_holiday": false,
+            "holiday_name": null
+        },
+        {
+            "data": "2026-03-02",
+            "entity_key_lc": "sb_fascia_z",
+            "fascia_prezzo_iva_inc": "B",
+            "qty_venduta": 6.0,
+            "imponibile_netto_tot": 60.0,
+            "num_articoli": 6,
+            "qty_forecast": 4.0,
+            "dow": 1,
+            "is_holiday": false,
+            "holiday_name": null
+        },
+        {
+            "data": "2026-03-03",
+            "entity_key_lc": "sb_fascia_z",
+            "fascia_prezzo_iva_inc": "A",
+            "qty_venduta": 16.0,
+            "imponibile_netto_tot": 160.0,
+            "num_articoli": 16,
+            "qty_forecast": 18.0,
+            "dow": 2,
+            "is_holiday": false,
+            "holiday_name": null
+        },
+        {
+            "data": "2026-03-03",
+            "entity_key_lc": "sb_fascia_z",
+            "fascia_prezzo_iva_inc": "B",
+            "qty_venduta": 7.0,
+            "imponibile_netto_tot": 70.0,
+            "num_articoli": 7,
+            "qty_forecast": 4.0,
+            "dow": 2,
+            "is_holiday": false,
+            "holiday_name": null
+        }
+    ]
+}

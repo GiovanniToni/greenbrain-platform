@@ -1,0 +1,545 @@
+===== apps/frontend/.env =====
+VITE_SUPABASE_PROJECT_ID="xbyhmzrlycixxrfjggvn"
+VITE_SUPABASE_URL="https://xbyhmzrlycixxrfjggvn.supabase.co"
+VITE_SUPABASE_PUBLISHABLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhieWhtenJseWNpeHhyZmpnZ3ZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyNTYwMzEsImV4cCI6MjA3OTgzMjAzMX0.BNKbWvbTo7zEARrYpSGShzPDuJRl893LclnLuy7y6pM"
+VITE_API_BASE_URL=http://localhost:8001
+===== apps/frontend/src/hooks/useAuth.tsx =====
+import { useCallback, useEffect, useState } from 'react';
+import {
+  apiGet,
+  apiPost,
+  clearStoredToken,
+  getStoredToken,
+  setStoredToken,
+} from '@/lib/apiClient';
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  full_name: string | null;
+  is_admin: boolean;
+}
+
+export function useAuth() {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const token = getStoredToken();
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+    apiGet('/api/v1/auth/me')
+      .then((data: AuthUser) => setUser(data))
+      .catch(() => {
+        clearStoredToken();
+        setUser(null);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const login = useCallback(async (email: string, password: string) => {
+    const data = await apiPost('/api/v1/auth/login', { email, password });
+    setStoredToken(data.access_token);
+    const me: AuthUser = await apiGet('/api/v1/auth/me');
+    setUser(me);
+  }, []);
+
+  const logout = useCallback(() => {
+    clearStoredToken();
+    setUser(null);
+  }, []);
+
+  return { user, loading, login, logout };
+}
+
+===== apps/frontend/src/lib/apiClient.ts =====
+const BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
+
+const TOKEN_KEY = "gb_access_token";
+
+export function getStoredToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setStoredToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function clearStoredToken(): void {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+export async function apiGet(
+  path: string,
+  params?: Record<string, string | number | boolean | string[] | number[] | null | undefined>,
+): Promise<any> {
+  const origin = BASE || window.location.origin;
+  const url = new URL(path, origin);
+
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      if (v == null) continue;
+      if (Array.isArray(v)) {
+        v.forEach((item) => url.searchParams.append(k, String(item)));
+      } else {
+        url.searchParams.set(k, String(v));
+      }
+    }
+  }
+
+  const res = await fetch(url.toString(), { headers: authHeaders() });
+
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const body = await res.json();
+      detail = body?.detail ?? body?.message ?? detail;
+    } catch {
+      // ignore parse error
+    }
+    throw new ApiError(res.status, detail);
+  }
+
+  return res.json();
+}
+
+export async function apiPost(path: string, body: unknown): Promise<any> {
+  const origin = BASE || window.location.origin;
+  const url = new URL(path, origin);
+
+  const res = await fetch(url.toString(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const b = await res.json();
+      detail = b?.detail ?? b?.message ?? detail;
+    } catch {
+      // ignore parse error
+    }
+    throw new ApiError(res.status, detail);
+  }
+
+  return res.json();
+}
+
+===== apps/ml-worker/storage/backend.py =====
+from __future__ import annotations
+
+import os
+from pathlib import Path
+from typing import Protocol, runtime_checkable
+
+
+@runtime_checkable
+class StorageBackend(Protocol):
+    def upload_bytes(self, remote_path: str, content: bytes, content_type: str = "application/octet-stream") -> None:
+        ...
+
+    def download_bytes(self, remote_path: str) -> bytes:
+        ...
+
+    def exists(self, remote_path: str) -> bool:
+        ...
+
+    def read(self, path: str) -> bytes:
+        ...
+
+    def write(self, path: str, data: bytes) -> None:
+        ...
+
+    def list(self, prefix: str = "") -> list[str]:
+        ...
+
+
+def storage_backend_name() -> str:
+    return os.getenv("STORAGE_BACKEND", "supabase").strip().lower()
+
+
+def local_storage_root() -> Path:
+    return Path(os.getenv("LOCAL_STORAGE_ROOT", "/opt/greenbrain/storage")).resolve()
+
+
+def normalize_remote_path(remote_path: str) -> str:
+    return remote_path.lstrip("/")
+
+
+def build_local_target(remote_path: str) -> Path:
+    return local_storage_root() / normalize_remote_path(remote_path)
+
+
+def get_storage_backend() -> StorageBackend:
+    """Backward-compatible alias for storage.factory.get_storage()."""
+    from .factory import get_storage
+    return get_storage()
+
+===== apps/ml-worker/storage/factory.py =====
+from __future__ import annotations
+
+import os
+
+from .storage_interface import StorageInterface
+
+
+def get_storage(backend: str | None = None) -> StorageInterface:
+    """
+    Return a StorageInterface instance selected by *backend* or the
+    STORAGE_BACKEND environment variable.
+
+    Values:
+        local    — local filesystem (STORAGE_BASE_PATH or LOCAL_STORAGE_ROOT)
+        s3       — S3-compatible object storage (incl. DO Spaces)
+        supabase — Supabase Storage (default; requires SUPABASE_URL + key)
+    """
+    name = (backend or os.getenv("STORAGE_BACKEND", "supabase")).strip().lower()
+
+    if name == "local":
+        from .local_storage import LocalStorage
+        return LocalStorage()
+
+    if name in ("s3", "do", "spaces"):
+        from .s3_storage import S3Storage
+        return S3Storage()
+
+    if name == "supabase":
+        from .supabase_backend import SupabaseStorageBackend
+        return SupabaseStorageBackend()
+
+    raise ValueError(
+        f"Unknown STORAGE_BACKEND={name!r}. Valid values: local, s3, supabase"
+    )
+
+===== apps/ml-worker/storage/storage_interface.py =====
+from __future__ import annotations
+
+from typing import Protocol, runtime_checkable
+
+
+@runtime_checkable
+class StorageInterface(Protocol):
+    """
+    Minimal storage contract used by all GreenBrain ML pipeline scripts.
+
+    All paths are forward-slash relative strings (no leading slash).
+    Backends map them onto their native addressing scheme.
+
+    Environment variables (read by factory.py):
+        STORAGE_BACKEND   local | s3 | supabase   (default: supabase)
+        STORAGE_BASE_PATH path for local backend   (default: LOCAL_STORAGE_ROOT or
+                                                    /opt/greenbrain/storage)
+    """
+
+    def read(self, path: str) -> bytes:
+        """Return raw bytes at *path*. Raise FileNotFoundError / equivalent if absent."""
+        ...
+
+    def write(self, path: str, data: bytes) -> None:
+        """Persist *data* at *path*, creating intermediate directories as needed."""
+        ...
+
+    def exists(self, path: str) -> bool:
+        """Return True if *path* is present in the backend."""
+        ...
+
+    def list(self, prefix: str = "") -> list[str]:
+        """
+        Return all keys whose path starts with *prefix*.
+        Returns an empty list when nothing matches.
+        """
+        ...
+
+===== apps/ml-worker/jobs/run_predict_all.sh =====
+#!/usr/bin/env bash
+set -euo pipefail
+
+BASE_DIR="/opt/greenbrain-platform"
+REPO_DIR="${GH_REPO_DIR:-/opt/greenbrain-platform/apps/ml-worker}"
+VENV_BIN="/opt/greenbrain-platform/apps/ml-worker/.venv/bin"
+LOG_DIR="/opt/greenbrain-platform/runtime-reports"
+LOCK_DIR="/opt/greenbrain-platform/runtime-reports/tmp"
+LOCK_FILE="${LOCK_DIR}/predict_all.lock"
+
+mkdir -p "$LOG_DIR" "$LOCK_DIR"
+
+# lock non bloccante: se già in esecuzione, esce
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+  echo "$(date -u +"%Y-%m-%dT%H:%M:%SZ") predict_all already running, exiting."
+  exit 0
+fi
+
+cd "$REPO_DIR"
+source "${VENV_BIN}/activate"
+
+# ---- env loader ----
+export APP_ENV="${APP_ENV:-dev}"
+source /opt/greenbrain-platform/infra/scripts/load_env.sh
+
+# ---- load env (DB + Supabase) ----
+# ---- run metadata ----
+export RUN_TRIGGER_SOURCE="${RUN_TRIGGER_SOURCE:-systemd_timer}"
+export GIT_SHA="$(cd "${GH_REPO_DIR}" && git rev-parse --short HEAD 2>/dev/null || true)"
+
+# ---- build + upload priors (Supabase = source of truth) ----
+PRIOR_LOG="${LOG_DIR}/build_priors_latest.log"
+echo "PRIORS_START $(date -u +"%Y-%m-%dT%H:%M:%SZ")" | tee -a "$PRIOR_LOG"
+
+# 1) slugs list from DB (refresh daily)
+psql "$DATABASE_URL" -Atc "
+  select distinct lower(trim(famiglia_slug))
+  from public.famiglie_catalog_static
+  where famiglia_slug is not null
+    and trim(famiglia_slug) <> ''
+  order by 1;
+" > /tmp/slugs_all.txt
+
+echo "[PRIORS] N slugs: $(wc -l < /tmp/slugs_all.txt)" | tee -a "$PRIOR_LOG"
+
+# 2) build priors locally (temp cache)
+V4_PRIOR_SMOOTH_DOY="${V4_PRIOR_SMOOTH_DOY:-7}" \
+python3 -u -m tools.build_seasonal_priors --slugs-file /tmp/slugs_all.txt | tee -a "$PRIOR_LOG"
+
+# 3) upload latest priors to Supabase Storage
+python3 -u -m jobs.upload_priors_to_supabase | tee -a "$PRIOR_LOG"
+
+# 4) (optional) download latest back from Storage to ensure predict reads same artifact
+python3 -u -m jobs.download_priors_from_supabase | tee -a "$PRIOR_LOG"
+
+echo "PRIORS_END   $(date -u +"%Y-%m-%dT%H:%M:%SZ")" | tee -a "$PRIOR_LOG"
+
+stamp=$(date -u +"%Y%m%d_%H%M%S")
+logfile="${LOG_DIR}/predict_all_${stamp}.log"
+ln -sfn "$logfile" "${LOG_DIR}/predict_all_latest.log"
+
+echo "START $(date -u +"%Y-%m-%dT%H:%M:%SZ")" | tee -a "$logfile"
+python -m jobs.predict_all | tee -a "$logfile"
+echo "END   $(date -u +"%Y-%m-%dT%H:%M:%SZ")" | tee -a "$logfile"
+
+
+===== infra/env/.env.example =====
+PG_USER=postgres.xbyhmzrlycixxrfjggvn
+PG_PASSWORD="ToniInnavoig91!!"
+PG_HOST=aws-1-eu-west-1.pooler.supabase.com
+PG_PORT=5432
+PG_DB=postgres
+
+
+
+# Supabase (Storage / Parquet)
+SUPABASE_URL="https://xbyhmzrlycixxrfjggvn.supabase.co"
+SUPABASE_SERVICE_ROLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhieWhtenJseWNpeHhyZmpnZ3ZuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDI1NjAzMSwiZXhwIjoyMDc5ODMyMDMxfQ.ft0fDcWujv5mB4ltZoYY0AEJeaOBerMaWXKVVsJpWjM"
+SUPABASE_BUCKET="ml-snapshots"
+
+# Parquet
+PARQUET_ENABLE=1
+PARQUET_DATASET_PREFIX="parquet/features_dense/v1"
+PARQUET_CACHE_DIR="/opt/greenbrain/storage/parquet_cache"
+
+
+
+# --- Postgres DSN (consigliato) ---
+DATABASE_URL="postgresql://postgres.xbyhmzrlycixxrfjggvn:ToniInnavoig91!!@aws-1-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require"
+
+# --- Alias compatibilità script exporter ---
+SUPABASE_DB_HOST="aws-1-eu-west-1.pooler.supabase.com"
+SUPABASE_DB_PORT=5432
+SUPABASE_DB_NAME="postgres"
+SUPABASE_DB_USER="postgres.xbyhmzrlycixxrfjggvn"
+SUPABASE_DB_PASSWORD="ToniInnavoig91!!"
+
+
+
+
+DO_SPACES_REGION=fra1
+DO_SPACES_BUCKET=greenbrainmodels
+DO_SPACES_KEY=DO801C2A68X2R4LLKZTB
+DO_SPACES_SECRET=j/gujBJPo/78Wzl1Wqx2u+7uJneriesVtT+OeXt4/n8
+
+# ---- Pipeline
+GH_BASE_DIR=/opt/greenbrain-platform
+GH_REPO_DIR=/opt/greenbrain-platform/apps/ml-worker
+GH_LOG_DIR=/opt/greenbrain-platform/runtime-reports
+GH_TMP_DIR=/opt/greenbrain-platform/runtime-reports/tmp
+
+# ---- Spaces artifacts prefixes
+SPACES_PREFIX=models_v4
+SPACES_BT_PREFIX=backtests_v4
+SPACES_BETA_PREFIX=betas_v4
+PG_SSLMODE=require
+FAMIGLIE_SOURCE_TABLE="public.famiglie_catalog_static"
+FAMIGLIE_COL="famiglia"
+PREDICT_LIMIT="0"
+AUTO_TRAIN_MISSING="1"
+TRAIN_TIMEOUT_SEC="7200"
+TRAIN_BATCH_SIZE=10
+TRAIN_LIMIT=0
+
+# ---- Seasonality gate (v4) ----
+V4_ENABLE_DOY_GATE=1
+V4_DOY_GATE_MODE=soft
+V4_DOY_SMOOTH=15
+V4_DOY_SOFT_FLOOR=0.01
+V4_DOY_SOFT_MULT=0.25
+V4_DOY_HARD_FLOOR=0.003
+
+# ---- Seasonality gate debug ----
+V4_DOY_GATE_DEBUG=0
+
+
+
+# ---- Hurdle debug (v4) ----
+
+
+
+# ---- Hurdle (v4) ----
+V4_ENABLE_HURDLE=1
+V4_HURDLE_P_FLOOR=0.10
+V4_HURDLE_P_CAP=0.97
+V4_HURDLE_P_POWER=1.8
+V4_HURDLE_DEBUG=0
+
+FAMIGLIE_SOURCE_TABLE="public.famiglie_catalog_static"
+FAMIGLIE_COL="famiglia"
+
+FAMIGLIE_SOURCE_TABLE="public.famiglie_catalog_static"
+FAMIGLIE_COL="famiglia"
+
+FAMIGLIE_SOURCE_TABLE="public.famiglie_catalog_static"
+FAMIGLIE_COL="famiglia"
+
+===== infra/docker-shadow/docker-compose.shadow.yml =====
+version: "3.9"
+
+services:
+
+  frontend_shadow:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ../../apps/frontend:/app
+    command: sh -c "npm install && npm run dev"
+    ports:
+      - "5174:8080"
+
+  backend_shadow:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ../../apps/backend:/app
+    command: sh -c "pip install -r requirements.txt && uvicorn app.main:app --host 0.0.0.0 --port 8001"
+    ports:
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=postgresql://postgres.xbyhmzrlycixxrfjggvn:ToniInnavoig91!!@aws-1-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require
+
+===== client-runtime/docker/docker-compose.yml =====
+# GreenBrain Client Runtime — Local Stack
+#
+# Architecture:
+#   greenbrain-platform (dev/master) → Supabase cloud DB + Supabase auth
+#   client-runtime (this file)       → local PostgreSQL, no Supabase dependency
+#
+# Wave 7A status:
+#   postgres   ✅ starts clean, runs init/01_bootstrap.sql on first boot
+#   backend    ✅ built from apps/backend/Dockerfile, healthcheck enabled
+#   frontend   ✅ client auth locale disponibile via backend JWT
+#
+# NOTE: business endpoints (sales, analytics, dashboard, etc.) return HTTP 500
+#       on a fresh DB until Wave 7B applies full schema DDL.
+#       /health and /health/db are always reliable.
+#
+# HOW TO USE:
+#   # First run: build the backend image
+#   docker-compose -f client-runtime/docker/docker-compose.yml build backend
+#
+#   # Start postgres + backend
+#   docker-compose -f client-runtime/docker/docker-compose.yml up -d
+#
+#   # Wave 7B+: start with frontend (after auth migration)
+#   docker-compose -f client-runtime/docker/docker-compose.yml \
+#     --profile wave7-frontend up -d
+#
+# SETUP (one-time):
+#   cp client-runtime/env/backend.env.template  client-runtime/env/backend.env
+#   # set POSTGRES_PASSWORD in backend.env
+#
+version: "3.9"
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../sql/init:/docker-entrypoint-initdb.d:ro
+    env_file:
+      - ../env/backend.env
+    ports:
+      - "55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-greenbrain} -d ${POSTGRES_DB:-greenbrain}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ../../apps/backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ../env/backend.env
+    ports:
+      - "8001:8000"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    # Wave 7 — not started by default.
+    # Activate with: --profile wave7-frontend
+    # Auth client-runtime usa backend locale (/api/v1/auth/*), non Supabase
+    # Unblocked by: docs/architecture/separation-boundary.md — gap ①
+    profiles: [wave7-frontend]
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ../../apps/frontend:/app
+    command: sh -c "npm install -q && npm run dev"
+    env_file:
+      - ../env/frontend.env
+    ports:
+      - "8081:8080"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

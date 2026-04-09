@@ -1,0 +1,29 @@
+=== FINAL GREEN SNAPSHOT AFTER WAVE 7B.2-L ===
+200  http://127.0.0.1:8000/health
+200  http://127.0.0.1:8000/health/db
+200  http://127.0.0.1:8000/api/v1/system/db-info
+200  http://127.0.0.1:8000/api/v1/catalog/search?term=test&limit=5
+200  http://127.0.0.1:8000/api/v1/catalog/children?level=fascia&limit=10
+200  http://127.0.0.1:8000/api/v1/catalog/list?entity_type=famiglia&limit=10
+200  http://127.0.0.1:8000/api/v1/analytics/range-totals?entity_type=famiglia&entity_key=test&date_from=2025-01-01&date_to=2025-12-31
+200  http://127.0.0.1:8000/api/v1/analytics/stock-and-reorder?entity_type=famiglia&entity_key=test
+200  http://127.0.0.1:8000/api/v1/dashboard/reorder-suggestions?limit=20
+200  http://127.0.0.1:8000/api/v1/analytics/future-windows-stats?entity_type=famiglia&entity_key=test_family_fw&anchor_to=2026-03-27&windows=7&windows=14&windows=30
+200  http://127.0.0.1:8000/api/v1/analytics/compare-series?entity_type=famiglia&entity_key=test_family_a&date_from=2026-03-01&date_to=2026-03-10
+200  http://127.0.0.1:8000/api/v1/analytics/series-breakdown?entity_type=famiglia&granularity=day&entity_key=test&date_from=2025-01-01&date_to=2025-12-31
+200  http://127.0.0.1:8000/api/v1/analytics/entity-summary?p_entity_type=famiglia&p_entity_key=tree_family_a&p_date_from=2026-01-01&p_date_to=2026-12-31
+200  http://127.0.0.1:8000/api/v1/dashboard/kpis
+200  http://127.0.0.1:8000/api/v1/ops/pipeline-status
+200  http://127.0.0.1:8000/api/v1/planner/current-week
+
+=== STACK ISOLATION ===
+docker_backend_1                  Up 22 hours (healthy)   0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp
+docker_postgres_1                 Up 22 hours (healthy)   5432/tcp
+docker-shadow_backend_shadow_1    Up 3 days               0.0.0.0:8001->8001/tcp, [::]:8001->8001/tcp
+docker-shadow_frontend_shadow_1   Up 3 days               0.0.0.0:5174->8080/tcp, [::]:5174->8080/tcp
+gb_v2_frontend                    Up 4 days               0.0.0.0:8083->8080/tcp, [::]:8083->8080/tcp
+gb_v2_backend                     Up 10 days              0.0.0.0:8002->8000/tcp, [::]:8002->8000/tcp
+gb_v2_nginx                       Up 12 days              0.0.0.0:8082->80/tcp, [::]:8082->80/tcp
+gb_v2_ml                          Up 12 days              
+gb_v2_pgadmin                     Up 12 days              443/tcp, 0.0.0.0:5050->80/tcp, [::]:5050->80/tcp
+gb_v2_postgres                    Up 12 days (healthy)    0.0.0.0:5433->5432/tcp, [::]:5433->5432/tcp

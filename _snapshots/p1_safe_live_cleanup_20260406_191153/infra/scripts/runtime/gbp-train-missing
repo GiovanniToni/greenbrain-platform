@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd /opt/greenbrain-platform/apps/ml-worker
+source /opt/greenhouse/venv/bin/activate
+
+export APP_ENV="${APP_ENV:-dev}"
+source /opt/greenbrain-platform/infra/scripts/load_env.sh
+
+export RUN_TRIGGER_SOURCE="${RUN_TRIGGER_SOURCE:-shadow_systemd}"
+
+exec bash jobs/run_train_missing.sh

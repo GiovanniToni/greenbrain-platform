@@ -1,0 +1,54 @@
+=== PIPELINE RUN LOG ===
+                run_id                |    job_type    | status  |          started_at           |          finished_at          | rows_processed |                          notes                           
+--------------------------------------+----------------+---------+-------------------------------+-------------------------------+----------------+----------------------------------------------------------
+ 24576895-095e-42ab-b92b-431cdcb31fa1 | predict_family | success | 2026-04-06 17:37:39.692495+00 | 2026-04-06 17:37:42.551853+00 |             20 | family=rosa slug=rosa rows_written=20 fallback_used=True
+ ea166f64-e8bd-4bb5-928b-2fd588dae1eb | train_family   | success | 2026-04-06 17:37:37.539081+00 | 2026-04-06 17:37:39.195897+00 |              1 | family=rosa slug=rosa
+ efb865b0-b783-4ecf-b9c6-acef18b4683d | predict_family | success | 2026-04-06 17:34:21.667014+00 | 2026-04-06 17:34:24.497821+00 |             20 | family=rosa slug=rosa rows_written=20 fallback_used=True
+ 6805c15f-6a07-4666-af70-e1b1bc0837dd | train_family   | success | 2026-04-06 17:34:19.667293+00 | 2026-04-06 17:34:21.222832+00 |              1 | family=rosa slug=rosa
+ 928b8612-3138-4782-a792-66b168aaf42a | predict_family | success | 2026-04-06 17:31:36.195014+00 | 2026-04-06 17:31:39.008627+00 |             20 | family=rosa slug=rosa rows_written=20 fallback_used=True
+ 8175a7d3-2a89-455a-a3f2-f24474338511 | train_family   | success | 2026-04-06 17:31:34.057703+00 | 2026-04-06 17:31:35.728677+00 |              1 | family=rosa slug=rosa
+ a916e3ed-1a2a-4599-af6b-c39fe63210e6 | predict_family | success | 2026-04-06 17:28:48.939194+00 | 2026-04-06 17:28:51.448035+00 |             20 | family=rosa slug=rosa rows_written=20 fallback_used=True
+ a2b49e8b-8ce5-4d99-b872-a6cbe858e877 | train_family   | success | 2026-04-06 17:28:46.960533+00 | 2026-04-06 17:28:48.471835+00 |              1 | family=rosa slug=rosa
+ 75e33c31-8255-4fa0-ab1e-5a0071e80fa6 | predict_family | success | 2026-04-06 17:28:34.999104+00 | 2026-04-06 17:28:37.637652+00 |             20 | family=rosa slug=rosa rows_written=20 fallback_used=True
+ 038850b3-75c0-4fed-904e-2a2d514f9646 | train_family   | success | 2026-04-06 17:28:33.10678+00  | 2026-04-06 17:28:34.550688+00 |              1 | family=rosa slug=rosa
+(10 rows)
+
+
+=== FAMILY RUN LOG ===
+            family_run_id             |           pipeline_run_id            | family_name |    job_type    | status  | rows_written |                artifact_path                 
+--------------------------------------+--------------------------------------+-------------+----------------+---------+--------------+----------------------------------------------
+ edefaf61-d8e4-45ec-b8b3-cf47df92ae4a | 24576895-095e-42ab-b92b-431cdcb31fa1 | rosa        | predict_family | success |           20 | 
+ 99b80631-58c2-44e9-9717-f6af5ffc8a14 | ea166f64-e8bd-4bb5-928b-2fd588dae1eb | rosa        | train_family   | success |            1 | /opt/greenbrain/models_v4/bundle_rosa_v4.pkl
+ db54fd43-a7f5-4d8a-bb55-05612e852d29 | efb865b0-b783-4ecf-b9c6-acef18b4683d | rosa        | predict_family | success |           20 | 
+ 14efb7b6-7c63-4e6e-8817-ecbb4e53d7e8 | 6805c15f-6a07-4666-af70-e1b1bc0837dd | rosa        | train_family   | success |            1 | /opt/greenbrain/models_v4/bundle_rosa_v4.pkl
+ cbfa5057-6f93-45c7-bd97-50c26f76cc47 | 928b8612-3138-4782-a792-66b168aaf42a | rosa        | predict_family | success |           20 | 
+ f88b6bcd-f176-42d2-88a5-2086f28e46dd | 8175a7d3-2a89-455a-a3f2-f24474338511 | rosa        | train_family   | success |            1 | /opt/greenbrain/models_v4/bundle_rosa_v4.pkl
+ 1d2a7f7d-0993-45b0-893b-28ff672de14a | a916e3ed-1a2a-4599-af6b-c39fe63210e6 | rosa        | predict_family | success |           20 | 
+ 2b532e95-de45-438f-a7e5-182451944f85 | a2b49e8b-8ce5-4d99-b872-a6cbe858e877 | rosa        | train_family   | success |            1 | /opt/greenbrain/models_v4/bundle_rosa_v4.pkl
+ afa7f8af-9d15-49a4-b2f7-3ebb8e98427e | 75e33c31-8255-4fa0-ab1e-5a0071e80fa6 | rosa        | predict_family | success |           20 | 
+ 89b1ebeb-af01-4a9a-b90e-1f5b1ddee1ab | 038850b3-75c0-4fed-904e-2a2d514f9646 | rosa        | train_family   | success |            1 | /opt/greenbrain/models_v4/bundle_rosa_v4.pkl
+(10 rows)
+
+
+=== OPS MONITOR ===
+ id  |            snap_ts            | ok 
+-----+-------------------------------+----
+ 116 | 2026-04-06 17:37:42.571254+00 | t
+ 115 | 2026-04-06 17:37:42.551853+00 | f
+ 114 | 2026-04-06 17:37:39.215747+00 | t
+ 113 | 2026-04-06 17:37:39.195897+00 | f
+ 112 | 2026-04-06 17:34:24.518773+00 | t
+ 111 | 2026-04-06 17:34:24.497821+00 | f
+ 110 | 2026-04-06 17:34:21.242286+00 | t
+ 109 | 2026-04-06 17:34:21.222832+00 | f
+ 108 | 2026-04-06 17:31:39.02778+00  | t
+ 107 | 2026-04-06 17:31:39.008627+00 | f
+(10 rows)
+
+
+=== FORECAST ROSA ===
+ famiglia | rows_n |  min_day   |  max_day   
+----------+--------+------------+------------
+ rosa     |     20 | 2026-04-06 | 2026-04-15
+(1 row)
+

@@ -1,0 +1,101 @@
+=== CURRENT CRONTAB ===
+0 3 * * 0 /opt/greenbrain-platform/apps/ml-worker/run_weekly_train_runtime.sh >> /opt/greenbrain-platform/runtime-reports/weekly_train.log 2>&1
+
+=== ETL ENV ===
+# SQL Server sorgente cliente
+SQLSERVER_SERVER=localhost
+SQLSERVER_DB=CLIENT_DB
+SQLSERVER_USER=readonly_user
+SQLSERVER_PASSWORD=CHANGE_ME
+SQLSERVER_DRIVER=ODBC Driver 18 for SQL Server
+SQLSERVER_SOURCE_OBJECT=GREENHOUSE_VIEW_STAT
+
+# Postgres GreenBrain cliente
+PG_HOST=127.0.0.1
+PG_PORT=55432
+PG_DB=greenbrain
+PG_USER=greenbrain
+PG_PASSWORD=greenbrain
+PG_SSLMODE=disable
+
+# Modalità ETL
+RUN_TYPE=incremental_daily
+FULL_BULK=0
+BATCH_SIZE=5000
+MAX_RETRIES=3
+
+DATABASE_URL=postgresql://greenbrain:greenbrain@127.0.0.1:55432/greenbrain
+
+STORAGE_BACKEND=local
+LOCAL_STORAGE_ROOT=/opt/greenbrain/storage
+
+PARQUET_ENABLE=1
+PARQUET_CACHE_DIR=/opt/greenbrain/storage
+GH_MODELS_DIR=/opt/greenbrain/models_v4
+MODEL_STORAGE_PREFIX=models_v4
+
+FULL_EXPORT=1
+
+=== LAST ETL RUNS ===
+ run_id |          job_name           |     run_type      | status  |          started_at           |           ended_at            | rows_extracted | rows_loaded |                                                             error_message                                                             
+--------+-----------------------------+-------------------+---------+-------------------------------+-------------------------------+----------------+-------------+---------------------------------------------------------------------------------------------------------------------------------------
+     22 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:54:51.258719+00 | 2026-04-06 15:55:06.263759+00 |              0 |           0 | ('HYT00', '[HYT00] [Microsoft][ODBC Driver 18 for SQL Server]Login timeout expired (0) (SQLDriverConnect)')
+     21 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:54:06.204593+00 | 2026-04-06 15:54:21.209311+00 |              0 |           0 | ('HYT00', '[HYT00] [Microsoft][ODBC Driver 18 for SQL Server]Login timeout expired (0) (SQLDriverConnect)')
+     20 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:53:21.149136+00 | 2026-04-06 15:53:36.156107+00 |              0 |           0 | ('HYT00', '[HYT00] [Microsoft][ODBC Driver 18 for SQL Server]Login timeout expired (0) (SQLDriverConnect)')
+     19 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:52:47.855756+00 | 2026-04-06 15:53:02.860719+00 |              0 |           0 | ('HYT00', '[HYT00] [Microsoft][ODBC Driver 18 for SQL Server]Login timeout expired (0) (SQLDriverConnect)')
+     18 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:52:02.815057+00 | 2026-04-06 15:52:17.820322+00 |              0 |           0 | ('HYT00', '[HYT00] [Microsoft][ODBC Driver 18 for SQL Server]Login timeout expired (0) (SQLDriverConnect)')
+     17 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:51:17.758538+00 | 2026-04-06 15:51:32.7662+00   |              0 |           0 | ('HYT00', '[HYT00] [Microsoft][ODBC Driver 18 for SQL Server]Login timeout expired (0) (SQLDriverConnect)')
+     16 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:50:55.998789+00 | 2026-04-06 15:51:11.004139+00 |              0 |           0 | ('HYT00', '[HYT00] [Microsoft][ODBC Driver 18 for SQL Server]Login timeout expired (0) (SQLDriverConnect)')
+     15 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:50:10.957818+00 | 2026-04-06 15:50:25.962173+00 |              0 |           0 | ('HYT00', '[HYT00] [Microsoft][ODBC Driver 18 for SQL Server]Login timeout expired (0) (SQLDriverConnect)')
+     14 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:49:25.923521+00 | 2026-04-06 15:49:40.933049+00 |              0 |           0 | ('HYT00', '[HYT00] [Microsoft][ODBC Driver 18 for SQL Server]Login timeout expired (0) (SQLDriverConnect)')
+     13 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:44:52.874727+00 | 2026-04-06 15:44:52.878314+00 |              0 |           0 | ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'ODBC Driver 18 for SQL Server' : file not found (0) (SQLDriverConnect)")
+     12 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:44:22.820843+00 | 2026-04-06 15:44:22.824251+00 |              0 |           0 | ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'ODBC Driver 18 for SQL Server' : file not found (0) (SQLDriverConnect)")
+     11 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:43:52.767728+00 | 2026-04-06 15:43:52.772244+00 |              0 |           0 | ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'ODBC Driver 18 for SQL Server' : file not found (0) (SQLDriverConnect)")
+     10 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:43:07.903569+00 | 2026-04-06 15:43:07.90859+00  |              0 |           0 | ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'ODBC Driver 18 for SQL Server' : file not found (0) (SQLDriverConnect)")
+      9 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:42:37.855873+00 | 2026-04-06 15:42:37.858612+00 |              0 |           0 | ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'ODBC Driver 18 for SQL Server' : file not found (0) (SQLDriverConnect)")
+      8 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:42:07.829892+00 | 2026-04-06 15:42:07.833559+00 |              0 |           0 | ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'ODBC Driver 18 for SQL Server' : file not found (0) (SQLDriverConnect)")
+      7 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:41:59.091147+00 | 2026-04-06 15:41:59.094128+00 |              0 |           0 | ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'ODBC Driver 18 for SQL Server' : file not found (0) (SQLDriverConnect)")
+      6 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:41:29.038798+00 | 2026-04-06 15:41:29.043578+00 |              0 |           0 | ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'ODBC Driver 18 for SQL Server' : file not found (0) (SQLDriverConnect)")
+      5 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:40:58.992813+00 | 2026-04-06 15:40:58.996572+00 |              0 |           0 | ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'ODBC Driver 18 for SQL Server' : file not found (0) (SQLDriverConnect)")
+      4 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:40:03.757817+00 | 2026-04-06 15:40:03.761494+00 |              0 |           0 | ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'ODBC Driver 18 for SQL Server' : file not found (0) (SQLDriverConnect)")
+      3 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:39:33.706125+00 | 2026-04-06 15:39:33.708925+00 |              0 |           0 | ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'ODBC Driver 18 for SQL Server' : file not found (0) (SQLDriverConnect)")
+      2 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:39:03.66963+00  | 2026-04-06 15:39:03.67385+00  |              0 |           0 | ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'ODBC Driver 18 for SQL Server' : file not found (0) (SQLDriverConnect)")
+      1 | sqlserver_to_greenbrain_raw | incremental_daily | success | 2026-04-04 20:20:51.234583+00 | 2026-04-04 20:21:01.234583+00 |              6 |           6 | 
+(22 rows)
+
+
+=== LAST ML PIPELINE RUNS ===
+                run_id                |    job_type    | status  |          started_at           |          finished_at          | rows_processed |                                    notes                                     
+--------------------------------------+----------------+---------+-------------------------------+-------------------------------+----------------+------------------------------------------------------------------------------
+ 246a4094-aba9-43b9-b103-e259c6129d03 | train_family   | success | 2026-04-06 15:35:09.113141+00 | 2026-04-06 15:35:10.746981+00 |              1 | family=ficus elastica slug=ficus-elastica
+ 17fad79b-d379-4639-8fcb-0a93782e06ff | train_family   | success | 2026-04-06 15:35:06.963133+00 | 2026-04-06 15:35:08.605809+00 |              1 | family=lavanda slug=lavanda
+ c76fb302-6aae-4e96-915e-0ba8b17c18ae | train_family   | success | 2026-04-06 15:35:04.839193+00 | 2026-04-06 15:35:06.496226+00 |              1 | family=rosa slug=rosa
+ 2ac0a96b-1f46-4082-8837-0cfb94f56042 | predict_family | success | 2026-04-06 15:13:26.582583+00 | 2026-04-06 15:13:29.192+00    |             20 | family=ficus elastica slug=ficus-elastica rows_written=20 fallback_used=True
+ a4c8a771-89bb-4811-89bb-618838aa2ef1 | predict_family | success | 2026-04-06 15:13:23.602076+00 | 2026-04-06 15:13:26.164079+00 |             20 | family=lavanda slug=lavanda rows_written=20 fallback_used=True
+ 8b440b05-d89a-4826-9297-bee3253b1c95 | predict_family | success | 2026-04-06 15:13:20.355333+00 | 2026-04-06 15:13:23.159968+00 |             20 | family=rosa slug=rosa rows_written=20 fallback_used=True
+ 42b8d7ef-9e4b-4908-9918-53b6eaa34ddb | train_family   | success | 2026-04-06 15:13:18.376191+00 | 2026-04-06 15:13:19.890865+00 |              1 | family=ficus elastica slug=ficus-elastica
+ e8e86053-fbdf-4f4f-88a4-c50a2531b1dd | train_family   | success | 2026-04-06 15:13:16.43821+00  | 2026-04-06 15:13:17.956426+00 |              1 | family=lavanda slug=lavanda
+ 99c2f878-eece-4f4c-a4ec-2ca5037f9737 | train_family   | success | 2026-04-06 15:13:14.49609+00  | 2026-04-06 15:13:16.01034+00  |              1 | family=rosa slug=rosa
+ 2d740afd-54ba-4e1e-9ee9-d67e144cec47 | predict_family | success | 2026-04-06 14:55:37.090392+00 | 2026-04-06 14:55:39.855579+00 |             20 | family=rosa slug=rosa rows_written=20 fallback_used=True
+ 804c540b-fac9-4cd8-8e01-6407c1be829c | train_family   | success | 2026-04-06 14:55:34.615618+00 | 2026-04-06 14:55:36.666374+00 |              1 | family=rosa slug=rosa
+ 6ed04467-f6e6-4b9d-91e2-0f95ca8f4ee6 | predict_family | success | 2026-04-06 14:44:43.333091+00 | 2026-04-06 14:44:46.083739+00 |             20 | family=ficus elastica slug=ficus-elastica rows_written=20 fallback_used=True
+ e3620c29-37b9-429f-ad22-2c982fafbac9 | predict_family | success | 2026-04-06 14:44:40.135376+00 | 2026-04-06 14:44:42.895564+00 |             20 | family=lavanda slug=lavanda rows_written=20 fallback_used=True
+ e17c58f4-e11b-4542-aecb-34a8a511c466 | predict_family | success | 2026-04-06 14:44:37.140566+00 | 2026-04-06 14:44:39.721476+00 |             20 | family=rosa slug=rosa rows_written=20 fallback_used=True
+ 2e669719-a892-413b-8f6f-0df888e79c21 | train_family   | success | 2026-04-06 14:44:35.227365+00 | 2026-04-06 14:44:36.738862+00 |              1 | family=ficus elastica slug=ficus-elastica
+ 60f5b55f-0da2-49c7-9ade-57501ea929b0 | train_family   | success | 2026-04-06 14:44:33.381724+00 | 2026-04-06 14:44:34.828072+00 |              1 | family=lavanda slug=lavanda
+ dc02ee68-7f39-4a1b-9b1a-5da5636a1130 | train_family   | success | 2026-04-06 14:44:31.405709+00 | 2026-04-06 14:44:32.939217+00 |              1 | family=rosa slug=rosa
+ a0a5a527-c782-44f9-8e63-1d0fd56cccc6 | predict_family | success | 2026-04-06 09:42:29.160404+00 | 2026-04-06 09:42:31.776553+00 |             20 | family=ficus elastica slug=ficus-elastica rows_written=20 fallback_used=True
+ ba65eac9-e251-4bb3-9ed0-6c72046849c4 | predict_family | success | 2026-04-06 09:42:26.024724+00 | 2026-04-06 09:42:28.714446+00 |             20 | family=lavanda slug=lavanda rows_written=20 fallback_used=True
+ 003f27d0-13f5-47dd-905f-8fabd9e0fb93 | predict_family | success | 2026-04-06 09:42:23.007967+00 | 2026-04-06 09:42:25.595192+00 |             20 | family=rosa slug=rosa rows_written=20 fallback_used=True
+ 1157bbfc-14e8-4783-9971-d8db35520330 | predict_family | success | 2026-04-06 09:38:47.226561+00 | 2026-04-06 09:38:49.943092+00 |              0 | family=ficus elastica slug=ficus-elastica rows_written=0 fallback_used=True
+ eab3abae-e3c6-4583-9c57-abd77a46bf68 | predict_family | success | 2026-04-06 09:38:44.016731+00 | 2026-04-06 09:38:46.790498+00 |              0 | family=lavanda slug=lavanda rows_written=0 fallback_used=True
+ cdca56fc-a68b-452d-954c-0e7fc11bf6a3 | predict_family | success | 2026-04-06 09:38:40.789936+00 | 2026-04-06 09:38:43.569213+00 |              0 | family=rosa slug=rosa rows_written=0 fallback_used=True
+ c8234bf9-05cc-4391-9623-034c5b5365a5 | predict_family | success | 2026-04-06 09:33:07.216704+00 | 2026-04-06 09:33:09.355735+00 |              0 | family=ficus elastica slug=ficus-elastica
+ 982ae225-ffa8-4dd2-bf05-6813f862f911 | predict_family | success | 2026-04-06 09:33:04.806761+00 | 2026-04-06 09:33:06.806125+00 |              0 | family=lavanda slug=lavanda
+ 1ff682dd-3772-4e29-8865-83f38b7c68c8 | predict_family | success | 2026-04-06 09:33:02.270478+00 | 2026-04-06 09:33:04.391091+00 |              0 | family=rosa slug=rosa
+ 8f14148f-d5fb-42c5-8dce-a73ea9c6e90a | train_family   | success | 2026-04-06 09:30:17.481368+00 | 2026-04-06 09:30:19.117836+00 |              1 | family=rosa slug=rosa
+ e289e0b4-682d-4f52-bd19-28d548c1d9b8 | predict_family | success | 2026-04-06 09:30:15.585507+00 | 2026-04-06 09:30:17.053892+00 |              0 | family=rosa slug=rosa
+ 220c8444-c616-4b29-a1fc-df35815b9264 | train_family   | success | 2026-04-06 09:26:50.971238+00 | 2026-04-06 09:26:52.571611+00 |              1 | family=ficus elastica slug=ficus-elastica
+ 2fd44254-b858-44cb-863a-b6c4a4270d6e | train_family   | success | 2026-04-06 09:26:49.022461+00 | 2026-04-06 09:26:50.53972+00  |              1 | family=lavanda slug=lavanda
+(30 rows)
+

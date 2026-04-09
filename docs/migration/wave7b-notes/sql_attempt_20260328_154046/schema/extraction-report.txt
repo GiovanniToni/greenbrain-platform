@@ -1,0 +1,46 @@
+GreenBrain Schema Extraction Report
+Source: sql/schema/current-schema.sql
+
+=== KEPT ===
+     3  EXTENSION
+    78  FUNCTION
+     3  PROCEDURE
+     3  SCHEMA
+    12  SEQUENCE
+    92  TABLE
+   106  VIEW
+
+=== SKIPPED (counts only) ===
+    51  COMMENT
+   137  CONSTRAINT
+    11  DEFAULT
+     6  EVENT TRIGGER
+     4  EXTENSION
+    33  FK CONSTRAINT
+    43  FUNCTION
+     5  FUNCTION(cross-ref-excluded)
+   262  INDEX
+     9  MATERIALIZED VIEW
+     7  MATERIALIZED VIEW(cross-ref-excluded)
+     1  PROCEDURE(cross-ref-excluded)
+     1  PUBLICATION
+     1  PUBLICATION TABLE
+    27  ROW SECURITY
+     9  SCHEMA
+     2  SEQUENCE
+    11  SEQUENCE OWNED BY
+    32  TABLE
+     8  TRIGGER
+    15  TYPE
+    19  VIEW
+     2  VIEW(cross-ref-excluded)
+
+=== BUCKET SUMMARY ===
+  01_schemas.sql: 3 objects
+  02_extensions.sql: 3 objects
+  03_types.sql: 0 objects
+  04_sequences.sql: 12 objects
+  05_tables.sql: 92 objects
+  06_matviews.sql: 0 objects
+  07_views.sql: 106 objects
+  08_functions.sql: 81 objects

@@ -1,0 +1,9 @@
+Tue Mar 17 16:29:53 CET 2026
+STATE: WORKING
+- frontend ok on port 8081
+- backend ok on port 8001
+- postgres locale ok on port 5433
+- schema imported
+- famiglie_catalog_static loaded
+- greenhouse_forecast_results_v2 loaded
+- frontend connected to backend

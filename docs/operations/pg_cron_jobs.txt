@@ -1,0 +1,17 @@
+ jobid |       schedule       |                                       command                                       
+-------+----------------------+-------------------------------------------------------------------------------------
+    11 | */5 10-11 * * *      | set statement_timeout = 0; call public.run_greenhouse_daily_pipeline_full(40,14,2);
+    12 | 5 1 * * *            | set statement_timeout = 0; select public.core_planner__nightly_roll4_reset();
+    13 | 0 12 * * *           | set statement_timeout=0; select public.core_planner__nightly_roll4_tick(2);
+    28 | */15 * * * *         | select public.ops_pipeline_monitor_snapshot();
+    29 | */5 19-23 * * *      | set statement_timeout=0; select public.ops_maybe_run_daily_pipeline();
+    30 | * * * * *            | set statement_timeout = 0; call public.run_greenhouse_daily_pipeline_full(40,14,2);
+    31 | */10 19-23 * * *     | select public.ops_refresh_pipeline_monitor_snapshot();
+    32 | */2 10-12 * * *      | select public.ops_refresh_pipeline_monitor_snapshot();
+    34 | */30 0-9,13-23 * * * | select public.ops_refresh_pipeline_monitor_snapshot();
+    35 | */5 9-11 * * *       | select public.ops_refresh_pipeline_monitor_snapshot();
+    37 | */5 9-11 * * *       | select public.ops_maybe_run_daily_pipeline();
+    38 | * * * * *            | set statement_timeout=0; select public.ops_maybe_run_daily_pipeline();
+    39 | * * * * *            | set statement_timeout=0; call public.run_greenhouse_daily_pipeline_full(40,14,2);
+(13 rows)
+

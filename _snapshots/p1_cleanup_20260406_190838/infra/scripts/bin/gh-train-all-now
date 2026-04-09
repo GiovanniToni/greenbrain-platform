@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd /opt/greenhouse/repo
+source /opt/greenhouse/venv/bin/activate
+set +H
+set -a
+set +a
+
+unset TRAIN_ONLY_FAMILY
+unset TRAIN_LIMIT
+
+export RUN_TRIGGER_SOURCE=manual
+export RUN_TYPE=train_all_biweekly_manual
+python3 -u -m jobs.train_all_monitor

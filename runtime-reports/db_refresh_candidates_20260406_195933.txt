@@ -1,0 +1,17 @@
+=== PG_PROC CANDIDATES ===
+ schema_name |             function_name             |               args               
+-------------+---------------------------------------+----------------------------------
+ public      | refresh_dense_range_from_fact         | p_start date, p_end date
+ public      | refresh_fact_from_raw                 | p_from_date date, p_to_date date
+ public      | refresh_forecast_features_dense_range | p_start date, p_end date
+(3 rows)
+
+
+=== INFORMATION_SCHEMA ROUTINES ===
+ routine_schema |             routine_name              | routine_type 
+----------------+---------------------------------------+--------------
+ public         | refresh_dense_range_from_fact         | FUNCTION
+ public         | refresh_fact_from_raw                 | FUNCTION
+ public         | refresh_forecast_features_dense_range | FUNCTION
+(3 rows)
+

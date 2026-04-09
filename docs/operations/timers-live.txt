@@ -1,0 +1,6 @@
+Thu 2026-03-26 21:36:48 CET  6h left              Wed 2026-03-25 21:36:11 CET 17h ago           gh-parquet-export.timer        gh-parquet-export.service
+Fri 2026-03-27 00:46:42 CET  9h left              Thu 2026-03-26 00:46:47 CET 14h ago           gh-refresh-registry.timer      gh-refresh-registry.service
+Fri 2026-03-27 01:10:44 CET  9h left              Thu 2026-03-26 01:10:40 CET 14h ago           gh-train-missing.timer         gh-train-missing.service
+Fri 2026-03-27 01:30:02 CET  10h left             Thu 2026-03-26 01:32:12 CET 13h ago           gh-predict-all.timer           gh-predict-all.service
+Wed 2026-04-01 02:30:40 CEST 5 days left          Sun 2026-02-22 21:46:02 CET 1 month 1 day ago gh-train-quarterly.timer       gh-train-quarterly.service
+Sun 2026-11-01 02:00:16 CET  7 months 6 days left Sun 2026-03-15 02:04:40 CET 1 week 4 days ago gh-train-biweekly-all.timer    gh-train-biweekly-all.service

@@ -1,0 +1,13 @@
+version: "3.9"
+
+services:
+  dev_backend:
+    build:
+      context: ../../apps/backend
+      dockerfile: Dockerfile
+    container_name: dev_backend
+    restart: unless-stopped
+    env_file:
+      - ../env/dev.env
+    ports:
+      - "8081:8000"

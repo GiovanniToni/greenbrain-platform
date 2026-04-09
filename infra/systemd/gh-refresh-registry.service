@@ -1,0 +1,22 @@
+[Unit]
+Description=Greenhouse - Refresh Family Registry
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Environment=APP_ENV=dev
+Type=oneshot
+User=gh
+Group=gh
+WorkingDirectory=/opt/greenbrain-platform/apps/ml-worker
+Environment=RUN_TRIGGER_SOURCE=systemd_timer
+ExecStartPre=/bin/bash -lc 'export APP_ENV=${APP_ENV:-dev}; source /opt/greenbrain-platform/infra/scripts/load_env.sh; /opt/greenbrain-platform/infra/scripts/bin/gh-refresh-ml-diag'
+ExecStart=/bin/bash -lc 'source /opt/greenbrain-platform/apps/ml-worker/.venv/bin/activate && cd /opt/greenbrain-platform/apps/ml-worker && /opt/greenbrain-platform/infra/scripts/bin/gh-refresh-registry'
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

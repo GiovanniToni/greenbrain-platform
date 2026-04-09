@@ -1,0 +1,251 @@
+import os
+import re
+import unicodedata
+from pathlib import Path
+from typing import Optional, Tuple, List
+
+import pandas as pd
+
+# Optional dependency only if PARQUET is enabled
+from storage.backend import get_storage_backend
+
+
+def normalize_family_name(s: str) -> str:
+    """
+    Normalize family string for consistent lookups:
+    - strip
+    - collapse any whitespace (spaces/newlines/tabs) to single space
+    """
+    s = (s or "").strip()
+    s = re.sub(r"\s+", " ", s)
+    return s
+
+
+def safe_slug(s: str) -> str:
+    # Stable slug:
+    # - lowercase + strip
+    # - replace € -> eur
+    # - replace spaces -> _
+    # - remove accents/diacritics (pansè -> panse)
+    import unicodedata
+    s = (s or "").strip().lower()
+    s = s.replace("€", "eur").replace(" ", "_")
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    return s
+
+
+def _env_bool(name: str, default: str = "1") -> bool:
+    v = os.getenv(name, default)
+    return str(v).strip().lower() in ("1", "true", "yes", "y", "on")
+
+
+def parquet_cache_dir() -> Path:
+    base = os.getenv("PARQUET_CACHE_DIR", "")
+    if base.strip():
+        return Path(base).expanduser()
+    return Path(__file__).resolve().parent / "parquet_cache"
+
+
+
+
+def _remote_parquet_path(year: int, famiglia_slug: str) -> str:
+    # Must match exporter: features_dense/v1/year=YYYY/famiglia_slug=<slug>/part.parquet
+    return f"features_dense/v1/year={int(year)}/famiglia_slug={famiglia_slug}/part.parquet"
+
+
+def _local_parquet_path(year: int, famiglia_slug: str) -> Path:
+    d = parquet_cache_dir() / "features_dense" / "v1" / f"year={int(year)}" / f"famiglia_slug={famiglia_slug}"
+    d.mkdir(parents=True, exist_ok=True)
+    return d / "part.parquet"
+
+
+def _download_one_parquet(year: int, famiglia_slug: str, force: bool = False) -> Optional[Path]:
+    lp = _local_parquet_path(year, famiglia_slug)
+    if lp.exists() and not force:
+        return lp
+
+    storage = get_storage_backend()
+    rp = _remote_parquet_path(year, famiglia_slug)
+
+    # legacy alternate: supporta slug con '_' invece di '-' (o viceversa)
+    alt_slug = None
+    if "-" in str(famiglia_slug) and "_" not in str(famiglia_slug):
+        alt_slug = str(famiglia_slug).replace("-", "_")
+    elif "_" in str(famiglia_slug) and "-" not in str(famiglia_slug):
+        alt_slug = str(famiglia_slug).replace("_", "-")
+
+    alt_rp = _remote_parquet_path(year, alt_slug) if alt_slug else None
+
+    data = None
+    try:
+        # tenta slug primario
+        data = sb.storage.from_(bucket).download(rp)
+    except Exception:
+        # fallback legacy
+        if alt_rp:
+            try:
+                data = sb.storage.from_(bucket).download(alt_rp)
+            except Exception:
+                data = None
+
+    if data is None:
+        # non trovato né primario né legacy
+        return None
+
+    # salva SEMPRE sul path richiesto
+    lp.write_bytes(data)
+
+    # canonizza cache LOCALE:
+    # se mi hanno chiamato con '_' (legacy) e ho alt_slug con '-', salva anche il canonico con '-'
+    if alt_slug and "_" in str(famiglia_slug) and "-" not in str(famiglia_slug):
+        canon_lp = _local_parquet_path(year, alt_slug)
+        if not canon_lp.exists():
+            canon_lp.write_bytes(data)
+
+    return lp
+
+def _years_range(min_date: str) -> Tuple[int, int]:
+    d0 = pd.to_datetime(min_date).date()
+    y0 = int(d0.year)
+    # upper bound: current year + 1 is safe; we also have year_num in data
+    y1 = int(pd.Timestamp.utcnow().year) + 1
+    return y0, y1
+
+
+def load_family_df_parquet_or_db(
+    engine,
+    famiglia: str,
+    min_date: str,
+    feature_table: str = "public.greenhouse_forecast_features_dense",
+    famiglia_slug=None,
+) -> pd.DataFrame:
+    """
+    Train use-case: load full history for a family (>= min_date).
+    Parquet-first if PARQUET_ENABLE=1, else DB.
+    """
+    famiglia = normalize_family_name(famiglia)
+    if not famiglia:
+        return pd.DataFrame()
+
+    use_parquet = _env_bool("PARQUET_ENABLE", "1")
+    fam_slug = safe_slug(famiglia_slug or famiglia)
+
+    if use_parquet:
+        print(f"SOURCE=PARQUET train family='{famiglia}' slug='{fam_slug}'", flush=True)
+        y0, y1 = _years_range(min_date)
+        parts: List[pd.DataFrame] = []
+        for y in range(y0, y1 + 1):
+            force_flag = _env_bool("PARQUET_FORCE", "0")
+            current_year = int(pd.Timestamp.utcnow().year)
+            force_y = bool(force_flag) or (int(y) >= current_year - 1)
+            lp = _download_one_parquet(y, fam_slug, force=force_y)
+            if lp is None:
+                continue
+            try:
+                dfy = pd.read_parquet(lp)
+                if not dfy.empty:
+                    parts.append(dfy)
+            except Exception:
+                continue
+
+        if parts:
+            df = pd.concat(parts, ignore_index=True)
+            # filter by min_date
+            df["data"] = pd.to_datetime(df["data"], errors="coerce")
+            df = df[df["data"] >= pd.to_datetime(min_date)]
+            # keep stable sort
+            if "fascia_prezzo_iva_inc" in df.columns:
+                df = df.sort_values(["data", "fascia_prezzo_iva_inc"])
+            else:
+                df = df.sort_values(["data"])
+            return df.reset_index(drop=True)
+
+        # If parquet enabled but nothing found, fall back to DB.
+        print(f"SOURCE=DB_FALLBACK (no parquet parts) train family='{famiglia}'", flush=True)
+
+    else:
+        print(f"SOURCE=DB train family='{famiglia}'", flush=True)
+
+    # Fallback DB (robust matching on whitespace)
+    from sqlalchemy import text
+    q = text(
+        f"""
+        SELECT
+          data,
+          famiglia,
+          fascia_prezzo_iva_inc,
+          qty_venduta,
+          tmin_c, tmax_c, tavg_c, rain_mm, sun_hours,
+          is_holiday, dow, week_num, month_num, year_num,
+          qty_lag_1, qty_lag_2, qty_lag_3, qty_lag_7, qty_lag_10, qty_lag_14,
+          qty_ma_3, qty_ma_7, qty_ma_10, qty_ma_14, qty_ma_28
+        FROM {feature_table}
+        WHERE regexp_replace(lower(btrim(famiglia)), '\\s+', ' ', 'g')
+              = regexp_replace(lower(:famiglia), '\\s+', ' ', 'g')
+          AND data >= :min_date
+        ORDER BY data, fascia_prezzo_iva_inc;
+        """
+    )
+    return pd.read_sql(q, engine, params={"famiglia": famiglia, "min_date": min_date})
+
+
+def load_hist_for_predict_parquet_or_db(
+    engine,
+    famiglia: str,
+    feature_table: str = "public.greenhouse_forecast_features_dense",
+    famiglia_slug=None,
+) -> pd.DataFrame:
+    """
+    Predict use-case: load full history for shares + queues.
+    Parquet-first if PARQUET_ENABLE=1, else DB.
+    """
+    famiglia = normalize_family_name(famiglia)
+    if not famiglia:
+        return pd.DataFrame()
+
+    use_parquet = _env_bool("PARQUET_ENABLE", "1")
+    fam_slug = safe_slug(famiglia_slug or famiglia)
+
+    if use_parquet:
+        print(f"SOURCE=PARQUET predict family='{famiglia}' slug='{fam_slug}'", flush=True)
+        # Predict wants full history; start from 2009
+        y0, y1 = 2009, int(pd.Timestamp.utcnow().year) + 1
+        parts: List[pd.DataFrame] = []
+        for y in range(y0, y1 + 1):
+            force_flag = _env_bool("PARQUET_FORCE", "0")
+            current_year = int(pd.Timestamp.utcnow().year)
+            force_y = bool(force_flag) or (int(y) >= current_year - 1)
+            lp = _download_one_parquet(y, fam_slug, force=force_y)
+            if lp is None:
+                continue
+            try:
+                dfy = pd.read_parquet(lp)
+                if not dfy.empty:
+                    parts.append(dfy[["data", "fascia_prezzo_iva_inc", "qty_venduta"]].copy())
+            except Exception:
+                continue
+
+        if parts:
+            hist = pd.concat(parts, ignore_index=True)
+            hist["data"] = pd.to_datetime(hist["data"], errors="coerce")
+            hist = hist.sort_values(["data", "fascia_prezzo_iva_inc"]).reset_index(drop=True)
+            return hist
+
+        print(f"SOURCE=DB_FALLBACK (no parquet parts) predict family='{famiglia}'", flush=True)
+
+    else:
+        print(f"SOURCE=DB predict family='{famiglia}'", flush=True)
+
+    # Fallback DB (robust matching on whitespace)
+    from sqlalchemy import text
+    q_hist = text(
+        f"""
+        SELECT data, fascia_prezzo_iva_inc, qty_venduta
+        FROM {feature_table}
+        WHERE regexp_replace(lower(btrim(famiglia)), '\\s+', ' ', 'g')
+              = regexp_replace(lower(:famiglia), '\\s+', ' ', 'g')
+        ORDER BY data, fascia_prezzo_iva_inc;
+        """
+    )
+    return pd.read_sql(q_hist, engine, params={"famiglia": famiglia})

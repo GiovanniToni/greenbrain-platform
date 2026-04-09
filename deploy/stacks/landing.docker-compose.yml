@@ -1,0 +1,9 @@
+services:
+  landing:
+    image: nginx:alpine
+    container_name: greenbrain_landing
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    volumes:
+      - ../landing/index.html:/usr/share/nginx/html/index.html:ro

@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  auth_postgres:
+    image: postgres:16-alpine
+    container_name: auth_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: greenbrain_auth
+      POSTGRES_USER: greenbrain_auth
+      POSTGRES_PASSWORD: GreenbrainTest123!
+    ports:
+      - "55442:5432"
+    volumes:
+      - auth_postgres_data:/var/lib/postgresql/data
+      - ../../client-runtime/sql/init/14_schema_auth.sql:/docker-entrypoint-initdb.d/14_schema_auth.sql:ro
+
+  auth_backend:
+    build:
+      context: ../../apps/backend
+      dockerfile: Dockerfile
+    container_name: auth_backend
+    restart: unless-stopped
+    env_file:
+      - ../env/auth.env
+    ports:
+      - "3001:8000"
+    depends_on:
+      - auth_postgres
+
+volumes:
+  auth_postgres_data:

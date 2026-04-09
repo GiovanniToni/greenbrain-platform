@@ -1,0 +1,140 @@
+"""
+jobs/common.py — shared bootstrap for all GreenBrain ML worker jobs.
+
+Replaces every job's repeated block of:
+    load_dotenv(<env_file>)   # resolved by load_env()
+    sys.path.insert(0, <worker_root>)  # done by setup_import_path()
+
+Usage in each job (at the top, before other local imports):
+    from jobs.common import load_env, setup_import_path, get_log_dir, job_script, base_arg_parser
+    load_env()
+    setup_import_path()
+"""
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+from pathlib import Path
+
+
+# ── Path helpers ──────────────────────────────────────────────────────────────
+
+def get_worker_root() -> Path:
+    """Return the ml-worker root directory (parent of jobs/).
+    Works regardless of CWD or how the script is launched."""
+    return Path(__file__).resolve().parent.parent
+
+
+def get_repo_dir() -> Path:
+    """GH_REPO_DIR env var, or the ml-worker root computed from __file__."""
+    explicit = os.getenv("GH_REPO_DIR", "").strip()
+    return Path(explicit).resolve() if explicit else get_worker_root()
+
+
+def get_log_dir() -> Path:
+    """GH_LOG_DIR env var, or <worker_root>/logs."""
+    explicit = os.getenv("GH_LOG_DIR", "").strip()
+    return Path(explicit).resolve() if explicit else get_worker_root() / "logs"
+
+
+def get_models_dir() -> Path:
+    """GH_MODELS_DIR env var, or <worker_root>/models_v4."""
+    explicit = os.getenv("GH_MODELS_DIR", "").strip()
+    return Path(explicit).resolve() if explicit else get_worker_root() / "models_v4"
+
+
+def job_script(name: str) -> str:
+    """Absolute path to a job script, e.g. job_script('predict_family_router')."""
+    return str(get_repo_dir() / "jobs" / f"{name}.py")
+
+
+def worker_script(name: str) -> str:
+    """Absolute path to a top-level ml-worker script, e.g. worker_script('predict_v4_single_family_tweedie')."""
+    return str(get_repo_dir() / f"{name}.py")
+
+
+# ── Environment loading ───────────────────────────────────────────────────────
+
+def _locate_env_file() -> str | None:
+    """
+    Search order:
+      1. GB_ENV_FILE env var (explicit override)
+      2. <repo_root>/infra/env/dev.env
+      3. <repo_root>/infra/env/client.env
+      4. /opt/greenbrain/.env  (legacy fallback)
+    Returns None if nothing found; load_dotenv handles None silently.
+    """
+    explicit = os.getenv("GB_ENV_FILE", "").strip()
+    if explicit:
+        return explicit
+
+    repo_root = get_worker_root().parent.parent  # greenbrain-platform root
+    candidates = [
+        repo_root / "infra" / "env" / "dev.env",
+        repo_root / "infra" / "env" / "client.env",
+        Path("/opt/greenbrain/.env"),
+        Path("/opt/greenbrain/.env"),
+    ]
+    for c in candidates:
+        if c.exists():
+            return str(c)
+    return None
+
+
+def load_env() -> None:
+    """
+    Load .env into the process environment.
+    Real environment variables always take precedence (override=False).
+    Safe to call multiple times.
+    """
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        return  # dotenv not installed in this context — env must be set externally
+    load_dotenv(_locate_env_file(), override=False)
+
+
+# ── sys.path setup ────────────────────────────────────────────────────────────
+
+def setup_import_path() -> None:
+    """
+    Ensure the ml-worker root is on sys.path so that
+    `from jobs.X import Y` and `from storage.X import Y` work regardless
+    of CWD or launch method (systemd, cron, docker exec, python -m).
+    """
+    root = str(get_worker_root())
+    if root not in sys.path:
+        sys.path.insert(0, root)
+
+
+# ── Standard CLI ──────────────────────────────────────────────────────────────
+
+def base_arg_parser(description: str = "", **kwargs) -> argparse.ArgumentParser:
+    """
+    Return an ArgumentParser with the standard GreenBrain ML job flags.
+
+    Flags:
+        --start-date  YYYY-MM-DD   override start of processing window
+        --end-date    YYYY-MM-DD   override end of processing window
+        --limit       N            max families/rows to process (0 = no limit)
+        --dry-run                  log plan, skip all writes and external calls
+    """
+    p = argparse.ArgumentParser(description=description, **kwargs)
+    p.add_argument(
+        "--start-date", metavar="YYYY-MM-DD", default=None,
+        help="Override start date for this job run",
+    )
+    p.add_argument(
+        "--end-date", metavar="YYYY-MM-DD", default=None,
+        help="Override end date for this job run",
+    )
+    p.add_argument(
+        "--limit", type=int, default=0,
+        help="Max families/records to process (0 = no limit; overrides env PREDICT_LIMIT / TRAIN_LIMIT)",
+    )
+    p.add_argument(
+        "--dry-run", action="store_true",
+        help="Parse config and log plan, but skip all writes and subprocess calls",
+    )
+    return p

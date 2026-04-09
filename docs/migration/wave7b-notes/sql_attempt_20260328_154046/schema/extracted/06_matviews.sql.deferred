@@ -1,0 +1,1184 @@
+-- GreenBrain Client Runtime — Materialized views (optional)
+-- Extracted from Supabase/local schema snapshot (sql/schema/current-schema.sql)
+-- Wave 7B — DO NOT hand-edit; re-run extract-schema.py to regenerate
+--
+-- Apply order: 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08
+-- (tables before views, views before functions)
+--
+--
+-- Name: mv_family_day_base; Type: MATERIALIZED VIEW; Schema: ml_diag; Owner: -
+--
+
+CREATE MATERIALIZED VIEW ml_diag.mv_family_day_base AS
+ SELECT data,
+    lower(TRIM(BOTH FROM famiglia)) AS family_name,
+    (sum(COALESCE(qty_venduta, (0)::numeric)))::numeric(14,3) AS qty_total,
+    (sum(COALESCE(imponibile_netto_tot, (0)::numeric)))::numeric(14,2) AS value_total,
+    (sum(COALESCE(num_articoli, 0)))::integer AS num_articoli_total
+   FROM public.greenhouse_sales_family_daily_dense
+  WHERE ((famiglia IS NOT NULL) AND (TRIM(BOTH FROM famiglia) <> ''::text))
+  GROUP BY data, (lower(TRIM(BOTH FROM famiglia)))
+  WITH NO DATA;
+
+--
+-- Name: mv_family_stats; Type: MATERIALIZED VIEW; Schema: ml_diag; Owner: -
+--
+
+CREATE MATERIALIZED VIEW ml_diag.mv_family_stats AS
+ WITH fam AS (
+         SELECT mv_family_day_base.family_name,
+            count(*) AS days_total,
+            sum(
+                CASE
+                    WHEN (mv_family_day_base.qty_total > (0)::numeric) THEN 1
+                    ELSE 0
+                END) AS pos_days,
+            sum(
+                CASE
+                    WHEN (mv_family_day_base.qty_total = (0)::numeric) THEN 1
+                    ELSE 0
+                END) AS zero_days,
+            (sum(mv_family_day_base.qty_total))::numeric(16,3) AS qty_total,
+            (sum(mv_family_day_base.value_total))::numeric(16,2) AS value_total,
+            (avg(mv_family_day_base.qty_total))::numeric(16,6) AS qty_avg_all_days,
+            (avg(
+                CASE
+                    WHEN (mv_family_day_base.qty_total > (0)::numeric) THEN mv_family_day_base.qty_total
+                    ELSE NULL::numeric
+                END))::numeric(16,6) AS qty_avg_pos_days,
+            (stddev_samp(
+                CASE
+                    WHEN (mv_family_day_base.qty_total > (0)::numeric) THEN mv_family_day_base.qty_total
+                    ELSE NULL::numeric
+                END))::numeric(16,6) AS qty_std_pos_days,
+            (avg(mv_family_day_base.value_total))::numeric(16,6) AS value_avg_all_days,
+            (avg(
+                CASE
+                    WHEN (mv_family_day_base.value_total > (0)::numeric) THEN mv_family_day_base.value_total
+                    ELSE NULL::numeric
+                END))::numeric(16,6) AS value_avg_pos_days,
+            (stddev_samp(
+                CASE
+                    WHEN (mv_family_day_base.value_total > (0)::numeric) THEN mv_family_day_base.value_total
+                    ELSE NULL::numeric
+                END))::numeric(16,6) AS value_std_pos_days,
+            min(mv_family_day_base.data) AS min_date,
+            max(mv_family_day_base.data) AS max_date,
+            (count(DISTINCT EXTRACT(year FROM mv_family_day_base.data)))::integer AS years_count,
+            (count(DISTINCT
+                CASE
+                    WHEN (mv_family_day_base.qty_total > (0)::numeric) THEN EXTRACT(month FROM mv_family_day_base.data)
+                    ELSE NULL::numeric
+                END))::integer AS active_months,
+            (count(DISTINCT
+                CASE
+                    WHEN (mv_family_day_base.value_total > (0)::numeric) THEN EXTRACT(month FROM mv_family_day_base.data)
+                    ELSE NULL::numeric
+                END))::integer AS active_value_months
+           FROM ml_diag.mv_family_day_base
+          GROUP BY mv_family_day_base.family_name
+        )
+ SELECT family_name,
+    days_total,
+    pos_days,
+    zero_days,
+    round(((zero_days)::numeric / (NULLIF(days_total, 0))::numeric), 4) AS zero_rate,
+    round(((pos_days)::numeric / (NULLIF(days_total, 0))::numeric), 4) AS pos_rate,
+    qty_total,
+    round(qty_avg_all_days, 4) AS qty_avg_all_days,
+    round(qty_avg_pos_days, 4) AS qty_avg_pos_days,
+    round(qty_std_pos_days, 4) AS qty_std_pos_days,
+    value_total,
+    round(value_avg_all_days, 4) AS value_avg_all_days,
+    round(value_avg_pos_days, 4) AS value_avg_pos_days,
+    round(value_std_pos_days, 4) AS value_std_pos_days,
+    years_count,
+    active_months,
+    active_value_months,
+    min_date,
+    max_date
+   FROM fam
+  WITH NO DATA;
+
+--
+-- Name: mv_family_importance; Type: MATERIALIZED VIEW; Schema: ml_diag; Owner: -
+--
+
+CREATE MATERIALIZED VIEW ml_diag.mv_family_importance AS
+ WITH base AS (
+         SELECT mv_family_stats.family_name,
+            mv_family_stats.qty_total,
+            mv_family_stats.value_total
+           FROM ml_diag.mv_family_stats
+        ), qty_ranked AS (
+         SELECT base.family_name,
+            base.qty_total,
+            sum(base.qty_total) OVER () AS total_qty,
+            sum(base.qty_total) OVER (ORDER BY base.qty_total DESC, base.family_name) AS cum_qty
+           FROM base
+        ), value_ranked AS (
+         SELECT base.family_name,
+            base.value_total,
+            sum(base.value_total) OVER () AS total_value,
+            sum(base.value_total) OVER (ORDER BY base.value_total DESC, base.family_name) AS cum_value
+           FROM base
+        )
+ SELECT q.family_name,
+    q.qty_total,
+    round(((q.qty_total / NULLIF(q.total_qty, (0)::numeric)) * (100)::numeric), 4) AS qty_pct_total,
+    round(((q.cum_qty / NULLIF(q.total_qty, (0)::numeric)) * (100)::numeric), 4) AS qty_cum_pct,
+        CASE
+            WHEN ((q.cum_qty / NULLIF(q.total_qty, (0)::numeric)) <= 0.80) THEN 'core_80'::text
+            WHEN ((q.cum_qty / NULLIF(q.total_qty, (0)::numeric)) <= 0.95) THEN 'mid_95'::text
+            ELSE 'tail'::text
+        END AS qty_tier,
+    v.value_total,
+    round(((v.value_total / NULLIF(v.total_value, (0)::numeric)) * (100)::numeric), 4) AS value_pct_total,
+    round(((v.cum_value / NULLIF(v.total_value, (0)::numeric)) * (100)::numeric), 4) AS value_cum_pct,
+        CASE
+            WHEN ((v.cum_value / NULLIF(v.total_value, (0)::numeric)) <= 0.80) THEN 'core_80'::text
+            WHEN ((v.cum_value / NULLIF(v.total_value, (0)::numeric)) <= 0.95) THEN 'mid_95'::text
+            ELSE 'tail'::text
+        END AS value_tier,
+        CASE
+            WHEN (((q.cum_qty / NULLIF(q.total_qty, (0)::numeric)) <= 0.80) OR ((v.cum_value / NULLIF(v.total_value, (0)::numeric)) <= 0.80)) THEN 'core'::text
+            WHEN (((q.cum_qty / NULLIF(q.total_qty, (0)::numeric)) <= 0.95) OR ((v.cum_value / NULLIF(v.total_value, (0)::numeric)) <= 0.95)) THEN 'important'::text
+            ELSE 'tail'::text
+        END AS business_tier
+   FROM (qty_ranked q
+     JOIN value_ranked v ON ((v.family_name = q.family_name)))
+  WITH NO DATA;
+
+--
+-- Name: mv_family_intermittency; Type: MATERIALIZED VIEW; Schema: ml_diag; Owner: -
+--
+
+CREATE MATERIALIZED VIEW ml_diag.mv_family_intermittency AS
+ WITH pos AS (
+         SELECT mv_family_day_base.family_name,
+            mv_family_day_base.data,
+            mv_family_day_base.qty_total,
+            lag(mv_family_day_base.data) OVER (PARTITION BY mv_family_day_base.family_name ORDER BY mv_family_day_base.data) AS prev_data
+           FROM ml_diag.mv_family_day_base
+          WHERE (mv_family_day_base.qty_total > (0)::numeric)
+        ), intervals AS (
+         SELECT pos.family_name,
+            ((pos.data - pos.prev_data))::numeric AS interval_days
+           FROM pos
+          WHERE (pos.prev_data IS NOT NULL)
+        ), adi AS (
+         SELECT intervals.family_name,
+            round(avg(intervals.interval_days), 4) AS adi
+           FROM intervals
+          GROUP BY intervals.family_name
+        ), cv2 AS (
+         SELECT mv_family_day_base.family_name,
+            round(power((stddev_samp(mv_family_day_base.qty_total) / NULLIF(avg(mv_family_day_base.qty_total), (0)::numeric)), (2)::numeric), 4) AS cv2_pos
+           FROM ml_diag.mv_family_day_base
+          WHERE (mv_family_day_base.qty_total > (0)::numeric)
+          GROUP BY mv_family_day_base.family_name
+        )
+ SELECT s.family_name,
+    a.adi,
+    c.cv2_pos
+   FROM ((( SELECT DISTINCT mv_family_day_base.family_name
+           FROM ml_diag.mv_family_day_base) s
+     LEFT JOIN adi a ON ((a.family_name = s.family_name)))
+     LEFT JOIN cv2 c ON ((c.family_name = s.family_name)))
+  WITH NO DATA;
+
+--
+-- Name: mv_family_metrics_v3; Type: MATERIALIZED VIEW; Schema: ml_diag; Owner: -
+--
+
+CREATE MATERIALIZED VIEW ml_diag.mv_family_metrics_v3 AS
+ WITH base AS (
+         SELECT mv_family_day_base.family_name,
+            mv_family_day_base.data,
+            mv_family_day_base.qty_total,
+            mv_family_day_base.value_total,
+            EXTRACT(month FROM mv_family_day_base.data) AS mm
+           FROM ml_diag.mv_family_day_base
+        ), month_qty AS (
+         SELECT base.family_name,
+            base.mm,
+            sum(base.qty_total) AS qty_month
+           FROM base
+          GROUP BY base.family_name, base.mm
+        ), month_rank AS (
+         SELECT month_qty.family_name,
+            month_qty.qty_month,
+            row_number() OVER (PARTITION BY month_qty.family_name ORDER BY month_qty.qty_month DESC) AS rn
+           FROM month_qty
+        ), month_concentration AS (
+         SELECT month_rank.family_name,
+            sum(month_rank.qty_month) FILTER (WHERE (month_rank.rn <= 3)) AS top3_month_qty
+           FROM month_rank
+          GROUP BY month_rank.family_name
+        ), top_days AS (
+         SELECT x.family_name,
+            sum(x.qty_total) FILTER (WHERE (x.rank <= 10)) AS top10_days_qty
+           FROM ( SELECT base.family_name,
+                    base.qty_total,
+                    row_number() OVER (PARTITION BY base.family_name ORDER BY base.qty_total DESC) AS rank
+                   FROM base) x
+          GROUP BY x.family_name
+        ), stats AS (
+         SELECT base.family_name,
+            sum(base.qty_total) AS qty_total,
+            sum(base.value_total) AS value_total,
+            avg(base.qty_total) AS avg_qty,
+            stddev_samp(base.qty_total) AS std_qty,
+            avg(base.value_total) AS avg_value,
+            stddev_samp(base.value_total) AS std_value
+           FROM base
+          GROUP BY base.family_name
+        )
+ SELECT s.family_name,
+    s.qty_total,
+    s.value_total,
+    round((s.std_qty / NULLIF(s.avg_qty, (0)::numeric)), 4) AS cv_total_qty,
+    round((s.std_value / NULLIF(s.avg_value, (0)::numeric)), 4) AS cv_total_value,
+    round((m.top3_month_qty / NULLIF(s.qty_total, (0)::numeric)), 4) AS season_concentration,
+    round((d.top10_days_qty / NULLIF(s.qty_total, (0)::numeric)), 4) AS peak_concentration
+   FROM ((stats s
+     LEFT JOIN month_concentration m ON ((m.family_name = s.family_name)))
+     LEFT JOIN top_days d ON ((d.family_name = s.family_name)))
+  WITH NO DATA;
+
+--
+-- Name: mv_family_metrics_v3b; Type: MATERIALIZED VIEW; Schema: ml_diag; Owner: -
+--
+
+CREATE MATERIALIZED VIEW ml_diag.mv_family_metrics_v3b AS
+ WITH day_base AS (
+         SELECT mv_family_day_base.family_name,
+            mv_family_day_base.data,
+            mv_family_day_base.qty_total,
+            mv_family_day_base.value_total,
+            (EXTRACT(month FROM mv_family_day_base.data))::integer AS mm,
+            (EXTRACT(isodow FROM mv_family_day_base.data))::integer AS isodow,
+            (date_trunc('week'::text, (mv_family_day_base.data)::timestamp with time zone))::date AS week_start,
+            (date_trunc('month'::text, (mv_family_day_base.data)::timestamp with time zone))::date AS month_start
+           FROM ml_diag.mv_family_day_base
+        ), totals AS (
+         SELECT day_base.family_name,
+            sum(day_base.qty_total) AS qty_total,
+            sum(day_base.value_total) AS value_total
+           FROM day_base
+          GROUP BY day_base.family_name
+        ), pos_day_stats AS (
+         SELECT day_base.family_name,
+            avg(
+                CASE
+                    WHEN (day_base.qty_total > (0)::numeric) THEN day_base.qty_total
+                    ELSE NULL::numeric
+                END) AS avg_qty_pos,
+            stddev_samp(
+                CASE
+                    WHEN (day_base.qty_total > (0)::numeric) THEN day_base.qty_total
+                    ELSE NULL::numeric
+                END) AS std_qty_pos,
+            avg(
+                CASE
+                    WHEN (day_base.value_total > (0)::numeric) THEN day_base.value_total
+                    ELSE NULL::numeric
+                END) AS avg_value_pos,
+            stddev_samp(
+                CASE
+                    WHEN (day_base.value_total > (0)::numeric) THEN day_base.value_total
+                    ELSE NULL::numeric
+                END) AS std_value_pos
+           FROM day_base
+          GROUP BY day_base.family_name
+        ), week_base AS (
+         SELECT day_base.family_name,
+            day_base.week_start,
+            sum(day_base.qty_total) AS qty_week,
+            sum(day_base.value_total) AS value_week
+           FROM day_base
+          GROUP BY day_base.family_name, day_base.week_start
+        ), week_stats AS (
+         SELECT week_base.family_name,
+            avg(week_base.qty_week) AS avg_qty_week,
+            stddev_samp(week_base.qty_week) AS std_qty_week,
+            avg(week_base.value_week) AS avg_value_week,
+            stddev_samp(week_base.value_week) AS std_value_week
+           FROM week_base
+          GROUP BY week_base.family_name
+        ), month_base AS (
+         SELECT day_base.family_name,
+            day_base.month_start,
+            sum(day_base.qty_total) AS qty_month,
+            sum(day_base.value_total) AS value_month
+           FROM day_base
+          GROUP BY day_base.family_name, day_base.month_start
+        ), month_stats AS (
+         SELECT month_base.family_name,
+            avg(month_base.qty_month) AS avg_qty_month,
+            stddev_samp(month_base.qty_month) AS std_qty_month,
+            avg(month_base.value_month) AS avg_value_month,
+            stddev_samp(month_base.value_month) AS std_value_month
+           FROM month_base
+          GROUP BY month_base.family_name
+        ), month_qty_ranked AS (
+         SELECT month_base.family_name,
+            month_base.month_start,
+            month_base.qty_month,
+            row_number() OVER (PARTITION BY month_base.family_name ORDER BY month_base.qty_month DESC, month_base.month_start) AS rn
+           FROM month_base
+        ), month_value_ranked AS (
+         SELECT month_base.family_name,
+            month_base.month_start,
+            month_base.value_month,
+            row_number() OVER (PARTITION BY month_base.family_name ORDER BY month_base.value_month DESC, month_base.month_start) AS rn
+           FROM month_base
+        ), top3_month_qty AS (
+         SELECT month_qty_ranked.family_name,
+            sum(month_qty_ranked.qty_month) FILTER (WHERE (month_qty_ranked.rn <= 3)) AS top3_month_qty
+           FROM month_qty_ranked
+          GROUP BY month_qty_ranked.family_name
+        ), top3_month_value AS (
+         SELECT month_value_ranked.family_name,
+            sum(month_value_ranked.value_month) FILTER (WHERE (month_value_ranked.rn <= 3)) AS top3_month_value
+           FROM month_value_ranked
+          GROUP BY month_value_ranked.family_name
+        ), day_qty_ranked AS (
+         SELECT day_base.family_name,
+            day_base.data,
+            day_base.qty_total,
+            row_number() OVER (PARTITION BY day_base.family_name ORDER BY day_base.qty_total DESC, day_base.data) AS rn
+           FROM day_base
+        ), day_value_ranked AS (
+         SELECT day_base.family_name,
+            day_base.data,
+            day_base.value_total,
+            row_number() OVER (PARTITION BY day_base.family_name ORDER BY day_base.value_total DESC, day_base.data) AS rn
+           FROM day_base
+        ), top10_day_qty AS (
+         SELECT day_qty_ranked.family_name,
+            sum(day_qty_ranked.qty_total) FILTER (WHERE (day_qty_ranked.rn <= 10)) AS top10_day_qty
+           FROM day_qty_ranked
+          GROUP BY day_qty_ranked.family_name
+        ), top10_day_value AS (
+         SELECT day_value_ranked.family_name,
+            sum(day_value_ranked.value_total) FILTER (WHERE (day_value_ranked.rn <= 10)) AS top10_day_value
+           FROM day_value_ranked
+          GROUP BY day_value_ranked.family_name
+        ), weekday_base AS (
+         SELECT day_base.family_name,
+            day_base.isodow,
+            sum(day_base.qty_total) AS qty_wd,
+            sum(day_base.value_total) AS value_wd
+           FROM day_base
+          GROUP BY day_base.family_name, day_base.isodow
+        ), weekday_stats AS (
+         SELECT weekday_base.family_name,
+            avg(weekday_base.qty_wd) AS avg_qty_wd,
+            stddev_samp(weekday_base.qty_wd) AS std_qty_wd,
+            avg(weekday_base.value_wd) AS avg_value_wd,
+            stddev_samp(weekday_base.value_wd) AS std_value_wd
+           FROM weekday_base
+          GROUP BY weekday_base.family_name
+        )
+ SELECT t.family_name,
+    round(t.qty_total, 3) AS qty_total,
+    round(t.value_total, 2) AS value_total,
+    round((p.std_qty_pos / NULLIF(p.avg_qty_pos, (0)::numeric)), 4) AS cv_pos_qty,
+    round((p.std_value_pos / NULLIF(p.avg_value_pos, (0)::numeric)), 4) AS cv_pos_value,
+    round((w.std_qty_week / NULLIF(w.avg_qty_week, (0)::numeric)), 4) AS cv_week_qty,
+    round((w.std_value_week / NULLIF(w.avg_value_week, (0)::numeric)), 4) AS cv_week_value,
+    round((m.std_qty_month / NULLIF(m.avg_qty_month, (0)::numeric)), 4) AS cv_month_qty,
+    round((m.std_value_month / NULLIF(m.avg_value_month, (0)::numeric)), 4) AS cv_month_value,
+    round((wd.std_qty_wd / NULLIF(wd.avg_qty_wd, (0)::numeric)), 4) AS cv_weekday_qty,
+    round((wd.std_value_wd / NULLIF(wd.avg_value_wd, (0)::numeric)), 4) AS cv_weekday_value,
+    round((q3.top3_month_qty / NULLIF(t.qty_total, (0)::numeric)), 4) AS season_conc_qty,
+    round((v3.top3_month_value / NULLIF(t.value_total, (0)::numeric)), 4) AS season_conc_value,
+    round((dq.top10_day_qty / NULLIF(t.qty_total, (0)::numeric)), 4) AS peak_conc_qty,
+    round((dv.top10_day_value / NULLIF(t.value_total, (0)::numeric)), 4) AS peak_conc_value
+   FROM ((((((((totals t
+     LEFT JOIN pos_day_stats p ON ((p.family_name = t.family_name)))
+     LEFT JOIN week_stats w ON ((w.family_name = t.family_name)))
+     LEFT JOIN month_stats m ON ((m.family_name = t.family_name)))
+     LEFT JOIN weekday_stats wd ON ((wd.family_name = t.family_name)))
+     LEFT JOIN top3_month_qty q3 ON ((q3.family_name = t.family_name)))
+     LEFT JOIN top3_month_value v3 ON ((v3.family_name = t.family_name)))
+     LEFT JOIN top10_day_qty dq ON ((dq.family_name = t.family_name)))
+     LEFT JOIN top10_day_value dv ON ((dv.family_name = t.family_name)))
+  WITH NO DATA;
+
+--
+-- Name: mv_family_metrics_v4; Type: MATERIALIZED VIEW; Schema: ml_diag; Owner: -
+--
+
+CREATE MATERIALIZED VIEW ml_diag.mv_family_metrics_v4 AS
+ WITH day_base AS (
+         SELECT mv_family_day_base.family_name,
+            mv_family_day_base.data,
+            mv_family_day_base.qty_total,
+            mv_family_day_base.value_total,
+            (EXTRACT(year FROM mv_family_day_base.data))::integer AS yy,
+            (EXTRACT(month FROM mv_family_day_base.data))::integer AS mm,
+            (EXTRACT(week FROM mv_family_day_base.data))::integer AS ww,
+            (EXTRACT(isodow FROM mv_family_day_base.data))::integer AS isodow,
+            (EXTRACT(doy FROM mv_family_day_base.data))::integer AS doy,
+            (date_trunc('week'::text, (mv_family_day_base.data)::timestamp with time zone))::date AS week_start,
+            (date_trunc('month'::text, (mv_family_day_base.data)::timestamp with time zone))::date AS month_start
+           FROM ml_diag.mv_family_day_base
+        ), totals AS (
+         SELECT day_base.family_name,
+            sum(day_base.qty_total) AS qty_total,
+            sum(day_base.value_total) AS value_total,
+            count(*) AS n_days,
+            count(*) FILTER (WHERE (day_base.qty_total > (0)::numeric)) AS pos_days_qty,
+            count(*) FILTER (WHERE (day_base.value_total > (0)::numeric)) AS pos_days_value
+           FROM day_base
+          GROUP BY day_base.family_name
+        ), pos_days AS (
+         SELECT day_base.family_name,
+            day_base.data,
+            day_base.qty_total,
+            day_base.value_total,
+            lag(day_base.data) OVER (PARTITION BY day_base.family_name ORDER BY day_base.data) AS prev_data
+           FROM day_base
+          WHERE ((day_base.qty_total > (0)::numeric) OR (day_base.value_total > (0)::numeric))
+        ), gap_stats AS (
+         SELECT pos_days.family_name,
+            (avg((pos_days.data - pos_days.prev_data)))::numeric(12,4) AS avg_gap_days,
+            (percentile_cont((0.5)::double precision) WITHIN GROUP (ORDER BY (((pos_days.data - pos_days.prev_data))::double precision)))::numeric(12,4) AS median_gap_days,
+            (percentile_cont((0.9)::double precision) WITHIN GROUP (ORDER BY (((pos_days.data - pos_days.prev_data))::double precision)))::numeric(12,4) AS p90_gap_days,
+            (max((pos_days.data - pos_days.prev_data)))::numeric(12,4) AS max_gap_days
+           FROM pos_days
+          WHERE (pos_days.prev_data IS NOT NULL)
+          GROUP BY pos_days.family_name
+        ), pos_day_stats AS (
+         SELECT day_base.family_name,
+            (avg(
+                CASE
+                    WHEN (day_base.qty_total > (0)::numeric) THEN day_base.qty_total
+                    ELSE NULL::numeric
+                END))::numeric(18,6) AS avg_qty_pos,
+            (stddev_samp(
+                CASE
+                    WHEN (day_base.qty_total > (0)::numeric) THEN day_base.qty_total
+                    ELSE NULL::numeric
+                END))::numeric(18,6) AS std_qty_pos,
+            (avg(
+                CASE
+                    WHEN (day_base.value_total > (0)::numeric) THEN day_base.value_total
+                    ELSE NULL::numeric
+                END))::numeric(18,6) AS avg_value_pos,
+            (stddev_samp(
+                CASE
+                    WHEN (day_base.value_total > (0)::numeric) THEN day_base.value_total
+                    ELSE NULL::numeric
+                END))::numeric(18,6) AS std_value_pos
+           FROM day_base
+          GROUP BY day_base.family_name
+        ), week_base AS (
+         SELECT day_base.family_name,
+            day_base.yy,
+            day_base.week_start,
+            sum(day_base.qty_total) AS qty_week,
+            sum(day_base.value_total) AS value_week
+           FROM day_base
+          GROUP BY day_base.family_name, day_base.yy, day_base.week_start
+        ), week_stats AS (
+         SELECT week_base.family_name,
+            (avg(week_base.qty_week))::numeric(18,6) AS avg_qty_week,
+            (stddev_samp(week_base.qty_week))::numeric(18,6) AS std_qty_week,
+            (avg(week_base.value_week))::numeric(18,6) AS avg_value_week,
+            (stddev_samp(week_base.value_week))::numeric(18,6) AS std_value_week,
+            ((count(*) FILTER (WHERE (week_base.qty_week > (0)::numeric)))::numeric(18,6) / (NULLIF(count(*), 0))::numeric) AS weeks_active_ratio
+           FROM week_base
+          GROUP BY week_base.family_name
+        ), month_base AS (
+         SELECT day_base.family_name,
+            day_base.yy,
+            day_base.mm,
+            day_base.month_start,
+            sum(day_base.qty_total) AS qty_month,
+            sum(day_base.value_total) AS value_month
+           FROM day_base
+          GROUP BY day_base.family_name, day_base.yy, day_base.mm, day_base.month_start
+        ), month_stats AS (
+         SELECT month_base.family_name,
+            (avg(month_base.qty_month))::numeric(18,6) AS avg_qty_month,
+            (stddev_samp(month_base.qty_month))::numeric(18,6) AS std_qty_month,
+            (avg(month_base.value_month))::numeric(18,6) AS avg_value_month,
+            (stddev_samp(month_base.value_month))::numeric(18,6) AS std_value_month,
+            ((count(*) FILTER (WHERE (month_base.qty_month > (0)::numeric)))::numeric(18,6) / (NULLIF(count(*), 0))::numeric) AS months_active_ratio
+           FROM month_base
+          GROUP BY month_base.family_name
+        ), year_base AS (
+         SELECT day_base.family_name,
+            day_base.yy,
+            sum(day_base.qty_total) AS qty_year,
+            sum(day_base.value_total) AS value_year
+           FROM day_base
+          GROUP BY day_base.family_name, day_base.yy
+        ), year_stats AS (
+         SELECT year_base.family_name,
+            (avg(year_base.qty_year))::numeric(18,6) AS avg_qty_year,
+            (stddev_samp(year_base.qty_year))::numeric(18,6) AS std_qty_year,
+            (avg(year_base.value_year))::numeric(18,6) AS avg_value_year,
+            (stddev_samp(year_base.value_year))::numeric(18,6) AS std_value_year,
+            ((count(*) FILTER (WHERE (year_base.qty_year > (0)::numeric)))::numeric(18,6) / (NULLIF(count(*), 0))::numeric) AS years_active_ratio
+           FROM year_base
+          GROUP BY year_base.family_name
+        ), weekday_base AS (
+         SELECT day_base.family_name,
+            day_base.isodow,
+            sum(day_base.qty_total) AS qty_weekday,
+            sum(day_base.value_total) AS value_weekday
+           FROM day_base
+          GROUP BY day_base.family_name, day_base.isodow
+        ), weekday_stats AS (
+         SELECT weekday_base.family_name,
+            (avg(weekday_base.qty_weekday))::numeric(18,6) AS avg_qty_weekday,
+            (stddev_samp(weekday_base.qty_weekday))::numeric(18,6) AS std_qty_weekday,
+            (avg(weekday_base.value_weekday))::numeric(18,6) AS avg_value_weekday,
+            (stddev_samp(weekday_base.value_weekday))::numeric(18,6) AS std_value_weekday
+           FROM weekday_base
+          GROUP BY weekday_base.family_name
+        ), month_totals AS (
+         SELECT day_base.family_name,
+            day_base.mm,
+            sum(day_base.qty_total) AS qty_month_total,
+            sum(day_base.value_total) AS value_month_total
+           FROM day_base
+          GROUP BY day_base.family_name, day_base.mm
+        ), month_rank AS (
+         SELECT month_totals.family_name,
+            month_totals.mm,
+            month_totals.qty_month_total,
+            month_totals.value_month_total,
+            row_number() OVER (PARTITION BY month_totals.family_name ORDER BY month_totals.qty_month_total DESC, month_totals.mm) AS rn_qty,
+            row_number() OVER (PARTITION BY month_totals.family_name ORDER BY month_totals.value_month_total DESC, month_totals.mm) AS rn_value
+           FROM month_totals
+        ), month_conc AS (
+         SELECT mr.family_name,
+            (sum(mr.qty_month_total) FILTER (WHERE (mr.rn_qty <= 3)) / NULLIF(t_1.qty_total, (0)::numeric)) AS top3_months_qty_share,
+            (sum(mr.qty_month_total) FILTER (WHERE (mr.rn_qty <= 6)) / NULLIF(t_1.qty_total, (0)::numeric)) AS top6_months_qty_share,
+            (sum(mr.value_month_total) FILTER (WHERE (mr.rn_value <= 3)) / NULLIF(t_1.value_total, (0)::numeric)) AS top3_months_value_share,
+            (sum(mr.value_month_total) FILTER (WHERE (mr.rn_value <= 6)) / NULLIF(t_1.value_total, (0)::numeric)) AS top6_months_value_share
+           FROM (month_rank mr
+             JOIN totals t_1 ON ((t_1.family_name = mr.family_name)))
+          GROUP BY mr.family_name, t_1.qty_total, t_1.value_total
+        ), week_totals AS (
+         SELECT day_base.family_name,
+            day_base.week_start,
+            sum(day_base.qty_total) AS qty_week_total,
+            sum(day_base.value_total) AS value_week_total
+           FROM day_base
+          GROUP BY day_base.family_name, day_base.week_start
+        ), week_rank AS (
+         SELECT week_totals.family_name,
+            week_totals.week_start,
+            week_totals.qty_week_total,
+            week_totals.value_week_total,
+            row_number() OVER (PARTITION BY week_totals.family_name ORDER BY week_totals.qty_week_total DESC, week_totals.week_start) AS rn_qty,
+            row_number() OVER (PARTITION BY week_totals.family_name ORDER BY week_totals.value_week_total DESC, week_totals.week_start) AS rn_value
+           FROM week_totals
+        ), week_conc AS (
+         SELECT wr.family_name,
+            (sum(wr.qty_week_total) FILTER (WHERE (wr.rn_qty <= 4)) / NULLIF(t_1.qty_total, (0)::numeric)) AS top4_weeks_qty_share,
+            (sum(wr.qty_week_total) FILTER (WHERE (wr.rn_qty <= 8)) / NULLIF(t_1.qty_total, (0)::numeric)) AS top8_weeks_qty_share,
+            (sum(wr.value_week_total) FILTER (WHERE (wr.rn_value <= 4)) / NULLIF(t_1.value_total, (0)::numeric)) AS top4_weeks_value_share,
+            (sum(wr.value_week_total) FILTER (WHERE (wr.rn_value <= 8)) / NULLIF(t_1.value_total, (0)::numeric)) AS top8_weeks_value_share
+           FROM (week_rank wr
+             JOIN totals t_1 ON ((t_1.family_name = wr.family_name)))
+          GROUP BY wr.family_name, t_1.qty_total, t_1.value_total
+        ), day_rank AS (
+         SELECT day_base.family_name,
+            day_base.data,
+            day_base.qty_total,
+            day_base.value_total,
+            row_number() OVER (PARTITION BY day_base.family_name ORDER BY day_base.qty_total DESC, day_base.data) AS rn_qty,
+            row_number() OVER (PARTITION BY day_base.family_name ORDER BY day_base.value_total DESC, day_base.data) AS rn_value
+           FROM day_base
+        ), day_conc AS (
+         SELECT dr.family_name,
+            (sum(dr.qty_total) FILTER (WHERE (dr.rn_qty <= 10)) / NULLIF(t_1.qty_total, (0)::numeric)) AS top10_days_qty_share,
+            (sum(dr.qty_total) FILTER (WHERE (dr.rn_qty <= 30)) / NULLIF(t_1.qty_total, (0)::numeric)) AS top30_days_qty_share,
+            (sum(dr.value_total) FILTER (WHERE (dr.rn_value <= 10)) / NULLIF(t_1.value_total, (0)::numeric)) AS top10_days_value_share,
+            (sum(dr.value_total) FILTER (WHERE (dr.rn_value <= 30)) / NULLIF(t_1.value_total, (0)::numeric)) AS top30_days_value_share
+           FROM (day_rank dr
+             JOIN totals t_1 ON ((t_1.family_name = dr.family_name)))
+          GROUP BY dr.family_name, t_1.qty_total, t_1.value_total
+        ), peak_month_by_year AS (
+         SELECT month_base.family_name,
+            month_base.yy,
+            month_base.mm,
+            month_base.qty_month,
+            row_number() OVER (PARTITION BY month_base.family_name, month_base.yy ORDER BY month_base.qty_month DESC, month_base.mm) AS rn
+           FROM month_base
+        ), peak_month_stability AS (
+         SELECT peak_month_by_year.family_name,
+            (stddev_samp(peak_month_by_year.mm))::numeric(18,6) AS peak_month_std,
+            (avg(peak_month_by_year.mm))::numeric(18,6) AS peak_month_avg
+           FROM peak_month_by_year
+          WHERE (peak_month_by_year.rn = 1)
+          GROUP BY peak_month_by_year.family_name
+        ), holiday_windows AS (
+         SELECT day_base.family_name,
+            (sum(
+                CASE
+                    WHEN (day_base.mm = 12) THEN day_base.qty_total
+                    ELSE (0)::numeric
+                END) / NULLIF(sum(day_base.qty_total), (0)::numeric)) AS xmas_qty_share,
+            (sum(
+                CASE
+                    WHEN (day_base.mm = 12) THEN day_base.value_total
+                    ELSE (0)::numeric
+                END) / NULLIF(sum(day_base.value_total), (0)::numeric)) AS xmas_value_share,
+            (sum(
+                CASE
+                    WHEN (day_base.mm = ANY (ARRAY[3, 4])) THEN day_base.qty_total
+                    ELSE (0)::numeric
+                END) / NULLIF(sum(day_base.qty_total), (0)::numeric)) AS spring_qty_share,
+            (sum(
+                CASE
+                    WHEN (day_base.mm = ANY (ARRAY[3, 4, 5])) THEN day_base.value_total
+                    ELSE (0)::numeric
+                END) / NULLIF(sum(day_base.value_total), (0)::numeric)) AS spring_value_share
+           FROM day_base
+          GROUP BY day_base.family_name
+        )
+ SELECT t.family_name,
+    pds.avg_qty_pos,
+    pds.std_qty_pos,
+        CASE
+            WHEN ((pds.avg_qty_pos IS NOT NULL) AND (pds.avg_qty_pos <> (0)::numeric)) THEN round((pds.std_qty_pos / pds.avg_qty_pos), 6)
+            ELSE NULL::numeric
+        END AS cv_pos_qty,
+    pds.avg_value_pos,
+    pds.std_value_pos,
+        CASE
+            WHEN ((pds.avg_value_pos IS NOT NULL) AND (pds.avg_value_pos <> (0)::numeric)) THEN round((pds.std_value_pos / pds.avg_value_pos), 6)
+            ELSE NULL::numeric
+        END AS cv_pos_value,
+    ws.avg_qty_week,
+    ws.std_qty_week,
+        CASE
+            WHEN ((ws.avg_qty_week IS NOT NULL) AND (ws.avg_qty_week <> (0)::numeric)) THEN round((ws.std_qty_week / ws.avg_qty_week), 6)
+            ELSE NULL::numeric
+        END AS cv_week_qty,
+    ws.avg_value_week,
+    ws.std_value_week,
+        CASE
+            WHEN ((ws.avg_value_week IS NOT NULL) AND (ws.avg_value_week <> (0)::numeric)) THEN round((ws.std_value_week / ws.avg_value_week), 6)
+            ELSE NULL::numeric
+        END AS cv_week_value,
+    ms.avg_qty_month,
+    ms.std_qty_month,
+        CASE
+            WHEN ((ms.avg_qty_month IS NOT NULL) AND (ms.avg_qty_month <> (0)::numeric)) THEN round((ms.std_qty_month / ms.avg_qty_month), 6)
+            ELSE NULL::numeric
+        END AS cv_month_qty,
+    ms.avg_value_month,
+    ms.std_value_month,
+        CASE
+            WHEN ((ms.avg_value_month IS NOT NULL) AND (ms.avg_value_month <> (0)::numeric)) THEN round((ms.std_value_month / ms.avg_value_month), 6)
+            ELSE NULL::numeric
+        END AS cv_month_value,
+    ys.avg_qty_year,
+    ys.std_qty_year,
+        CASE
+            WHEN ((ys.avg_qty_year IS NOT NULL) AND (ys.avg_qty_year <> (0)::numeric)) THEN round((ys.std_qty_year / ys.avg_qty_year), 6)
+            ELSE NULL::numeric
+        END AS cv_year_qty,
+    ys.avg_value_year,
+    ys.std_value_year,
+        CASE
+            WHEN ((ys.avg_value_year IS NOT NULL) AND (ys.avg_value_year <> (0)::numeric)) THEN round((ys.std_value_year / ys.avg_value_year), 6)
+            ELSE NULL::numeric
+        END AS cv_year_value,
+    wds.avg_qty_weekday,
+    wds.std_qty_weekday,
+        CASE
+            WHEN ((wds.avg_qty_weekday IS NOT NULL) AND (wds.avg_qty_weekday <> (0)::numeric)) THEN round((wds.std_qty_weekday / wds.avg_qty_weekday), 6)
+            ELSE NULL::numeric
+        END AS cv_weekday_qty,
+    wds.avg_value_weekday,
+    wds.std_value_weekday,
+        CASE
+            WHEN ((wds.avg_value_weekday IS NOT NULL) AND (wds.avg_value_weekday <> (0)::numeric)) THEN round((wds.std_value_weekday / wds.avg_value_weekday), 6)
+            ELSE NULL::numeric
+        END AS cv_weekday_value,
+    round(gs.avg_gap_days, 4) AS avg_gap_days,
+    round(gs.median_gap_days, 4) AS median_gap_days,
+    round(gs.p90_gap_days, 4) AS p90_gap_days,
+    round(gs.max_gap_days, 4) AS max_gap_days,
+    round(ws.weeks_active_ratio, 6) AS weeks_active_ratio,
+    round(ms.months_active_ratio, 6) AS months_active_ratio,
+    round(ys.years_active_ratio, 6) AS years_active_ratio,
+    round(mc.top3_months_qty_share, 6) AS top3_months_qty_share,
+    round(mc.top6_months_qty_share, 6) AS top6_months_qty_share,
+    round(mc.top3_months_value_share, 6) AS top3_months_value_share,
+    round(mc.top6_months_value_share, 6) AS top6_months_value_share,
+    round(wc.top4_weeks_qty_share, 6) AS top4_weeks_qty_share,
+    round(wc.top8_weeks_qty_share, 6) AS top8_weeks_qty_share,
+    round(wc.top4_weeks_value_share, 6) AS top4_weeks_value_share,
+    round(wc.top8_weeks_value_share, 6) AS top8_weeks_value_share,
+    round(dc.top10_days_qty_share, 6) AS top10_days_qty_share,
+    round(dc.top30_days_qty_share, 6) AS top30_days_qty_share,
+    round(dc.top10_days_value_share, 6) AS top10_days_value_share,
+    round(dc.top30_days_value_share, 6) AS top30_days_value_share,
+    round((pms.peak_month_std)::numeric, 6) AS peak_month_std,
+    round((pms.peak_month_avg)::numeric, 6) AS peak_month_avg,
+    round(hw.xmas_qty_share, 6) AS xmas_qty_share,
+    round(hw.xmas_value_share, 6) AS xmas_value_share,
+    round(hw.spring_qty_share, 6) AS spring_qty_share,
+    round(hw.spring_value_share, 6) AS spring_value_share
+   FROM (((((((((((totals t
+     LEFT JOIN pos_day_stats pds ON ((pds.family_name = t.family_name)))
+     LEFT JOIN week_stats ws ON ((ws.family_name = t.family_name)))
+     LEFT JOIN month_stats ms ON ((ms.family_name = t.family_name)))
+     LEFT JOIN year_stats ys ON ((ys.family_name = t.family_name)))
+     LEFT JOIN weekday_stats wds ON ((wds.family_name = t.family_name)))
+     LEFT JOIN gap_stats gs ON ((gs.family_name = t.family_name)))
+     LEFT JOIN month_conc mc ON ((mc.family_name = t.family_name)))
+     LEFT JOIN week_conc wc ON ((wc.family_name = t.family_name)))
+     LEFT JOIN day_conc dc ON ((dc.family_name = t.family_name)))
+     LEFT JOIN peak_month_stability pms ON ((pms.family_name = t.family_name)))
+     LEFT JOIN holiday_windows hw ON ((hw.family_name = t.family_name)))
+  WITH NO DATA;
+
+--
+-- Name: mv_family_metrics_v5; Type: MATERIALIZED VIEW; Schema: ml_diag; Owner: -
+--
+
+CREATE MATERIALIZED VIEW ml_diag.mv_family_metrics_v5 AS
+ WITH day_base AS (
+         SELECT mv_family_day_base.family_name,
+            mv_family_day_base.data,
+            mv_family_day_base.qty_total,
+            mv_family_day_base.value_total,
+            (EXTRACT(year FROM mv_family_day_base.data))::integer AS yy,
+            (EXTRACT(month FROM mv_family_day_base.data))::integer AS mm
+           FROM ml_diag.mv_family_day_base
+        ), totals AS (
+         SELECT day_base.family_name,
+            sum(day_base.qty_total) AS qty_total,
+            sum(day_base.value_total) AS value_total
+           FROM day_base
+          GROUP BY day_base.family_name
+        ), month_of_year AS (
+         SELECT day_base.family_name,
+            day_base.mm,
+            sum(day_base.qty_total) AS qty_month,
+            sum(day_base.value_total) AS value_month
+           FROM day_base
+          GROUP BY day_base.family_name, day_base.mm
+        ), month_rank_qty AS (
+         SELECT m.family_name,
+            m.mm,
+            m.qty_month,
+            row_number() OVER (PARTITION BY m.family_name ORDER BY m.qty_month DESC, m.mm) AS rn_qty,
+            (sum(m.qty_month) OVER (PARTITION BY m.family_name ORDER BY m.qty_month DESC, m.mm ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) / NULLIF(t_1.qty_total, (0)::numeric)) AS cum_qty_share
+           FROM (month_of_year m
+             JOIN totals t_1 ON ((t_1.family_name = m.family_name)))
+        ), month_rank_value AS (
+         SELECT m.family_name,
+            m.mm,
+            m.value_month,
+            row_number() OVER (PARTITION BY m.family_name ORDER BY m.value_month DESC, m.mm) AS rn_value,
+            (sum(m.value_month) OVER (PARTITION BY m.family_name ORDER BY m.value_month DESC, m.mm ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) / NULLIF(t_1.value_total, (0)::numeric)) AS cum_value_share
+           FROM (month_of_year m
+             JOIN totals t_1 ON ((t_1.family_name = m.family_name)))
+        ), season_width_qty AS (
+         SELECT month_rank_qty.family_name,
+            min(month_rank_qty.rn_qty) FILTER (WHERE (month_rank_qty.cum_qty_share >= 0.80)) AS months_to_80_qty,
+            min(month_rank_qty.rn_qty) FILTER (WHERE (month_rank_qty.cum_qty_share >= 0.90)) AS months_to_90_qty
+           FROM month_rank_qty
+          GROUP BY month_rank_qty.family_name
+        ), season_width_value AS (
+         SELECT month_rank_value.family_name,
+            min(month_rank_value.rn_value) FILTER (WHERE (month_rank_value.cum_value_share >= 0.80)) AS months_to_80_value,
+            min(month_rank_value.rn_value) FILTER (WHERE (month_rank_value.cum_value_share >= 0.90)) AS months_to_90_value
+           FROM month_rank_value
+          GROUP BY month_rank_value.family_name
+        ), year_month AS (
+         SELECT day_base.family_name,
+            day_base.yy,
+            day_base.mm,
+            sum(day_base.qty_total) AS qty_month,
+            sum(day_base.value_total) AS value_month
+           FROM day_base
+          GROUP BY day_base.family_name, day_base.yy, day_base.mm
+        ), year_peak_qty AS (
+         SELECT x.family_name,
+            x.yy,
+            x.mm AS peak_month_qty
+           FROM ( SELECT year_month.family_name,
+                    year_month.yy,
+                    year_month.mm,
+                    year_month.qty_month,
+                    row_number() OVER (PARTITION BY year_month.family_name, year_month.yy ORDER BY year_month.qty_month DESC, year_month.mm) AS rn
+                   FROM year_month) x
+          WHERE (x.rn = 1)
+        ), year_peak_value AS (
+         SELECT x.family_name,
+            x.yy,
+            x.mm AS peak_month_value
+           FROM ( SELECT year_month.family_name,
+                    year_month.yy,
+                    year_month.mm,
+                    year_month.value_month,
+                    row_number() OVER (PARTITION BY year_month.family_name, year_month.yy ORDER BY year_month.value_month DESC, year_month.mm) AS rn
+                   FROM year_month) x
+          WHERE (x.rn = 1)
+        ), peak_repeat_qty AS (
+         SELECT s.family_name,
+            (stddev_samp(s.peak_month_qty))::numeric(12,6) AS peak_month_std_qty,
+            ((max(s.cnt))::numeric(12,6) / NULLIF(sum(s.cnt), (0)::numeric)) AS dominant_peak_month_share_qty
+           FROM ( SELECT year_peak_qty.family_name,
+                    year_peak_qty.peak_month_qty,
+                    count(*) AS cnt
+                   FROM year_peak_qty
+                  GROUP BY year_peak_qty.family_name, year_peak_qty.peak_month_qty) s
+          GROUP BY s.family_name
+        ), peak_repeat_value AS (
+         SELECT s.family_name,
+            (stddev_samp(s.peak_month_value))::numeric(12,6) AS peak_month_std_value,
+            ((max(s.cnt))::numeric(12,6) / NULLIF(sum(s.cnt), (0)::numeric)) AS dominant_peak_month_share_value
+           FROM ( SELECT year_peak_value.family_name,
+                    year_peak_value.peak_month_value,
+                    count(*) AS cnt
+                   FROM year_peak_value
+                  GROUP BY year_peak_value.family_name, year_peak_value.peak_month_value) s
+          GROUP BY s.family_name
+        ), qty_run_marks AS (
+         SELECT day_base.family_name,
+            day_base.data,
+                CASE
+                    WHEN (day_base.qty_total > (0)::numeric) THEN 1
+                    ELSE 0
+                END AS flag,
+            (row_number() OVER (PARTITION BY day_base.family_name ORDER BY day_base.data) - row_number() OVER (PARTITION BY day_base.family_name,
+                CASE
+                    WHEN (day_base.qty_total > (0)::numeric) THEN 1
+                    ELSE 0
+                END ORDER BY day_base.data)) AS grp
+           FROM day_base
+        ), qty_runs AS (
+         SELECT qty_run_marks.family_name,
+            qty_run_marks.flag,
+            qty_run_marks.grp,
+            count(*) AS run_len
+           FROM qty_run_marks
+          GROUP BY qty_run_marks.family_name, qty_run_marks.flag, qty_run_marks.grp
+        ), qty_run_stats AS (
+         SELECT qty_runs.family_name,
+            avg((qty_runs.run_len)::numeric) FILTER (WHERE (qty_runs.flag = 1)) AS avg_pos_run_len_qty,
+            percentile_cont((0.5)::double precision) WITHIN GROUP (ORDER BY ((qty_runs.run_len)::double precision)) FILTER (WHERE (qty_runs.flag = 1)) AS median_pos_run_len_qty,
+            max(qty_runs.run_len) FILTER (WHERE (qty_runs.flag = 1)) AS max_pos_run_len_qty,
+            avg((qty_runs.run_len)::numeric) FILTER (WHERE (qty_runs.flag = 0)) AS avg_zero_run_len_qty,
+            percentile_cont((0.5)::double precision) WITHIN GROUP (ORDER BY ((qty_runs.run_len)::double precision)) FILTER (WHERE (qty_runs.flag = 0)) AS median_zero_run_len_qty,
+            max(qty_runs.run_len) FILTER (WHERE (qty_runs.flag = 0)) AS max_zero_run_len_qty
+           FROM qty_runs
+          GROUP BY qty_runs.family_name
+        ), value_run_marks AS (
+         SELECT day_base.family_name,
+            day_base.data,
+                CASE
+                    WHEN (day_base.value_total > (0)::numeric) THEN 1
+                    ELSE 0
+                END AS flag,
+            (row_number() OVER (PARTITION BY day_base.family_name ORDER BY day_base.data) - row_number() OVER (PARTITION BY day_base.family_name,
+                CASE
+                    WHEN (day_base.value_total > (0)::numeric) THEN 1
+                    ELSE 0
+                END ORDER BY day_base.data)) AS grp
+           FROM day_base
+        ), value_runs AS (
+         SELECT value_run_marks.family_name,
+            value_run_marks.flag,
+            value_run_marks.grp,
+            count(*) AS run_len
+           FROM value_run_marks
+          GROUP BY value_run_marks.family_name, value_run_marks.flag, value_run_marks.grp
+        ), value_run_stats AS (
+         SELECT value_runs.family_name,
+            avg((value_runs.run_len)::numeric) FILTER (WHERE (value_runs.flag = 1)) AS avg_pos_run_len_value,
+            percentile_cont((0.5)::double precision) WITHIN GROUP (ORDER BY ((value_runs.run_len)::double precision)) FILTER (WHERE (value_runs.flag = 1)) AS median_pos_run_len_value,
+            max(value_runs.run_len) FILTER (WHERE (value_runs.flag = 1)) AS max_pos_run_len_value,
+            avg((value_runs.run_len)::numeric) FILTER (WHERE (value_runs.flag = 0)) AS avg_zero_run_len_value,
+            percentile_cont((0.5)::double precision) WITHIN GROUP (ORDER BY ((value_runs.run_len)::double precision)) FILTER (WHERE (value_runs.flag = 0)) AS median_zero_run_len_value,
+            max(value_runs.run_len) FILTER (WHERE (value_runs.flag = 0)) AS max_zero_run_len_value
+           FROM value_runs
+          GROUP BY value_runs.family_name
+        ), qty_pos_days AS (
+         SELECT day_base.family_name,
+            day_base.data,
+            lag(day_base.data) OVER (PARTITION BY day_base.family_name ORDER BY day_base.data) AS prev_data
+           FROM day_base
+          WHERE (day_base.qty_total > (0)::numeric)
+        ), qty_gap_stats AS (
+         SELECT qty_pos_days.family_name,
+            (avg((qty_pos_days.data - qty_pos_days.prev_data)))::numeric(12,6) AS avg_gap_days_qty,
+            (percentile_cont((0.5)::double precision) WITHIN GROUP (ORDER BY (((qty_pos_days.data - qty_pos_days.prev_data))::double precision)))::numeric(12,6) AS median_gap_days_qty,
+            (percentile_cont((0.9)::double precision) WITHIN GROUP (ORDER BY (((qty_pos_days.data - qty_pos_days.prev_data))::double precision)))::numeric(12,6) AS p90_gap_days_qty,
+            (max((qty_pos_days.data - qty_pos_days.prev_data)))::numeric(12,6) AS max_gap_days_qty
+           FROM qty_pos_days
+          WHERE (qty_pos_days.prev_data IS NOT NULL)
+          GROUP BY qty_pos_days.family_name
+        ), value_pos_days AS (
+         SELECT day_base.family_name,
+            day_base.data,
+            lag(day_base.data) OVER (PARTITION BY day_base.family_name ORDER BY day_base.data) AS prev_data
+           FROM day_base
+          WHERE (day_base.value_total > (0)::numeric)
+        ), value_gap_stats AS (
+         SELECT value_pos_days.family_name,
+            (avg((value_pos_days.data - value_pos_days.prev_data)))::numeric(12,6) AS avg_gap_days_value,
+            (percentile_cont((0.5)::double precision) WITHIN GROUP (ORDER BY (((value_pos_days.data - value_pos_days.prev_data))::double precision)))::numeric(12,6) AS median_gap_days_value,
+            (percentile_cont((0.9)::double precision) WITHIN GROUP (ORDER BY (((value_pos_days.data - value_pos_days.prev_data))::double precision)))::numeric(12,6) AS p90_gap_days_value,
+            (max((value_pos_days.data - value_pos_days.prev_data)))::numeric(12,6) AS max_gap_days_value
+           FROM value_pos_days
+          WHERE (value_pos_days.prev_data IS NOT NULL)
+          GROUP BY value_pos_days.family_name
+        ), alignment AS (
+         SELECT t_1.family_name,
+            (abs((COALESCE(v4.top3_months_qty_share, (0)::numeric) - COALESCE(v4.top3_months_value_share, (0)::numeric))))::numeric(12,6) AS top3_months_gap_qty_value,
+            (abs((COALESCE(v4.top4_weeks_qty_share, (0)::numeric) - COALESCE(v4.top4_weeks_value_share, (0)::numeric))))::numeric(12,6) AS top4_weeks_gap_qty_value,
+            (abs((COALESCE(v4.top10_days_qty_share, (0)::numeric) - COALESCE(v4.top10_days_value_share, (0)::numeric))))::numeric(12,6) AS top10_days_gap_qty_value,
+                CASE
+                    WHEN (COALESCE(t_1.qty_total, (0)::numeric) > (0)::numeric) THEN ((t_1.value_total / t_1.qty_total))::numeric(12,6)
+                    ELSE NULL::numeric
+                END AS avg_unit_value
+           FROM (totals t_1
+             LEFT JOIN ml_diag.mv_family_metrics_v4 v4 ON ((v4.family_name = t_1.family_name)))
+        )
+ SELECT t.family_name,
+    swq.months_to_80_qty,
+    swq.months_to_90_qty,
+    swv.months_to_80_value,
+    swv.months_to_90_value,
+    prq.peak_month_std_qty,
+    prv.peak_month_std_value,
+    prq.dominant_peak_month_share_qty,
+    prv.dominant_peak_month_share_value,
+    (qrs.avg_pos_run_len_qty)::numeric(12,6) AS avg_pos_run_len_qty,
+    (qrs.median_pos_run_len_qty)::numeric(12,6) AS median_pos_run_len_qty,
+    qrs.max_pos_run_len_qty,
+    (qrs.avg_zero_run_len_qty)::numeric(12,6) AS avg_zero_run_len_qty,
+    (qrs.median_zero_run_len_qty)::numeric(12,6) AS median_zero_run_len_qty,
+    qrs.max_zero_run_len_qty,
+    (vrs.avg_pos_run_len_value)::numeric(12,6) AS avg_pos_run_len_value,
+    (vrs.median_pos_run_len_value)::numeric(12,6) AS median_pos_run_len_value,
+    vrs.max_pos_run_len_value,
+    (vrs.avg_zero_run_len_value)::numeric(12,6) AS avg_zero_run_len_value,
+    (vrs.median_zero_run_len_value)::numeric(12,6) AS median_zero_run_len_value,
+    vrs.max_zero_run_len_value,
+    qgs.avg_gap_days_qty,
+    qgs.median_gap_days_qty,
+    qgs.p90_gap_days_qty,
+    qgs.max_gap_days_qty,
+    vgs.avg_gap_days_value,
+    vgs.median_gap_days_value,
+    vgs.p90_gap_days_value,
+    vgs.max_gap_days_value,
+    a.top3_months_gap_qty_value,
+    a.top4_weeks_gap_qty_value,
+    a.top10_days_gap_qty_value,
+    a.avg_unit_value
+   FROM (((((((((totals t
+     LEFT JOIN season_width_qty swq ON ((swq.family_name = t.family_name)))
+     LEFT JOIN season_width_value swv ON ((swv.family_name = t.family_name)))
+     LEFT JOIN peak_repeat_qty prq ON ((prq.family_name = t.family_name)))
+     LEFT JOIN peak_repeat_value prv ON ((prv.family_name = t.family_name)))
+     LEFT JOIN qty_run_stats qrs ON ((qrs.family_name = t.family_name)))
+     LEFT JOIN value_run_stats vrs ON ((vrs.family_name = t.family_name)))
+     LEFT JOIN qty_gap_stats qgs ON ((qgs.family_name = t.family_name)))
+     LEFT JOIN value_gap_stats vgs ON ((vgs.family_name = t.family_name)))
+     LEFT JOIN alignment a ON ((a.family_name = t.family_name)))
+  WITH NO DATA;
+
+--
+-- Name: mv_family_seasonality; Type: MATERIALIZED VIEW; Schema: ml_diag; Owner: -
+--
+
+CREATE MATERIALIZED VIEW ml_diag.mv_family_seasonality AS
+ WITH pos AS (
+         SELECT mv_family_day_base.family_name,
+            (EXTRACT(year FROM mv_family_day_base.data))::integer AS yy,
+            (EXTRACT(doy FROM mv_family_day_base.data))::integer AS doy,
+            mv_family_day_base.qty_total
+           FROM ml_diag.mv_family_day_base
+          WHERE (mv_family_day_base.qty_total > (0)::numeric)
+        ), first_sale AS (
+         SELECT pos.family_name,
+            pos.yy,
+            min(pos.doy) AS first_doy
+           FROM pos
+          GROUP BY pos.family_name, pos.yy
+        ), peak_doy AS (
+         SELECT x.family_name,
+            x.doy AS peak_doy
+           FROM ( SELECT pos.family_name,
+                    pos.doy,
+                    sum(pos.qty_total) AS qty_on_doy,
+                    row_number() OVER (PARTITION BY pos.family_name ORDER BY (sum(pos.qty_total)) DESC, pos.doy) AS rn
+                   FROM pos
+                  GROUP BY pos.family_name, pos.doy) x
+          WHERE (x.rn = 1)
+        )
+ SELECT f.family_name,
+    (count(*))::integer AS years_with_sales,
+    round((percentile_cont((0.25)::double precision) WITHIN GROUP (ORDER BY ((f.first_doy)::double precision)))::numeric, 1) AS season_start_p25,
+    round((percentile_cont((0.50)::double precision) WITHIN GROUP (ORDER BY ((f.first_doy)::double precision)))::numeric, 1) AS season_start_p50,
+    round((percentile_cont((0.75)::double precision) WITHIN GROUP (ORDER BY ((f.first_doy)::double precision)))::numeric, 1) AS season_start_p75,
+    p.peak_doy
+   FROM (first_sale f
+     LEFT JOIN peak_doy p ON ((p.family_name = f.family_name)))
+  GROUP BY f.family_name, p.peak_doy
+  WITH NO DATA;
+
+--
+-- Name: mv_core_analytics__breakdown_daily_fascia_fp; Type: MATERIALIZED VIEW; Schema: public; Owner: -
+--
+
+CREATE MATERIALIZED VIEW public.mv_core_analytics__breakdown_daily_fascia_fp AS
+ SELECT f.data,
+    lower(f.fascia_corretta) AS entity_key_lc,
+    f.fascia_prezzo_iva_inc,
+    (sum(f.qty_venduta))::numeric(12,3) AS qty_venduta,
+    (sum(f.imponibile_netto_tot))::numeric(12,2) AS imponibile_netto_tot,
+    (sum(f.num_articoli))::integer AS num_articoli,
+    bool_or(COALESCE(f.is_holiday, false)) AS is_holiday,
+    max(f.holiday_name) AS holiday_name,
+    max(f.dow) AS dow,
+    (sum(fc.qty_forecast))::numeric(12,3) AS qty_forecast
+   FROM (public.greenhouse_forecast_features_dense f
+     LEFT JOIN public.greenhouse_forecast_results_v2 fc ON (((fc.data = f.data) AND (lower(fc.famiglia) = lower(f.famiglia)) AND (fc.fascia_prezzo_iva_inc = f.fascia_prezzo_iva_inc))))
+  WHERE ((f.fascia_corretta IS NOT NULL) AND (btrim(f.fascia_corretta) <> ''::text))
+  GROUP BY f.data, (lower(f.fascia_corretta)), f.fascia_prezzo_iva_inc
+  WITH NO DATA;
+
+--
+-- Name: mv_core_analytics__catalog_entities; Type: MATERIALIZED VIEW; Schema: public; Owner: -
+--
+
+CREATE MATERIALIZED VIEW public.mv_core_analytics__catalog_entities AS
+ SELECT 'fascia'::text AS entity_type,
+    lower(TRIM(BOTH FROM greenhouse_products_normalized.fascia_corretta)) AS entity_key,
+    TRIM(BOTH FROM greenhouse_products_normalized.fascia_corretta) AS label,
+    TRIM(BOTH FROM greenhouse_products_normalized.fascia_corretta) AS fascia,
+    NULL::text AS categoria,
+    NULL::text AS famiglia,
+    NULL::text AS fascia_prezzo
+   FROM public.greenhouse_products_normalized
+  WHERE (greenhouse_products_normalized.fascia_corretta IS NOT NULL)
+  GROUP BY greenhouse_products_normalized.fascia_corretta
+UNION ALL
+ SELECT 'categoria'::text AS entity_type,
+    lower(TRIM(BOTH FROM greenhouse_products_normalized.categoria_corretta)) AS entity_key,
+    TRIM(BOTH FROM greenhouse_products_normalized.categoria_corretta) AS label,
+    max(TRIM(BOTH FROM greenhouse_products_normalized.fascia_corretta)) AS fascia,
+    TRIM(BOTH FROM greenhouse_products_normalized.categoria_corretta) AS categoria,
+    NULL::text AS famiglia,
+    NULL::text AS fascia_prezzo
+   FROM public.greenhouse_products_normalized
+  WHERE (greenhouse_products_normalized.categoria_corretta IS NOT NULL)
+  GROUP BY greenhouse_products_normalized.categoria_corretta
+UNION ALL
+ SELECT 'famiglia'::text AS entity_type,
+    lower(TRIM(BOTH FROM greenhouse_products_normalized.famiglia)) AS entity_key,
+    TRIM(BOTH FROM greenhouse_products_normalized.famiglia) AS label,
+    max(TRIM(BOTH FROM greenhouse_products_normalized.fascia_corretta)) AS fascia,
+    max(TRIM(BOTH FROM greenhouse_products_normalized.categoria_corretta)) AS categoria,
+    TRIM(BOTH FROM greenhouse_products_normalized.famiglia) AS famiglia,
+    NULL::text AS fascia_prezzo
+   FROM public.greenhouse_products_normalized
+  WHERE (greenhouse_products_normalized.famiglia IS NOT NULL)
+  GROUP BY greenhouse_products_normalized.famiglia
+UNION ALL
+ SELECT 'fascia_prezzo'::text AS entity_type,
+    lower(TRIM(BOTH FROM greenhouse_products_normalized.fascia_prezzo_iva_inc)) AS entity_key,
+    TRIM(BOTH FROM greenhouse_products_normalized.fascia_prezzo_iva_inc) AS label,
+    max(TRIM(BOTH FROM greenhouse_products_normalized.fascia_corretta)) AS fascia,
+    max(TRIM(BOTH FROM greenhouse_products_normalized.categoria_corretta)) AS categoria,
+    max(TRIM(BOTH FROM greenhouse_products_normalized.famiglia)) AS famiglia,
+    TRIM(BOTH FROM greenhouse_products_normalized.fascia_prezzo_iva_inc) AS fascia_prezzo
+   FROM public.greenhouse_products_normalized
+  WHERE (greenhouse_products_normalized.fascia_prezzo_iva_inc IS NOT NULL)
+  GROUP BY greenhouse_products_normalized.fascia_prezzo_iva_inc
+  WITH NO DATA;
+
+--
+-- Name: mv_core_analytics__series_daily_categoria; Type: MATERIALIZED VIEW; Schema: public; Owner: -
+--
+
+CREATE MATERIALIZED VIEW public.mv_core_analytics__series_daily_categoria AS
+ SELECT data,
+    entity_key,
+    qty_venduta_tot,
+    imponibile_netto_tot,
+    qty_forecast_tot,
+    is_holiday,
+    holiday_name,
+    dow
+   FROM public.core_analytics__series_daily_categoria_v
+  WITH NO DATA;
+
+--
+-- Name: mv_core_analytics__series_daily_famiglia; Type: MATERIALIZED VIEW; Schema: public; Owner: -
+--
+
+CREATE MATERIALIZED VIEW public.mv_core_analytics__series_daily_famiglia AS
+ SELECT data,
+    famiglia AS entity_key,
+    sum(qty_venduta) AS qty_venduta_tot,
+    sum(imponibile_netto_tot) AS imponibile_netto_tot,
+    (0)::numeric AS qty_forecast_tot,
+    bool_or(is_holiday) AS is_holiday,
+    max(holiday_name) AS holiday_name,
+    max(dow) AS dow
+   FROM public.greenhouse_forecast_features_dense
+  GROUP BY data, famiglia
+  WITH NO DATA;
+
+--
+-- Name: mv_core_analytics__series_daily_fascia; Type: MATERIALIZED VIEW; Schema: public; Owner: -
+--
+
+CREATE MATERIALIZED VIEW public.mv_core_analytics__series_daily_fascia AS
+ SELECT data,
+    entity_key,
+    qty_venduta_tot,
+    imponibile_netto_tot,
+    qty_forecast_tot,
+    is_holiday,
+    holiday_name,
+    dow
+   FROM public.core_analytics__series_daily_fascia_v
+  WITH NO DATA;
+
+--
+-- Name: mv_core_analytics__series_daily_fascia_prezzo; Type: MATERIALIZED VIEW; Schema: public; Owner: -
+--
+
+CREATE MATERIALIZED VIEW public.mv_core_analytics__series_daily_fascia_prezzo AS
+ SELECT data,
+    entity_key,
+    qty_venduta_tot,
+    imponibile_netto_tot,
+    qty_forecast_tot,
+    is_holiday,
+    holiday_name,
+    dow
+   FROM public.core_analytics__series_daily_fascia_prezzo_v
+  WITH NO DATA;
+
+--
+-- Name: mv_famiglie_catalog; Type: MATERIALIZED VIEW; Schema: public; Owner: -
+--
+
+CREATE MATERIALIZED VIEW public.mv_famiglie_catalog AS
+ SELECT DISTINCT lower(TRIM(BOTH FROM famiglia)) AS famiglia,
+    public.slugify_family(famiglia) AS famiglia_slug
+   FROM public.greenhouse_forecast_features_dense
+  WITH NO DATA;
+

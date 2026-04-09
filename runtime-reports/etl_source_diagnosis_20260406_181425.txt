@@ -1,0 +1,68 @@
+=== ETL ENV CURRENT ===
+# SQL Server sorgente cliente
+SQLSERVER_SERVER=localhost
+SQLSERVER_DB=CLIENT_DB
+SQLSERVER_USER=readonly_user
+SQLSERVER_PASSWORD=CHANGE_ME
+SQLSERVER_DRIVER=ODBC Driver 18 for SQL Server
+SQLSERVER_SOURCE_OBJECT=GREENHOUSE_VIEW_STAT
+
+# Postgres GreenBrain cliente
+PG_HOST=127.0.0.1
+PG_PORT=55432
+PG_DB=greenbrain
+PG_USER=greenbrain
+PG_PASSWORD=greenbrain
+PG_SSLMODE=disable
+
+# Modalità ETL
+RUN_TYPE=incremental_daily
+FULL_BULK=0
+BATCH_SIZE=5000
+MAX_RETRIES=3
+
+DATABASE_URL=postgresql://greenbrain:greenbrain@127.0.0.1:55432/greenbrain
+
+STORAGE_BACKEND=local
+LOCAL_STORAGE_ROOT=/opt/greenbrain/storage
+
+PARQUET_ENABLE=1
+PARQUET_CACHE_DIR=/opt/greenbrain/storage
+GH_MODELS_DIR=/opt/greenbrain/models_v4
+MODEL_STORAGE_PREFIX=models_v4
+
+FULL_EXPORT=1
+
+=== ETL RUNS LAST 30 ===
+ run_id |          job_name           |     run_type      | status  |          started_at           |           ended_at            | rows_extracted | rows_loaded |                                                             error_message                                                             
+--------+-----------------------------+-------------------+---------+-------------------------------+-------------------------------+----------------+-------------+---------------------------------------------------------------------------------------------------------------------------------------
+     22 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:54:51.258719+00 | 2026-04-06 15:55:06.263759+00 |              0 |           0 | ('HYT00', '[HYT00] [Microsoft][ODBC Driver 18 for SQL Server]Login timeout expired (0) (SQLDriverConnect)')
+     21 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:54:06.204593+00 | 2026-04-06 15:54:21.209311+00 |              0 |           0 | ('HYT00', '[HYT00] [Microsoft][ODBC Driver 18 for SQL Server]Login timeout expired (0) (SQLDriverConnect)')
+     20 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:53:21.149136+00 | 2026-04-06 15:53:36.156107+00 |              0 |           0 | ('HYT00', '[HYT00] [Microsoft][ODBC Driver 18 for SQL Server]Login timeout expired (0) (SQLDriverConnect)')
+     19 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:52:47.855756+00 | 2026-04-06 15:53:02.860719+00 |              0 |           0 | ('HYT00', '[HYT00] [Microsoft][ODBC Driver 18 for SQL Server]Login timeout expired (0) (SQLDriverConnect)')
+     18 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:52:02.815057+00 | 2026-04-06 15:52:17.820322+00 |              0 |           0 | ('HYT00', '[HYT00] [Microsoft][ODBC Driver 18 for SQL Server]Login timeout expired (0) (SQLDriverConnect)')
+     17 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:51:17.758538+00 | 2026-04-06 15:51:32.7662+00   |              0 |           0 | ('HYT00', '[HYT00] [Microsoft][ODBC Driver 18 for SQL Server]Login timeout expired (0) (SQLDriverConnect)')
+     16 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:50:55.998789+00 | 2026-04-06 15:51:11.004139+00 |              0 |           0 | ('HYT00', '[HYT00] [Microsoft][ODBC Driver 18 for SQL Server]Login timeout expired (0) (SQLDriverConnect)')
+     15 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:50:10.957818+00 | 2026-04-06 15:50:25.962173+00 |              0 |           0 | ('HYT00', '[HYT00] [Microsoft][ODBC Driver 18 for SQL Server]Login timeout expired (0) (SQLDriverConnect)')
+     14 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:49:25.923521+00 | 2026-04-06 15:49:40.933049+00 |              0 |           0 | ('HYT00', '[HYT00] [Microsoft][ODBC Driver 18 for SQL Server]Login timeout expired (0) (SQLDriverConnect)')
+     13 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:44:52.874727+00 | 2026-04-06 15:44:52.878314+00 |              0 |           0 | ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'ODBC Driver 18 for SQL Server' : file not found (0) (SQLDriverConnect)")
+     12 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:44:22.820843+00 | 2026-04-06 15:44:22.824251+00 |              0 |           0 | ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'ODBC Driver 18 for SQL Server' : file not found (0) (SQLDriverConnect)")
+     11 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:43:52.767728+00 | 2026-04-06 15:43:52.772244+00 |              0 |           0 | ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'ODBC Driver 18 for SQL Server' : file not found (0) (SQLDriverConnect)")
+     10 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:43:07.903569+00 | 2026-04-06 15:43:07.90859+00  |              0 |           0 | ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'ODBC Driver 18 for SQL Server' : file not found (0) (SQLDriverConnect)")
+      9 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:42:37.855873+00 | 2026-04-06 15:42:37.858612+00 |              0 |           0 | ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'ODBC Driver 18 for SQL Server' : file not found (0) (SQLDriverConnect)")
+      8 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:42:07.829892+00 | 2026-04-06 15:42:07.833559+00 |              0 |           0 | ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'ODBC Driver 18 for SQL Server' : file not found (0) (SQLDriverConnect)")
+      7 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:41:59.091147+00 | 2026-04-06 15:41:59.094128+00 |              0 |           0 | ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'ODBC Driver 18 for SQL Server' : file not found (0) (SQLDriverConnect)")
+      6 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:41:29.038798+00 | 2026-04-06 15:41:29.043578+00 |              0 |           0 | ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'ODBC Driver 18 for SQL Server' : file not found (0) (SQLDriverConnect)")
+      5 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:40:58.992813+00 | 2026-04-06 15:40:58.996572+00 |              0 |           0 | ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'ODBC Driver 18 for SQL Server' : file not found (0) (SQLDriverConnect)")
+      4 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:40:03.757817+00 | 2026-04-06 15:40:03.761494+00 |              0 |           0 | ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'ODBC Driver 18 for SQL Server' : file not found (0) (SQLDriverConnect)")
+      3 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:39:33.706125+00 | 2026-04-06 15:39:33.708925+00 |              0 |           0 | ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'ODBC Driver 18 for SQL Server' : file not found (0) (SQLDriverConnect)")
+      2 | sqlserver_to_greenbrain_raw | incremental_daily | failed  | 2026-04-06 15:39:03.66963+00  | 2026-04-06 15:39:03.67385+00  |              0 |           0 | ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'ODBC Driver 18 for SQL Server' : file not found (0) (SQLDriverConnect)")
+      1 | sqlserver_to_greenbrain_raw | incremental_daily | success | 2026-04-04 20:20:51.234583+00 | 2026-04-04 20:21:01.234583+00 |              6 |           6 | 
+(22 rows)
+
+
+=== MSSQL LOCAL SERVICES ===
+
+=== MSSQL LOCAL CONTAINERS ===
+
+=== PORT 1433 ===

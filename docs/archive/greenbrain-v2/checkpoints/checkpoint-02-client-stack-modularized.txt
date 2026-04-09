@@ -1,0 +1,32 @@
+CHECKPOINT 02 — CLIENT STACK MODULARIZED
+
+Date:
+2026-03-19
+
+Completed:
+- PostgreSQL 17 running in Docker
+- FastAPI backend running
+- React/Vite frontend running
+- pgAdmin running
+- docker-compose split into:
+  - docker-compose.base.yml
+  - docker-compose.client.yml
+  - docker-compose.dev.yml
+- .env.client created
+- helper scripts created:
+  - up-client.sh
+  - down-client.sh
+  - status-client.sh
+  - logs-client.sh
+- legacy compose renamed to docker-compose.legacy.yml
+
+Verified:
+- backend endpoint /api/v1/system/info OK
+- backend endpoint /api/v1/system/db-info OK
+- catalog families endpoint OK
+- forecast summary endpoint OK
+- pgAdmin reachable on port 5050
+- frontend reachable on port 8081
+
+Meaning:
+GreenBrain V2 now has a reusable local client runtime baseline.

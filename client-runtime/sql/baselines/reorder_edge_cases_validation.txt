@@ -1,0 +1,57 @@
+=== dashboard/reorder-suggestions ===
+{
+    "count": 1,
+    "items": [
+        {
+            "famiglia": "rs_family_zero_stock",
+            "fascia_prezzo_iva_inc": "B",
+            "categoria_corretta": "categoria_rs",
+            "fascia_corretta": "fascia_rs",
+            "pot_sizes_text": "P12",
+            "qty_giacenza": 0.0,
+            "qty_da_ordinare": 42.0,
+            "rischio_stockout_prima_di_arrivo": true,
+            "demand_lead": 15.0,
+            "demand_cycle": 28.0,
+            "in_assortimento": true
+        }
+    ]
+}
+
+=== planner/order-suggestions / rs_family_hi_stock ===
+{
+    "count": 0,
+    "items": []
+}
+
+=== planner/order-suggestions / rs_family_zero_stock ===
+{
+    "count": 1,
+    "items": [
+        {
+            "famiglia": "rs_family_zero_stock",
+            "fascia_prezzo_iva_inc": "B",
+            "demand_lead": 15.0,
+            "demand_cycle": 28.0,
+            "in_assortimento": true,
+            "qty_giacenza": 0.0,
+            "stock_after_lead_raw": -15.0,
+            "stock_after_lead": 0,
+            "required_on_arrival": 42.0,
+            "qty_da_ordinare": 42.0,
+            "rischio_stockout_prima_di_arrivo": true,
+            "fascia_corretta": "fascia_rs",
+            "categoria_corretta": "categoria_rs",
+            "pot_sizes_text": "P12",
+            "pot_sizes_json": [
+                "P12"
+            ]
+        }
+    ]
+}
+
+=== planner/order-suggestions / rs_family_low_forecast ===
+{
+    "count": 0,
+    "items": []
+}

@@ -1,0 +1,366 @@
+=== entity-summary famiglia ===
+{
+    "tree": [
+        {
+            "label": "fascia_tree",
+            "qty_tot": 0,
+            "children": [
+                {
+                    "label": "categoria_tree",
+                    "qty_tot": 0,
+                    "children": [
+                        {
+                            "label": "tree_family_a",
+                            "qty_tot": 0,
+                            "children": [
+                                {
+                                    "label": "A",
+                                    "qty_tot": 0,
+                                    "children": [
+                                        {
+                                            "extra": {
+                                                "pot_size": "P10",
+                                                "prezzo_iva_inclusa": 10.0
+                                            },
+                                            "label": "TREE001 \u2014 Prodotto A1",
+                                            "qty_tot": 0,
+                                            "entity_key": "TREE001",
+                                            "entity_type": "articolo",
+                                            "imponibile_tot": 0,
+                                            "num_articoli_tot": null
+                                        }
+                                    ],
+                                    "entity_key": "A",
+                                    "entity_type": "fascia_prezzo",
+                                    "imponibile_tot": 0,
+                                    "num_articoli_tot": null
+                                },
+                                {
+                                    "label": "B",
+                                    "qty_tot": 0,
+                                    "children": [
+                                        {
+                                            "extra": {
+                                                "pot_size": "P12",
+                                                "prezzo_iva_inclusa": 12.0
+                                            },
+                                            "label": "TREE002 \u2014 Prodotto A2",
+                                            "qty_tot": 0,
+                                            "entity_key": "TREE002",
+                                            "entity_type": "articolo",
+                                            "imponibile_tot": 0,
+                                            "num_articoli_tot": null
+                                        },
+                                        {
+                                            "extra": {
+                                                "pot_size": "P14",
+                                                "prezzo_iva_inclusa": 14.0
+                                            },
+                                            "label": "TREE003 \u2014 Prodotto A3",
+                                            "qty_tot": 0,
+                                            "entity_key": "TREE003",
+                                            "entity_type": "articolo",
+                                            "imponibile_tot": 0,
+                                            "num_articoli_tot": null
+                                        }
+                                    ],
+                                    "entity_key": "B",
+                                    "entity_type": "fascia_prezzo",
+                                    "imponibile_tot": 0,
+                                    "num_articoli_tot": null
+                                }
+                            ],
+                            "entity_key": "tree_family_a",
+                            "entity_type": "famiglia",
+                            "imponibile_tot": 0,
+                            "num_articoli_tot": null
+                        }
+                    ],
+                    "entity_key": "categoria_tree",
+                    "entity_type": "categoria",
+                    "imponibile_tot": 0,
+                    "num_articoli_tot": null
+                }
+            ],
+            "entity_key": "fascia_tree",
+            "entity_type": "fascia",
+            "imponibile_tot": 0,
+            "num_articoli_tot": null
+        }
+    ],
+    "totals": {
+        "qty_tot": 0,
+        "imponibile_tot": 0,
+        "num_articoli_tot": 0
+    },
+    "date_to": "2026-12-31",
+    "date_from": "2026-01-01",
+    "entity_key": "tree_family_a",
+    "entity_type": "famiglia"
+}
+
+=== entity-summary fascia ===
+{
+    "tree": [
+        {
+            "label": "fascia_tree",
+            "qty_tot": 0,
+            "children": [
+                {
+                    "label": "categoria_tree",
+                    "qty_tot": 0,
+                    "children": [
+                        {
+                            "label": "tree_family_a",
+                            "qty_tot": 0,
+                            "children": [
+                                {
+                                    "label": "A",
+                                    "qty_tot": 0,
+                                    "children": [
+                                        {
+                                            "extra": {
+                                                "pot_size": "P10",
+                                                "prezzo_iva_inclusa": 10.0
+                                            },
+                                            "label": "TREE001 \u2014 Prodotto A1",
+                                            "qty_tot": 0,
+                                            "entity_key": "TREE001",
+                                            "entity_type": "articolo",
+                                            "imponibile_tot": 0,
+                                            "num_articoli_tot": null
+                                        }
+                                    ],
+                                    "entity_key": "A",
+                                    "entity_type": "fascia_prezzo",
+                                    "imponibile_tot": 0,
+                                    "num_articoli_tot": null
+                                },
+                                {
+                                    "label": "B",
+                                    "qty_tot": 0,
+                                    "children": [
+                                        {
+                                            "extra": {
+                                                "pot_size": "P12",
+                                                "prezzo_iva_inclusa": 12.0
+                                            },
+                                            "label": "TREE002 \u2014 Prodotto A2",
+                                            "qty_tot": 0,
+                                            "entity_key": "TREE002",
+                                            "entity_type": "articolo",
+                                            "imponibile_tot": 0,
+                                            "num_articoli_tot": null
+                                        },
+                                        {
+                                            "extra": {
+                                                "pot_size": "P14",
+                                                "prezzo_iva_inclusa": 14.0
+                                            },
+                                            "label": "TREE003 \u2014 Prodotto A3",
+                                            "qty_tot": 0,
+                                            "entity_key": "TREE003",
+                                            "entity_type": "articolo",
+                                            "imponibile_tot": 0,
+                                            "num_articoli_tot": null
+                                        }
+                                    ],
+                                    "entity_key": "B",
+                                    "entity_type": "fascia_prezzo",
+                                    "imponibile_tot": 0,
+                                    "num_articoli_tot": null
+                                }
+                            ],
+                            "entity_key": "tree_family_a",
+                            "entity_type": "famiglia",
+                            "imponibile_tot": 0,
+                            "num_articoli_tot": null
+                        },
+                        {
+                            "label": "tree_family_b",
+                            "qty_tot": 0,
+                            "children": [
+                                {
+                                    "label": "A",
+                                    "qty_tot": 0,
+                                    "children": [
+                                        {
+                                            "extra": {
+                                                "pot_size": "P16",
+                                                "prezzo_iva_inclusa": 20.0
+                                            },
+                                            "label": "TREE101 \u2014 Prodotto B1",
+                                            "qty_tot": 0,
+                                            "entity_key": "TREE101",
+                                            "entity_type": "articolo",
+                                            "imponibile_tot": 0,
+                                            "num_articoli_tot": null
+                                        }
+                                    ],
+                                    "entity_key": "A",
+                                    "entity_type": "fascia_prezzo",
+                                    "imponibile_tot": 0,
+                                    "num_articoli_tot": null
+                                }
+                            ],
+                            "entity_key": "tree_family_b",
+                            "entity_type": "famiglia",
+                            "imponibile_tot": 0,
+                            "num_articoli_tot": null
+                        }
+                    ],
+                    "entity_key": "categoria_tree",
+                    "entity_type": "categoria",
+                    "imponibile_tot": 0,
+                    "num_articoli_tot": null
+                }
+            ],
+            "entity_key": "fascia_tree",
+            "entity_type": "fascia",
+            "imponibile_tot": 0,
+            "num_articoli_tot": null
+        }
+    ],
+    "totals": {
+        "qty_tot": 0,
+        "imponibile_tot": 0,
+        "num_articoli_tot": 0
+    },
+    "date_to": "2026-12-31",
+    "date_from": "2026-01-01",
+    "entity_key": "fascia_tree",
+    "entity_type": "fascia"
+}
+
+=== entity-summary categoria ===
+{
+    "tree": [
+        {
+            "label": "fascia_tree",
+            "qty_tot": 0,
+            "children": [
+                {
+                    "label": "categoria_tree",
+                    "qty_tot": 0,
+                    "children": [
+                        {
+                            "label": "tree_family_a",
+                            "qty_tot": 0,
+                            "children": [
+                                {
+                                    "label": "A",
+                                    "qty_tot": 0,
+                                    "children": [
+                                        {
+                                            "extra": {
+                                                "pot_size": "P10",
+                                                "prezzo_iva_inclusa": 10.0
+                                            },
+                                            "label": "TREE001 \u2014 Prodotto A1",
+                                            "qty_tot": 0,
+                                            "entity_key": "TREE001",
+                                            "entity_type": "articolo",
+                                            "imponibile_tot": 0,
+                                            "num_articoli_tot": null
+                                        }
+                                    ],
+                                    "entity_key": "A",
+                                    "entity_type": "fascia_prezzo",
+                                    "imponibile_tot": 0,
+                                    "num_articoli_tot": null
+                                },
+                                {
+                                    "label": "B",
+                                    "qty_tot": 0,
+                                    "children": [
+                                        {
+                                            "extra": {
+                                                "pot_size": "P12",
+                                                "prezzo_iva_inclusa": 12.0
+                                            },
+                                            "label": "TREE002 \u2014 Prodotto A2",
+                                            "qty_tot": 0,
+                                            "entity_key": "TREE002",
+                                            "entity_type": "articolo",
+                                            "imponibile_tot": 0,
+                                            "num_articoli_tot": null
+                                        },
+                                        {
+                                            "extra": {
+                                                "pot_size": "P14",
+                                                "prezzo_iva_inclusa": 14.0
+                                            },
+                                            "label": "TREE003 \u2014 Prodotto A3",
+                                            "qty_tot": 0,
+                                            "entity_key": "TREE003",
+                                            "entity_type": "articolo",
+                                            "imponibile_tot": 0,
+                                            "num_articoli_tot": null
+                                        }
+                                    ],
+                                    "entity_key": "B",
+                                    "entity_type": "fascia_prezzo",
+                                    "imponibile_tot": 0,
+                                    "num_articoli_tot": null
+                                }
+                            ],
+                            "entity_key": "tree_family_a",
+                            "entity_type": "famiglia",
+                            "imponibile_tot": 0,
+                            "num_articoli_tot": null
+                        },
+                        {
+                            "label": "tree_family_b",
+                            "qty_tot": 0,
+                            "children": [
+                                {
+                                    "label": "A",
+                                    "qty_tot": 0,
+                                    "children": [
+                                        {
+                                            "extra": {
+                                                "pot_size": "P16",
+                                                "prezzo_iva_inclusa": 20.0
+                                            },
+                                            "label": "TREE101 \u2014 Prodotto B1",
+                                            "qty_tot": 0,
+                                            "entity_key": "TREE101",
+                                            "entity_type": "articolo",
+                                            "imponibile_tot": 0,
+                                            "num_articoli_tot": null
+                                        }
+                                    ],
+                                    "entity_key": "A",
+                                    "entity_type": "fascia_prezzo",
+                                    "imponibile_tot": 0,
+                                    "num_articoli_tot": null
+                                }
+                            ],
+                            "entity_key": "tree_family_b",
+                            "entity_type": "famiglia",
+                            "imponibile_tot": 0,
+                            "num_articoli_tot": null
+                        }
+                    ],
+                    "entity_key": "categoria_tree",
+                    "entity_type": "categoria",
+                    "imponibile_tot": 0,
+                    "num_articoli_tot": null
+                }
+            ],
+            "entity_key": "fascia_tree",
+            "entity_type": "fascia",
+            "imponibile_tot": 0,
+            "num_articoli_tot": null
+        }
+    ],
+    "totals": {
+        "qty_tot": 0,
+        "imponibile_tot": 0,
+        "num_articoli_tot": 0
+    },
+    "date_to": "2026-12-31",
+    "date_from": "2026-01-01",
+    "entity_key": "categoria_tree",
+    "entity_type": "categoria"
+}

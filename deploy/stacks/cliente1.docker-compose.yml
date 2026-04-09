@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  cliente1_postgres:
+    image: postgres:16-alpine
+    container_name: cliente1_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: greenbrain_cliente1
+      POSTGRES_USER: greenbrain_cliente1
+      POSTGRES_PASSWORD: GreenbrainTest123!
+    ports:
+      - "55441:5432"
+    volumes:
+      - cliente1_postgres_data:/var/lib/postgresql/data
+      - ../../client-runtime/sql/init:/docker-entrypoint-initdb.d:ro
+
+  cliente1_backend:
+    build:
+      context: ../../apps/backend
+      dockerfile: Dockerfile
+    container_name: cliente1_backend
+    restart: unless-stopped
+    env_file:
+      - ../env/cliente1.env
+    ports:
+      - "8082:8000"
+    depends_on:
+      - cliente1_postgres
+
+volumes:
+  cliente1_postgres_data:

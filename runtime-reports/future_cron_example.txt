@@ -1,0 +1,13 @@
+# NOT ACTIVE - FUTURE EXAMPLE ONLY
+
+# MODE 1 - DEMO LOCAL SIMPLE
+0 21 * * * /opt/greenbrain-platform/apps/ml-worker/run_daily_demo_runtime.sh >> /opt/greenbrain-platform/runtime-reports/daily_demo_runtime.log 2>&1
+0 3 * * 0 /opt/greenbrain-platform/apps/ml-worker/run_weekly_train_runtime.sh >> /opt/greenbrain-platform/runtime-reports/weekly_train.log 2>&1
+
+# MODE 2 - DEMO FULL PIPELINE LOCAL
+# 0 21 * * * /opt/greenbrain-platform/apps/ml-worker/run_daily_demo_full_pipeline.sh >> /opt/greenbrain-platform/runtime-reports/daily_demo_full_pipeline.log 2>&1
+# 0 3 * * 0 /opt/greenbrain-platform/apps/ml-worker/run_weekly_train_runtime.sh >> /opt/greenbrain-platform/runtime-reports/weekly_train.log 2>&1
+
+# MODE 3 - REAL CLIENT RUNTIME
+# 0 21 * * * /opt/greenbrain-platform/apps/ml-worker/run_daily_runtime.sh >> /opt/greenbrain-platform/runtime-reports/daily_runtime.log 2>&1
+# 0 3 * * 0 /opt/greenbrain-platform/apps/ml-worker/run_weekly_train_runtime.sh >> /opt/greenbrain-platform/runtime-reports/weekly_train.log 2>&1

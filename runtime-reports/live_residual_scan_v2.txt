@@ -1,0 +1,97 @@
+apps/ml-worker/jobs/migrations/blocco_f_migration.sql:11:--   ✓ Snapshot CSV esportato in /opt/greenhouse/ml_monitor_archive/
+apps/ml-worker/jobs/run_predict_all.sh:52:python3 -u -m jobs.upload_priors_to_supabase | tee -a "$PRIOR_LOG"
+apps/ml-worker/jobs/run_predict_all.sh:55:python3 -u -m jobs.download_priors_from_supabase | tee -a "$PRIOR_LOG"
+apps/ml-worker/jobs/parquet_export/README.md:12:- /opt/greenhouse/.env
+apps/ml-worker/storage/supabase_backend.py:5:from supabase import create_client
+apps/ml-worker/storage/factory.py:16:        supabase — Supabase Storage (default; requires SUPABASE_URL + key)
+apps/ml-worker/storage/factory.py:18:    name = (backend or os.getenv("STORAGE_BACKEND", "supabase")).strip().lower()
+apps/ml-worker/storage/factory.py:28:    if name == "supabase":
+apps/ml-worker/storage/factory.py:29:        from .supabase_backend import SupabaseStorageBackend
+apps/ml-worker/storage/factory.py:33:        f"Unknown STORAGE_BACKEND={name!r}. Valid values: local, s3, supabase"
+apps/ml-worker/storage/storage_interface.py:15:        STORAGE_BACKEND   local | s3 | supabase   (default: supabase)
+apps/ml-worker/storage/backend.py:30:    return os.getenv("STORAGE_BACKEND", "supabase").strip().lower()
+apps/ml-worker/requirements_clean.txt:43:supabase-auth==2.28.0
+apps/ml-worker/requirements_clean.txt:44:supabase-functions==2.28.0
+apps/ml-worker/requirements.txt:64:supabase==2.28.0
+apps/ml-worker/requirements.txt:65:supabase-auth==2.28.0
+apps/ml-worker/requirements.txt:66:supabase-functions==2.28.0
+apps/ml-worker/requirements_cloud.lock:55:supabase-auth==2.28.0
+apps/ml-worker/requirements_cloud.lock:56:supabase-functions==2.28.0
+apps/ml-worker/tools/season_gate_helper_v1.txt:8:def load_seasonal_priors(fam: str, slug: str = None, *, base_dir: str = "/opt/greenhouse/repo/priors_cache"):
+apps/ml-worker/scripts/spaces_io.py:5:storage.factory.get_storage() so that STORAGE_BACKEND=local|s3|supabase controls
+apps/ml-worker/scripts/patch_get_engine_urlcreate.py:5:p = Path("/opt/greenhouse/repo/predict_v4_single_family_tweedie.py")
+apps/ml-worker/scripts/patch_get_engine_urlcreate.py:23:    load_dotenv("/opt/greenhouse/.env")
+apps/ml-worker/scripts/patch_predict_safe.py:5:TARGET = Path("/opt/greenhouse/repo/predict_v4_single_family_tweedie.py")
+apps/ml-worker/test_spaces.py:5:load_dotenv("/opt/greenhouse/.env")
+apps/ml-worker/requirements_snapshot.txt:55:supabase==2.27.3
+apps/ml-worker/requirements_snapshot.txt:56:supabase-auth==2.28.0
+apps/ml-worker/requirements_snapshot.txt:57:supabase-functions==2.28.0
+apps/backend/Dockerfile:7:# ── Runtime defaults (non-secret; override via env or docker-compose) ─────────
+apps/backend/app/core/security.py:27:    if settings.jwt_secret == "CHANGE_ME_dev_only_not_for_production":
+apps/backend/app/core/config.py:23:    jwt_secret: str = "CHANGE_ME_dev_only_not_for_production"
+apps/frontend/.dockerignore:7:supabase
+apps/frontend/README.md:36:npm run dev
+apps/frontend/Dockerfile:29:# Set to the docker-compose service name + port of the backend.
+apps/frontend/nginx.conf.template:40:    # Default value: backend:8000 (docker-compose service name).
+apps/frontend/.env:1:VITE_SUPABASE_PROJECT_ID="xbyhmzrlycixxrfjggvn"
+apps/frontend/.env:2:VITE_SUPABASE_URL="https://xbyhmzrlycixxrfjggvn.supabase.co"
+apps/frontend/.env:3:VITE_SUPABASE_PUBLISHABLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhieWhtenJseWNpeHhyZmpnZ3ZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyNTYwMzEsImV4cCI6MjA3OTgzMjAzMX0.BNKbWvbTo7zEARrYpSGShzPDuJRl893LclnLuy7y6pM"
+apps/frontend/.env.example:5:VITE_SUPABASE_URL=https://<project-id>.supabase.co
+apps/frontend/.env.example:6:VITE_SUPABASE_PROJECT_ID=<project-id>
+apps/frontend/.env.example:7:VITE_SUPABASE_PUBLISHABLE_KEY=<anon-public-key>
+client-runtime/sql/init/02_schema_7b1.sql:22:--   docker-compose -f docker-compose.yml down && docker volume rm docker_postgres_data
+client-runtime/sql/init/02_schema_7b1.sql:23:--   docker-compose -f docker-compose.yml up -d
+client-runtime/sql/init/03_schema_7b2a.sql:38:--   docker-compose down && docker volume rm docker_postgres_data && docker-compose up -d
+client-runtime/sql/schema/wave_7b2a_planned.sql:38:--   docker-compose down && docker volume rm docker_postgres_data && docker-compose up -d
+client-runtime/sql/schema/wave_7b1_planned.sql:22:--   docker-compose -f docker-compose.yml down && docker volume rm docker_postgres_data
+client-runtime/sql/schema/wave_7b1_planned.sql:23:--   docker-compose -f docker-compose.yml up -d
+client-runtime/sql/extract/extract-schema.py:60:SKIP_EXTENSIONS = {"pgsodium", "pg_net", "pg_graphql", "supabase_vault", "pgjwt", "pg_stat_monitor", "hypopg"}
+client-runtime/etl/.env.ml.runtime:1:DATABASE_URL=postgresql://greenbrain:greenbrain@127.0.0.1:55432/greenbrain
+client-runtime/etl/run_etl_runtime.sh:14:if grep -q '^SQLSERVER_PASSWORD=CHANGE_ME$' .env; then
+client-runtime/etl/.env.template:5:SQLSERVER_PASSWORD=CHANGE_ME
+client-runtime/etl/.env:5:SQLSERVER_PASSWORD=CHANGE_ME
+client-runtime/etl/.env:23:DATABASE_URL=postgresql://greenbrain:greenbrain@127.0.0.1:55432/greenbrain
+client-runtime/etl/.env.ml.example:1:DATABASE_URL=postgresql://postgres:PASSWORD@HOST:5432/postgres
+client-runtime/etl/.env.ml:1:DATABASE_URL=postgresql://postgres:PASSWORD@HOST:5432/postgres
+client-runtime/README.md:22:| `docker/docker-compose.yml` | ✅ Wave 6 | Local stack template (postgres + backend + frontend) |
+client-runtime/README.md:42:- `docker/docker-compose.yml` and env templates confirm local-postgres architecture
+client-runtime/README.md:51:`docker-compose config` requires concrete env files, not only templates.
+client-runtime/env/.env.client.example:13:# DATABASE_URL=postgresql+psycopg://greenbrain:change_me@postgres:5432/greenbrain
+client-runtime/env/backend.env.template:17:# Service name matches the postgres service in docker-compose.yml
+client-runtime/env/backend.env.template:28:# DATABASE_URL=
+client-runtime/docker/docker-compose.yml.wave7a_baseline:17:#   docker-compose -f client-runtime/docker/docker-compose.yml up -d
+client-runtime/docker/docker-compose.yml.wave7a_baseline:20:#   docker-compose -f client-runtime/docker/docker-compose.yml \
+client-runtime/docker/docker-compose.yml.wave7a_baseline:66:    # Blocked by: auth layer still requires VITE_SUPABASE_URL + VITE_SUPABASE_PUBLISHABLE_KEY
+client-runtime/docker/docker-compose.yml.wave7a_baseline:73:    command: sh -c "npm install -q && npm run dev"
+client-runtime/docker/docker-compose.yml:18:#   docker-compose -f client-runtime/docker/docker-compose.yml build backend
+client-runtime/docker/docker-compose.yml:21:#   docker-compose -f client-runtime/docker/docker-compose.yml up -d
+client-runtime/docker/docker-compose.yml:24:#   docker-compose -f client-runtime/docker/docker-compose.yml \
+client-runtime/docker/docker-compose.yml:80:    command: sh -c "npm install -q && npm run dev"
+client-runtime/docker/docker-compose.yml.wave7b1_baseline:18:#   docker-compose -f client-runtime/docker/docker-compose.yml build backend
+client-runtime/docker/docker-compose.yml.wave7b1_baseline:21:#   docker-compose -f client-runtime/docker/docker-compose.yml up -d
+client-runtime/docker/docker-compose.yml.wave7b1_baseline:24:#   docker-compose -f client-runtime/docker/docker-compose.yml \
+client-runtime/docker/docker-compose.yml.wave7b1_baseline:71:    # Blocked by: auth layer still requires VITE_SUPABASE_URL + VITE_SUPABASE_PUBLISHABLE_KEY
+client-runtime/docker/docker-compose.yml.wave7b1_baseline:78:    command: sh -c "npm install -q && npm run dev"
+client-runtime/docs/client-demo-runbook.md:22:- virtualenv Python disponibile in /opt/greenhouse/venv
+client-runtime/docs/install-guide.md:42:docker-compose -f docker/docker-compose.yml up -d
+client-runtime/docs/install-guide.md:111:docker-compose -f docker/docker-compose.yml stop
+client-runtime/docs/install-guide.md:114:docker-compose -f docker/docker-compose.yml start
+client-runtime/docs/install-guide.md:117:docker-compose -f docker/docker-compose.yml down
+client-runtime/docs/install-guide.md:120:docker-compose -f docker/docker-compose.yml down -v
+client-runtime/docs/install-guide.md:129:docker-compose -f docker/docker-compose.yml logs -f
+client-runtime/docs/install-guide.md:132:docker-compose -f docker/docker-compose.yml logs -f backend
+client-runtime/docs/install-guide.md:135:docker-compose -f docker/docker-compose.yml logs -f postgres
+client-runtime/docs/install-guide.md:147:docker-compose -f docker/docker-compose.yml restart backend frontend
+infra/env/dev.env:4:PG_HOST=aws-1-eu-west-1.pooler.supabase.com
+infra/env/dev.env:12:STORAGE_BACKEND=supabase
+infra/env/dev.env:14:# supabase storage
+infra/env/dev.env:15:SUPABASE_URL=https://xbyhmzrlycixxrfjggvn.supabase.co
+infra/env/dev.env:21:SUPABASE_DB_HOST="aws-1-eu-west-1.pooler.supabase.com"
+infra/env/.env.example:3:PG_HOST=aws-1-eu-west-1.pooler.supabase.com
+infra/env/.env.example:10:SUPABASE_URL="https://xbyhmzrlycixxrfjggvn.supabase.co"
+infra/env/.env.example:22:DATABASE_URL="postgresql://postgres.xbyhmzrlycixxrfjggvn:ToniInnavoig91!!@aws-1-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require"
+infra/env/.env.example:25:SUPABASE_DB_HOST="aws-1-eu-west-1.pooler.supabase.com"
+infra/env/base.env:6:STORAGE_BACKEND=supabase
+infra/docker-shadow/docker-compose.shadow.yml:10:    command: sh -c "npm install && npm run dev"
+infra/docker-shadow/docker-compose.shadow.yml:23:      - DATABASE_URL=postgresql://postgres.xbyhmzrlycixxrfjggvn:ToniInnavoig91!!@aws-1-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require
+infra/scripts/load_env.sh:20:  export DATABASE_URL="postgresql://${PG_USER}:${PG_PASSWORD}@${PG_HOST}:${PG_PORT}/${PG_DB}?sslmode=${PG_SSLMODE}"

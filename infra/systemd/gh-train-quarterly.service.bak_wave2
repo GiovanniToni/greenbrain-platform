@@ -1,0 +1,22 @@
+[Unit]
+Description=Greenhouse - Train ALL Families (quarterly)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=gh
+Group=gh
+WorkingDirectory=/opt/greenhouse/repo
+EnvironmentFile=/opt/greenhouse/.env
+ExecStart=/bin/bash -lc 'source /opt/greenhouse/venv/bin/activate && export RUN_TRIGGER_SOURCE=systemd_timer && export GIT_SHA="$(cd /opt/greenhouse/repo && git rev-parse --short HEAD 2>/dev/null || true)" && python3 -u /opt/greenhouse/repo/jobs/train_all_monitor.py'
+TimeoutStartSec=0
+ExecStartPost=/opt/greenhouse/bin/gh-sync-local-artifacts
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
