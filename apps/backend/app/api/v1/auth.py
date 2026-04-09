@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime, timedelta, timezone
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError
+from jose import JWTError, jwt
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -18,16 +20,14 @@ from app.db.users import (
     count_users,
     create_user,
     get_user_by_email,
-    get_user_by_id,
     update_last_login,
 )
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 _bearer = HTTPBearer()
+SSO_ALGORITHM = "HS256"
 
-
-# ── Request / response schemas ────────────────────────────────────────────────
 
 class LoginRequest(BaseModel):
     email: str
@@ -57,7 +57,40 @@ class UserResponse(BaseModel):
     user_role: str | None = None
 
 
-# ── Auth dependency ───────────────────────────────────────────────────────────
+class SsoStartResponse(BaseModel):
+    redirect_url: str
+    target_host: str
+    target_path: str
+
+
+class SsoExchangeRequest(BaseModel):
+    ticket: str
+
+
+def _build_sso_ticket(user: dict) -> str:
+    now = datetime.now(timezone.utc)
+    exp = now + timedelta(minutes=2)
+
+    home_host = (user.get("home_host") or "").strip()
+    home_path = (user.get("home_path") or "/dashboard").strip() or "/dashboard"
+
+    payload = {
+        "sub": user["email"],
+        "email": user["email"],
+        "full_name": user.get("full_name"),
+        "is_admin": bool(user.get("is_admin")),
+        "tenant_code": user.get("tenant_code"),
+        "home_host": home_host,
+        "home_path": home_path,
+        "user_role": user.get("user_role"),
+        "purpose": "greenbrain_sso",
+        "iss": "greenbrain_auth",
+        "aud": home_host,
+        "exp": exp,
+        "iat": now,
+    }
+    return jwt.encode(payload, settings.jwt_secret, algorithm=SSO_ALGORITHM)
+
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(_bearer),
@@ -71,6 +104,7 @@ def get_current_user(
             detail="Not authenticated",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
     user = get_user_by_email(db, email)
     if not user or not user["is_active"]:
         raise HTTPException(
@@ -80,8 +114,6 @@ def get_current_user(
         )
     return user
 
-
-# ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.post("/login", response_model=TokenResponse)
 def login(body: LoginRequest, db: Session = Depends(get_db)):
@@ -96,6 +128,7 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account disabled",
         )
+
     update_last_login(db, str(user["id"]))
     token = create_access_token(subject=user["email"])
     return TokenResponse(
@@ -103,6 +136,82 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
         expires_in=settings.jwt_expire_minutes * 60,
     )
 
+
+@router.post("/sso/start", response_model=SsoStartResponse)
+def sso_start(body: LoginRequest, db: Session = Depends(get_db)):
+    user = get_user_by_email(db, body.email)
+    if not user or not verify_password(body.password, user["hashed_password"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
+        )
+    if not user["is_active"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account disabled",
+        )
+
+    home_host = (user.get("home_host") or "").strip()
+    home_path = (user.get("home_path") or "/dashboard").strip() or "/dashboard"
+
+    if not home_host:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing home_host for user",
+        )
+
+    ticket = _build_sso_ticket(user)
+    redirect_url = f"https://{home_host}/login?sso={ticket}"
+
+    return SsoStartResponse(
+        redirect_url=redirect_url,
+        target_host=home_host,
+        target_path=home_path,
+    )
+
+
+
+@router.post("/sso/exchange", response_model=TokenResponse)
+def sso_exchange(body: SsoExchangeRequest, request: Request, db: Session = Depends(get_db)):
+    try:
+        payload = jwt.decode(
+            body.ticket,
+            settings.jwt_secret,
+            algorithms=[SSO_ALGORITHM],
+            audience=request.headers.get("host", "").split(":")[0],
+        )
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid SSO ticket",
+        )
+
+    if payload.get("purpose") != "greenbrain_sso":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid SSO ticket",
+        )
+
+    email = (payload.get("email") or "").strip().lower()
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid SSO ticket",
+        )
+
+    user = get_user_by_email(db, email)
+    if not user or not user["is_active"]:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not enabled on tenant",
+        )
+
+    update_last_login(db, str(user["id"]))
+    token = create_access_token(subject=user["email"])
+    return TokenResponse(
+        access_token=token,
+        expires_in=settings.jwt_expire_minutes * 60,
+    )
 
 @router.get("/me", response_model=UserResponse)
 def me(user: dict = Depends(get_current_user)):
@@ -124,15 +233,12 @@ def me(user: dict = Depends(get_current_user)):
     response_model=UserResponse,
 )
 def setup(body: SetupRequest, db: Session = Depends(get_db)):
-    """
-    Create the first admin user for this installation.
-    Returns 409 if any user already exists (self-disabling after first use).
-    """
     if count_users(db) > 0:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Setup already completed",
         )
+
     user = create_user(
         db,
         email=body.email,
@@ -140,6 +246,7 @@ def setup(body: SetupRequest, db: Session = Depends(get_db)):
         full_name=body.full_name,
         is_admin=True,
     )
+
     return UserResponse(
         id=str(user["id"]),
         email=user["email"],

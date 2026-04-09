@@ -3,7 +3,7 @@ server {
     listen [::]:80;
     server_name greenbrain.it;
 
-    return 301 http://www.greenbrain.it$request_uri;
+    return 301 https://www.greenbrain.it$request_uri;
 }
 
 server {
@@ -11,7 +11,7 @@ server {
     listen [::]:80;
     server_name app.greenbrain.it;
 
-    return 301 http://www.greenbrain.it$request_uri;
+    return 301 https://www.greenbrain.it$request_uri;
 }
 
 server {

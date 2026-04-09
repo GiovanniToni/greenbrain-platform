@@ -1,12 +1,12 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Leaf, Mail, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, type AuthUser } from "@/hooks/useAuth";
-import { ApiError } from "@/lib/apiClient";
+import { ApiError, apiPost, setStoredToken } from "@/lib/apiClient";
 
 function redirectAfterLogin(user: AuthUser, navigate: ReturnType<typeof useNavigate>) {
   const currentHost = window.location.host;
@@ -22,6 +22,7 @@ function redirectAfterLogin(user: AuthUser, navigate: ReturnType<typeof useNavig
 }
 
 export default function Login() {
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -31,11 +32,38 @@ export default function Login() {
   const { toast } = useToast();
   const { user, loading, login } = useAuth();
 
+  const currentHost = window.location.host;
+  const isCentralHost = currentHost === "www.greenbrain.it" || currentHost === "greenbrain.it";
+
   useEffect(() => {
     if (!loading && user) {
       redirectAfterLogin(user, navigate);
     }
   }, [user, loading, navigate]);
+
+  useEffect(() => {
+    const sso = searchParams.get("sso");
+    if (!sso || isCentralHost) return;
+
+    let cancelled = false;
+
+    async function run() {
+      try {
+        const data = await apiPost("/api/v1/auth/sso/exchange", { ticket: sso });
+        setStoredToken(data.access_token);
+        window.location.href = `${window.location.origin}/dashboard`;
+      } catch (err) {
+        if (!cancelled) {
+          setErrorMessage(err instanceof Error ? err.message : "Errore SSO");
+        }
+      }
+    }
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, isCentralHost]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,6 +71,12 @@ export default function Login() {
     setErrorMessage(null);
 
     try {
+      if (isCentralHost) {
+        const data = await apiPost("/api/v1/auth/sso/start", { email, password });
+        window.location.href = data.redirect_url;
+        return;
+      }
+
       const me = await login(email, password);
 
       toast({
@@ -90,7 +124,7 @@ export default function Login() {
         </div>
 
         <h1 className="text-xl font-semibold text-center mb-2">Bentornato!</h1>
-        <p className="text-sm text-muted-foreground text-center mb-8">Accedi al tuo account</p>
+        <p className="text-sm text-muted-foreground text-center mb-8">Accedi al tuo Garden Center</p>
 
         <form onSubmit={handleLogin} className="space-y-4" autoComplete="off">
           <div className="space-y-2">
@@ -103,7 +137,7 @@ export default function Login() {
                 autoComplete="off"
                 data-lpignore="true"
                 data-1p-ignore="true"
-                placeholder="nome@azienda.it"
+                placeholder="nome@gardencenter.it"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="pl-10"
