@@ -1,0 +1,28 @@
+tenant_code: cliente_demo
+sync_mode: cloud_push
+version: 1
+
+push_sets:
+  - name: dashboard_kpis
+    enabled: true
+    description: KPI aggregati per dashboard cloud
+
+  - name: sales_daily_family
+    enabled: true
+    description: vendite giornaliere aggregate per famiglia
+
+  - name: forecast_summary
+    enabled: true
+    description: sintesi forecast per frontend cloud
+
+  - name: reorder_suggestions
+    enabled: true
+    description: suggerimenti riordino per frontend cloud
+
+  - name: raw_sales
+    enabled: false
+    description: non sincronizzare raw sensibile
+
+  - name: customer_masterdata_sensitive
+    enabled: false
+    description: non sincronizzare dati sensibili locali

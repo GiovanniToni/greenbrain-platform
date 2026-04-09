@@ -1,0 +1,13 @@
+{
+  "tenant_code": "cliente_demo",
+  "sync_mode": "cloud_push",
+  "last_sync_at": null,
+  "last_sync_status": "never_run",
+  "agent_version": "0.1.0",
+  "push_sets": [
+    {"name": "dashboard_kpis", "status": "pending"},
+    {"name": "sales_daily_family", "status": "pending"},
+    {"name": "forecast_summary", "status": "pending"},
+    {"name": "reorder_suggestions", "status": "pending"}
+  ]
+}
