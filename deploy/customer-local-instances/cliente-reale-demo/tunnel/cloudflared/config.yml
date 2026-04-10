@@ -3,5 +3,5 @@ credentials-file: /etc/cloudflared/cliente-reale-demo-tunnel-id.json
 
 ingress:
   - hostname: cliente-reale-demo.greenbrain.it
-    service: http://127.0.0.1:8008
+    service: http://host.docker.internal:8008
   - service: http_status:404
