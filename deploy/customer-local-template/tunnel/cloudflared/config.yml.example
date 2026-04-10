@@ -1,0 +1,7 @@
+tunnel: CHANGE_ME_TUNNEL_ID
+credentials-file: /etc/cloudflared/CHANGE_ME_TUNNEL_ID.json
+
+ingress:
+  - hostname: cliente-reale.greenbrain.it
+    service: http://127.0.0.1:8008
+  - service: http_status:404
