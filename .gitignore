@@ -24,3 +24,7 @@ greenhouse_sales_family_daily_fact/
 greenhouse_sales_raw/
 greenhouse_sales_raw_staging/
 package_*/
+
+# local runtime tunnel real credentials
+deploy/customer-local-instances/*/tunnel/cloudflared/*.json
+!deploy/customer-local-instances/*/tunnel/cloudflared/*.json.example

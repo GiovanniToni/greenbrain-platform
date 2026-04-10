@@ -26,3 +26,13 @@ L'utente locale demo autenticato sul runtime locale risponde ancora con:
 - user_role null
 
 Questo non blocca il funzionamento remoto attuale, ma va corretto per allineare completamente runtime locale e central auth.
+
+## Hardening operativo
+- il file credentials reale Cloudflare tunnel resta solo sulla macchina/runtime
+- il file json reale non va versionato in git
+- il tenant remoto si considera live solo con:
+  - tunnel connesso
+  - DNS pubblico risolto
+  - HTTPS raggiungibile
+  - login remoto verificato
+  - /api/v1/auth/me verificato
