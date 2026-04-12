@@ -24,19 +24,28 @@ echo "== Build frontend =="
 cd "$ROOT/apps/frontend"
 npm run build
 
-echo "== Copia template =="
+echo "== Aggiorna versione template sorgente =="
+echo "$VERSION" > "$TEMPLATE/VERSION"
+
+python3 - <<PY
+from pathlib import Path
+p = Path("$TEMPLATE/release-manifest.yml")
+s = p.read_text()
+import re
+s = re.sub(r'^package_version:.*$', 'package_version: $VERSION', s, flags=re.M)
+p.write_text(s)
+print("UPDATED", p)
+PY
+
+echo "== Sync frontend/backend nel template =="
+mkdir -p "$TEMPLATE/frontend-dist"
+mkdir -p "$TEMPLATE/backend-src"
+
+rsync -a --delete "$ROOT/apps/frontend/dist/" "$TEMPLATE/frontend-dist/"
+rsync -a --delete "$ROOT/apps/backend/" "$TEMPLATE/backend-src/"
+
+echo "== Copia template nella release =="
 cp -R "$TEMPLATE" "$STAGING/customer-local-template"
-
-echo "== Copia frontend build =="
-mkdir -p "$STAGING/customer-local-template/frontend-dist"
-cp -R "$ROOT/apps/frontend/dist/." "$STAGING/customer-local-template/frontend-dist/"
-
-echo "== Copia backend sorgente runtime =="
-mkdir -p "$STAGING/customer-local-template/backend-src"
-cp -R "$ROOT/apps/backend/." "$STAGING/customer-local-template/backend-src/"
-
-echo "== Scrittura versione =="
-echo "$VERSION" > "$STAGING/customer-local-template/VERSION"
 
 cat > "$OUTDIR/BUILD-INFO.txt" <<BUILDINFO
 release_version=$VERSION

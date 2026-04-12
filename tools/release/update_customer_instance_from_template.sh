@@ -22,12 +22,20 @@ mkdir -p "$INSTANCE/backend-src"
 mkdir -p "$INSTANCE/frontend-nginx"
 mkdir -p "$INSTANCE/tunnel"
 mkdir -p "$INSTANCE/scripts"
+mkdir -p "$INSTANCE/systemd"
+mkdir -p "$INSTANCE/desktop"
 
 rsync -a --delete "$TEMPLATE/frontend-dist/" "$INSTANCE/frontend-dist/"
 rsync -a --delete "$TEMPLATE/backend-src/" "$INSTANCE/backend-src/"
 rsync -a "$TEMPLATE/frontend-nginx/" "$INSTANCE/frontend-nginx/"
 rsync -a "$TEMPLATE/scripts/" "$INSTANCE/scripts/"
-rsync -a "$TEMPLATE/tunnel/" "$INSTANCE/tunnel/"
+rsync -a "$TEMPLATE/systemd/" "$INSTANCE/systemd/"
+rsync -a "$TEMPLATE/desktop/" "$INSTANCE/desktop/"
+rsync -a "$TEMPLATE/tunnel/" "$INSTANCE/tunnel/" \
+  --exclude='cloudflared/*.json' \
+  --exclude='cloudflared/cloudflared.env' \
+  --exclude='cloudflared/config.yml'
+
 cp "$TEMPLATE/docker-compose.local.yml" "$INSTANCE/docker-compose.local.yml"
 cp "$TEMPLATE/README.md" "$INSTANCE/README.md"
 cp "$TEMPLATE/VERSION" "$INSTANCE/VERSION"
