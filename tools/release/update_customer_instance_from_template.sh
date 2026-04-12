@@ -29,8 +29,8 @@ rsync -a --delete "$TEMPLATE/frontend-dist/" "$INSTANCE/frontend-dist/"
 rsync -a --delete "$TEMPLATE/backend-src/" "$INSTANCE/backend-src/"
 rsync -a "$TEMPLATE/frontend-nginx/" "$INSTANCE/frontend-nginx/"
 rsync -a "$TEMPLATE/scripts/" "$INSTANCE/scripts/"
-rsync -a "$TEMPLATE/systemd/" "$INSTANCE/systemd/"
-rsync -a "$TEMPLATE/desktop/" "$INSTANCE/desktop/"
+rsync -a "$TEMPLATE/systemd/" "$INSTANCE/systemd/" 2>/dev/null || true
+rsync -a "$TEMPLATE/desktop/" "$INSTANCE/desktop/" 2>/dev/null || true
 rsync -a "$TEMPLATE/tunnel/" "$INSTANCE/tunnel/" \
   --exclude='cloudflared/*.json' \
   --exclude='cloudflared/cloudflared.env' \

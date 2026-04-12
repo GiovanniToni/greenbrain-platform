@@ -20,22 +20,28 @@ fi
 
 mkdir -p "$STAGING"
 
-echo "== Build frontend =="
-cd "$ROOT/apps/frontend"
-npm run build
-
 echo "== Aggiorna versione template sorgente =="
 echo "$VERSION" > "$TEMPLATE/VERSION"
 
 python3 - <<PY
 from pathlib import Path
+import re
+
 p = Path("$TEMPLATE/release-manifest.yml")
 s = p.read_text()
-import re
 s = re.sub(r'^package_version:.*$', 'package_version: $VERSION', s, flags=re.M)
 p.write_text(s)
 print("UPDATED", p)
 PY
+
+echo "== Verifica frontend build =="
+if [ ! -f "$ROOT/apps/frontend/dist/index.html" ]; then
+  echo "Frontend dist mancante: lancio build"
+  cd "$ROOT/apps/frontend"
+  npm run build
+else
+  echo "Frontend dist già presente: uso artefatti esistenti"
+fi
 
 echo "== Sync frontend/backend nel template =="
 mkdir -p "$TEMPLATE/frontend-dist"
