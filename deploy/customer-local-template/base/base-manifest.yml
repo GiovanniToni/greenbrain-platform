@@ -1,0 +1,12 @@
+base_type: template-managed
+managed_paths:
+  - base/backend-src
+  - base/frontend-dist
+  - base/scripts
+  - base/systemd
+  - base/desktop
+  - base/tunnel
+  - docker-compose.local.yml
+  - tunnel/docker-compose.tunnel.yml
+  - VERSION
+  - release-manifest.yml

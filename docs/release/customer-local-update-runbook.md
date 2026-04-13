@@ -26,3 +26,27 @@ docker compose --env-file deploy/customer-local-instances/<tenant>/env/customer-
 
 ### Check finale
 bash deploy/customer-local-instances/<tenant>/scripts/post-update-check.sh
+
+## Modello base / overlay
+
+### Base
+Aggiornata dal template/dev:
+- base/backend-src
+- base/frontend-dist
+- base/scripts
+- base/systemd
+- base/desktop
+- base/tunnel
+- docker-compose.local.yml
+- tunnel/docker-compose.tunnel.yml
+- VERSION
+- release-manifest.yml
+
+### Overlay
+Preservata per cliente:
+- overlay/env/customer-local.env
+- overlay/frontend-nginx/default.conf
+- overlay/tunnel/cloudflared/config.yml
+- overlay/tunnel/cloudflared/cloudflared.env
+- overlay/tunnel/cloudflared/*.json
+- overlay/meta/overlay-manifest.yml

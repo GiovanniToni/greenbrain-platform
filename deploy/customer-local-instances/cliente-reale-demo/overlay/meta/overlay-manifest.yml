@@ -1,0 +1,10 @@
+overlay_type: template-default
+preserve_on_update:
+  - overlay/env/customer-local.env
+  - overlay/frontend-nginx/default.conf
+  - overlay/tunnel/cloudflared/config.yml
+  - overlay/tunnel/cloudflared/cloudflared.env
+  - overlay/tunnel/cloudflared/*.json
+notes:
+  - overlay files are customer-specific
+  - update flow must never overwrite customer secrets automatically
