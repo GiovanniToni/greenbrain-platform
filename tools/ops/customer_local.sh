@@ -7,6 +7,7 @@ usage() {
   echo "  bash tools/ops/customer_local.sh bootstrap <tenant_code> <tenant_slug> <tenant_host>"
   echo "  bash tools/ops/customer_local.sh validate <tenant_slug>"
   echo "  bash tools/ops/customer_local.sh status <tenant_slug>"
+  echo "  bash tools/ops/customer_local.sh doctor <tenant_slug>"
   exit 1
 }
 
@@ -37,6 +38,42 @@ case "$CMD" in
     [ "$#" -eq 1 ] || usage
     SLUG="$1"
     bash "$ROOT/tools/onboarding/validate_customer_local_instance.sh" "$SLUG"
+    ;;
+  doctor)
+    [ "$#" -eq 1 ] || usage
+    SLUG="$1"
+    INSTANCE="$ROOT/deploy/customer-local-instances/$SLUG"
+
+    [ -d "$INSTANCE" ] || {
+      echo "Istanza non trovata: $INSTANCE"
+      exit 1
+    }
+
+    echo "=== DOCTOR: VERSION ==="
+    cat "$INSTANCE/VERSION"
+    echo
+    grep '^package_version:' "$INSTANCE/release-manifest.yml"
+
+    echo
+    echo "=== DOCTOR: VALIDATE ==="
+    bash "$ROOT/tools/onboarding/validate_customer_local_instance.sh" "$SLUG"
+
+    echo
+    echo "=== DOCTOR: LOCAL COMPOSE ==="
+    docker compose \
+      --env-file "$INSTANCE/overlay/env/customer-local.env" \
+      -f "$INSTANCE/docker-compose.local.yml" \
+      ps
+
+    echo
+    echo "=== DOCTOR: TUNNEL COMPOSE ==="
+    docker compose \
+      -f "$INSTANCE/tunnel/docker-compose.tunnel.yml" \
+      ps
+
+    echo
+    echo "=== DOCTOR: POST CHECK ==="
+    bash "$INSTANCE/base/scripts/post-update-check.sh"
     ;;
   status)
     [ "$#" -eq 1 ] || usage
