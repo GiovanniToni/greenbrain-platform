@@ -72,6 +72,7 @@ repl = {
     "TENANT_NAME=Cliente Reale": "TENANT_NAME=%s" % "$TENANT_SLUG",
     "TENANT_HOST=cliente-reale.greenbrain.it": "TENANT_HOST=%s" % "$TENANT_HOST",
     "CENTRAL_TENANT_CODE=cliente_reale": "CENTRAL_TENANT_CODE=%s" % "$TENANT_CODE",
+    "TUNNEL_PUBLIC_HOST=cliente-reale.greenbrain.it": "TUNNEL_PUBLIC_HOST=%s" % "$TENANT_HOST",
     "POSTGRES_DB=greenbrain_cliente_reale": "POSTGRES_DB=greenbrain_%s" % "$TENANT_CODE".replace("-", "_"),
     "POSTGRES_USER=greenbrain_cliente_reale": "POSTGRES_USER=greenbrain_%s" % "$TENANT_CODE".replace("-", "_"),
     "DATABASE_URL=postgresql://greenbrain_cliente_reale:CHANGE_ME_DB_PASSWORD@postgres:5432/greenbrain_cliente_reale":
@@ -119,6 +120,16 @@ for p in files:
     p.write_text(s)
     print("UPDATED", p)
 PY
+
+echo "== Verifica coerenza bootstrap =="
+grep -q "TENANT_HOST=$TENANT_HOST" "$INSTANCE/overlay/env/customer-local.env"
+grep -q "TUNNEL_PUBLIC_HOST=$TENANT_HOST" "$INSTANCE/overlay/env/customer-local.env"
+grep -q "$TENANT_HOST" "$INSTANCE/overlay/tunnel/cloudflared/config.yml"
+grep -q "$TENANT_HOST" "$INSTANCE/overlay/tunnel/cloudflared/cloudflared.env"
+
+docker compose   --env-file "$INSTANCE/overlay/env/customer-local.env"   -f "$INSTANCE/docker-compose.local.yml"   config >/dev/null
+
+docker compose   -f "$INSTANCE/tunnel/docker-compose.tunnel.yml"   config >/dev/null
 
 echo "== Istanza bootstrap completata =="
 echo "Path: $INSTANCE"
