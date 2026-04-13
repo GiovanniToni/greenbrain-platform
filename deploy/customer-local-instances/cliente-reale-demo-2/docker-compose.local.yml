@@ -1,0 +1,44 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: greenbrain_local_postgres
+    restart: unless-stopped
+    env_file:
+      - ./overlay/env/customer-local.env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "55450:5432"
+    volumes:
+      - greenbrain_local_postgres_data:/var/lib/postgresql/data
+      - ../../../client-runtime/sql/init:/docker-entrypoint-initdb.d:ro
+
+  backend:
+    build:
+      context: ./base/backend-src
+      dockerfile: Dockerfile
+    container_name: greenbrain_local_backend
+    restart: unless-stopped
+    env_file:
+      - ./overlay/env/customer-local.env
+    depends_on:
+      - postgres
+    ports:
+      - "${LOCAL_BACKEND_PORT}:8000"
+
+  frontend:
+    image: nginx:alpine
+    container_name: greenbrain_local_frontend
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./base/frontend-dist:/usr/share/nginx/html:ro
+      - ./overlay/frontend-nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "${LOCAL_FRONTEND_PORT}:80"
+
+volumes:
+  greenbrain_local_postgres_data:
