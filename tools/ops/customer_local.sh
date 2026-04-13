@@ -9,6 +9,7 @@ usage() {
   echo "  bash tools/ops/customer_local.sh status <tenant_slug>"
   echo "  bash tools/ops/customer_local.sh doctor <tenant_slug>"
   echo "  bash tools/ops/customer_local.sh list"
+  echo "  bash tools/ops/customer_local.sh validate-all"
   exit 1
 }
 
@@ -39,6 +40,34 @@ case "$CMD" in
     [ "$#" -eq 1 ] || usage
     SLUG="$1"
     bash "$ROOT/tools/onboarding/validate_customer_local_instance.sh" "$SLUG"
+    ;;
+  validate-all)
+    [ "$#" -eq 0 ] || usage
+
+    BASE_DIR="$ROOT/deploy/customer-local-instances"
+
+    [ -d "$BASE_DIR" ] || {
+      echo "Directory non trovata: $BASE_DIR"
+      exit 1
+    }
+
+    RC=0
+
+    for d in "$BASE_DIR"/*; do
+      [ -d "$d" ] || continue
+      SLUG="$(basename "$d")"
+
+      echo
+      echo "##################################################"
+      echo "VALIDATING: $SLUG"
+      echo "##################################################"
+
+      if ! bash "$ROOT/tools/onboarding/validate_customer_local_instance.sh" "$SLUG"; then
+        RC=1
+      fi
+    done
+
+    exit "$RC"
     ;;
   list)
     [ "$#" -eq 0 ] || usage
