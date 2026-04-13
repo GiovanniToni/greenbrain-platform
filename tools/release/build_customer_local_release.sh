@@ -13,6 +13,19 @@ TEMPLATE="$ROOT/deploy/customer-local-template"
 OUTDIR="$ROOT/releases/customer-local/$VERSION"
 STAGING="$OUTDIR/package"
 
+fail() {
+  echo "ERRORE: $1" >&2
+  exit 1
+}
+
+[ -d "$TEMPLATE" ] || fail "Template non trovato: $TEMPLATE"
+
+TV="$(cat "$TEMPLATE/VERSION")"
+MV="$(awk -F': ' '/^package_version:/{print $2}' "$TEMPLATE/release-manifest.yml")"
+
+[ "$TV" = "$VERSION" ] || fail "VERSION template ($TV) diversa da release richiesta ($VERSION)"
+[ "$MV" = "$VERSION" ] || fail "package_version template ($MV) diversa da release richiesta ($VERSION)"
+
 if [ -d "$OUTDIR" ]; then
   echo "Release già esistente: $OUTDIR"
   exit 1
@@ -20,37 +33,7 @@ fi
 
 mkdir -p "$STAGING"
 
-echo "== Aggiorna versione template sorgente =="
-echo "$VERSION" > "$TEMPLATE/VERSION"
-
-python3 - <<PY
-from pathlib import Path
-import re
-
-p = Path("$TEMPLATE/release-manifest.yml")
-s = p.read_text()
-s = re.sub(r'^package_version:.*$', 'package_version: $VERSION', s, flags=re.M)
-p.write_text(s)
-print("UPDATED", p)
-PY
-
-echo "== Verifica frontend build =="
-if [ ! -f "$ROOT/apps/frontend/dist/index.html" ]; then
-  echo "Frontend dist mancante: lancio build"
-  cd "$ROOT/apps/frontend"
-  npm run build
-else
-  echo "Frontend dist già presente: uso artefatti esistenti"
-fi
-
-echo "== Sync frontend/backend nel template =="
-mkdir -p "$TEMPLATE/frontend-dist"
-mkdir -p "$TEMPLATE/backend-src"
-
-rsync -a --delete "$ROOT/apps/frontend/dist/" "$TEMPLATE/frontend-dist/"
-rsync -a --delete "$ROOT/apps/backend/" "$TEMPLATE/backend-src/"
-
-echo "== Copia template nella release =="
+echo "== Copia template già validato nella release =="
 cp -R "$TEMPLATE" "$STAGING/customer-local-template"
 
 cat > "$OUTDIR/BUILD-INFO.txt" <<BUILDINFO
