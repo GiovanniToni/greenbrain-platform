@@ -1,0 +1,15 @@
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: greenbrain_local_tunnel
+    restart: unless-stopped
+    env_file:
+      - ./cloudflared/cloudflared.env
+    command: >
+      tunnel --config /etc/cloudflared/config.yml
+      --no-autoupdate
+      run
+    volumes:
+      - ./cloudflared:/etc/cloudflared:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

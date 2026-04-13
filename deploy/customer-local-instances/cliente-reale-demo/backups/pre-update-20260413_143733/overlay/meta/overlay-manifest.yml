@@ -1,0 +1,8 @@
+tenant_code: cliente-reale-demo
+overlay_type: customer-specific
+preserve_on_update:
+  - overlay/env/customer-local.env
+  - overlay/frontend-nginx/default.conf
+  - overlay/tunnel/cloudflared/config.yml
+  - overlay/tunnel/cloudflared/cloudflared.env
+  - overlay/tunnel/cloudflared/*.json
