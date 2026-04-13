@@ -1,7 +1,0 @@
-tunnel: ea44809d-6c7e-420c-a4c7-25168ca90c1e
-credentials-file: /etc/cloudflared/ea44809d-6c7e-420c-a4c7-25168ca90c1e.json
-
-ingress:
-  - hostname: cliente-reale-demo.greenbrain.it
-    service: http://host.docker.internal:8088
-  - service: http_status:404

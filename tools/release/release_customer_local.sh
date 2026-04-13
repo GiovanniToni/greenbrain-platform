@@ -24,7 +24,11 @@ if [ ! -f "$ENV_FILE" ]; then
   exit 1
 fi
 
-echo "== STEP 1: build release =="
+echo "== STEP 1: promote dev -> template =="
+bash "$ROOT/tools/release/promote_dev_to_customer_template.sh" "$VERSION"
+
+echo
+echo "== STEP 1B: build release package =="
 if [ -d "$ROOT/releases/customer-local/$VERSION" ]; then
   echo "Release $VERSION già esistente: skip build"
 else
