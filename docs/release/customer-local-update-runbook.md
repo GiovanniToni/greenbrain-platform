@@ -15,17 +15,17 @@
 ## Comandi
 
 ### Backup
-bash deploy/customer-local-instances/<tenant>/scripts/pre-update-backup.sh
+bash deploy/customer-local-instances/<tenant>/base/scripts/pre-update-backup.sh
 
 ### Update
 bash tools/release/update_customer_instance_from_template.sh <tenant>
 
 ### Restart
-docker compose --env-file deploy/customer-local-instances/<tenant>/env/customer-local.env \
+docker compose --env-file deploy/customer-local-instances/<tenant>/overlay/env/customer-local.env \
   -f deploy/customer-local-instances/<tenant>/docker-compose.local.yml up -d --build
 
 ### Check finale
-bash deploy/customer-local-instances/<tenant>/scripts/post-update-check.sh
+bash deploy/customer-local-instances/<tenant>/base/scripts/post-update-check.sh
 
 ## Modello base / overlay
 
@@ -50,3 +50,19 @@ Preservata per cliente:
 - overlay/tunnel/cloudflared/cloudflared.env
 - overlay/tunnel/cloudflared/*.json
 - overlay/meta/overlay-manifest.yml
+
+## Validazione istanza
+
+Prima di onboarding, update o go-live eseguire:
+
+```bash
+bash tools/onboarding/validate_customer_local_instance.sh <customer_instance_slug>
+```
+
+Controlli eseguiti:
+- struttura base/overlay
+- validità docker compose locale e tunnel
+- coerenza TENANT_HOST / TUNNEL_PUBLIC_HOST
+- presenza placeholder residui
+- pulizia della base
+- coerenza VERSION / package_version
