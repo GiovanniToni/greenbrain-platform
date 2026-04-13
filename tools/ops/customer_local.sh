@@ -8,6 +8,7 @@ usage() {
   echo "  bash tools/ops/customer_local.sh validate <tenant_slug>"
   echo "  bash tools/ops/customer_local.sh status <tenant_slug>"
   echo "  bash tools/ops/customer_local.sh doctor <tenant_slug>"
+  echo "  bash tools/ops/customer_local.sh list"
   exit 1
 }
 
@@ -38,6 +39,36 @@ case "$CMD" in
     [ "$#" -eq 1 ] || usage
     SLUG="$1"
     bash "$ROOT/tools/onboarding/validate_customer_local_instance.sh" "$SLUG"
+    ;;
+  list)
+    [ "$#" -eq 0 ] || usage
+
+    BASE_DIR="$ROOT/deploy/customer-local-instances"
+
+    [ -d "$BASE_DIR" ] || {
+      echo "Directory non trovata: $BASE_DIR"
+      exit 1
+    }
+
+    echo "SLUG | VERSION | PACKAGE_VERSION | ENV | TUNNEL"
+    echo "-----|---------|-----------------|-----|-------"
+
+    for d in "$BASE_DIR"/*; do
+      [ -d "$d" ] || continue
+
+      SLUG="$(basename "$d")"
+      VERSION="-"
+      PACKAGE_VERSION="-"
+      ENV_OK="no"
+      TUNNEL_OK="no"
+
+      [ -f "$d/VERSION" ] && VERSION="$(cat "$d/VERSION")"
+      [ -f "$d/release-manifest.yml" ] && PACKAGE_VERSION="$(awk -F': ' '/^package_version:/{print $2}' "$d/release-manifest.yml")"
+      [ -f "$d/overlay/env/customer-local.env" ] && ENV_OK="yes"
+      [ -f "$d/overlay/tunnel/cloudflared/config.yml" ] && TUNNEL_OK="yes"
+
+      echo "$SLUG | $VERSION | $PACKAGE_VERSION | $ENV_OK | $TUNNEL_OK"
+    done
     ;;
   doctor)
     [ "$#" -eq 1 ] || usage
