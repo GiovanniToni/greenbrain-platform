@@ -50,3 +50,25 @@ deploy/customer-local-instances/*/overlay/tunnel/cloudflared/cloudflared.env
 # generated releases
 
 releases/customer-local/
+
+# customer local backups
+
+deploy/customer-local-instances/*/backups/
+
+
+
+# customer local real overlay secrets
+
+deploy/customer-local-instances/*/overlay/env/customer-local.env
+
+deploy/customer-local-instances/*/overlay/tunnel/cloudflared/*.json
+
+deploy/customer-local-instances/*/overlay/tunnel/cloudflared/config.yml
+
+deploy/customer-local-instances/*/overlay/tunnel/cloudflared/cloudflared.env
+
+
+
+# generated releases
+
+releases/customer-local/
