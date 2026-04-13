@@ -10,6 +10,7 @@ usage() {
   echo "  bash tools/ops/customer_local.sh doctor <tenant_slug>"
   echo "  bash tools/ops/customer_local.sh list"
   echo "  bash tools/ops/customer_local.sh validate-all"
+  echo "  bash tools/ops/customer_local.sh status-all"
   exit 1
 }
 
@@ -40,6 +41,46 @@ case "$CMD" in
     [ "$#" -eq 1 ] || usage
     SLUG="$1"
     bash "$ROOT/tools/onboarding/validate_customer_local_instance.sh" "$SLUG"
+    ;;
+  status-all)
+    [ "$#" -eq 0 ] || usage
+
+    BASE_DIR="$ROOT/deploy/customer-local-instances"
+
+    [ -d "$BASE_DIR" ] || {
+      echo "Directory non trovata: $BASE_DIR"
+      exit 1
+    }
+
+    echo "SLUG | VERSION | PACKAGE | ENV | TUNNEL | UUID_PLACEHOLDER | CHANGE_ME"
+    echo "-----|---------|---------|-----|--------|------------------|----------"
+
+    for d in "$BASE_DIR"/*; do
+      [ -d "$d" ] || continue
+
+      SLUG="$(basename "$d")"
+      VERSION="-"
+      PACKAGE_VERSION="-"
+      ENV_OK="no"
+      TUNNEL_OK="no"
+      UUID_PLACEHOLDER="no"
+      CHANGE_ME_FOUND="no"
+
+      [ -f "$d/VERSION" ] && VERSION="$(cat "$d/VERSION")"
+      [ -f "$d/release-manifest.yml" ] && PACKAGE_VERSION="$(awk -F': ' '/^package_version:/{print $2}' "$d/release-manifest.yml")"
+      [ -f "$d/overlay/env/customer-local.env" ] && ENV_OK="yes"
+      [ -f "$d/overlay/tunnel/cloudflared/config.yml" ] && TUNNEL_OK="yes"
+
+      if find "$d/overlay" -type f ! -name '*.example' -print0 2>/dev/null | xargs -0 grep -n "REPLACE_WITH_REAL_TUNNEL_UUID" >/dev/null 2>&1; then
+        UUID_PLACEHOLDER="yes"
+      fi
+
+      if find "$d/overlay" -type f ! -name '*.example' -print0 2>/dev/null | xargs -0 grep -n "CHANGE_ME" >/dev/null 2>&1; then
+        CHANGE_ME_FOUND="yes"
+      fi
+
+      echo "$SLUG | $VERSION | $PACKAGE_VERSION | $ENV_OK | $TUNNEL_OK | $UUID_PLACEHOLDER | $CHANGE_ME_FOUND"
+    done
     ;;
   validate-all)
     [ "$#" -eq 0 ] || usage
