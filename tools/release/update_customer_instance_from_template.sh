@@ -17,28 +17,45 @@ if [ ! -d "$INSTANCE" ]; then
   exit 1
 fi
 
-mkdir -p "$INSTANCE/frontend-dist"
-mkdir -p "$INSTANCE/backend-src"
-mkdir -p "$INSTANCE/frontend-nginx"
-mkdir -p "$INSTANCE/tunnel"
-mkdir -p "$INSTANCE/scripts"
-mkdir -p "$INSTANCE/systemd"
-mkdir -p "$INSTANCE/desktop"
+mkdir -p "$INSTANCE/base/backend-src"
+mkdir -p "$INSTANCE/base/frontend-dist"
+mkdir -p "$INSTANCE/base/scripts"
+mkdir -p "$INSTANCE/base/systemd"
+mkdir -p "$INSTANCE/base/desktop"
+mkdir -p "$INSTANCE/base/tunnel"
+mkdir -p "$INSTANCE/overlay/env"
+mkdir -p "$INSTANCE/overlay/frontend-nginx"
+mkdir -p "$INSTANCE/overlay/tunnel/cloudflared"
+mkdir -p "$INSTANCE/overlay/meta"
 
-rsync -a --delete "$TEMPLATE/frontend-dist/" "$INSTANCE/frontend-dist/"
-rsync -a --delete "$TEMPLATE/backend-src/" "$INSTANCE/backend-src/"
-rsync -a "$TEMPLATE/frontend-nginx/" "$INSTANCE/frontend-nginx/"
-rsync -a "$TEMPLATE/scripts/" "$INSTANCE/scripts/"
-rsync -a "$TEMPLATE/systemd/" "$INSTANCE/systemd/" 2>/dev/null || true
-rsync -a "$TEMPLATE/desktop/" "$INSTANCE/desktop/" 2>/dev/null || true
-rsync -a "$TEMPLATE/tunnel/" "$INSTANCE/tunnel/" \
-  --exclude='cloudflared/*.json' \
-  --exclude='cloudflared/cloudflared.env' \
-  --exclude='cloudflared/config.yml'
+rsync -a --delete "$TEMPLATE/base/backend-src/" "$INSTANCE/base/backend-src/"
+rsync -a --delete "$TEMPLATE/base/frontend-dist/" "$INSTANCE/base/frontend-dist/"
+rsync -a --delete "$TEMPLATE/base/scripts/" "$INSTANCE/base/scripts/"
+rsync -a "$TEMPLATE/base/systemd/" "$INSTANCE/base/systemd/" 2>/dev/null || true
+rsync -a "$TEMPLATE/base/desktop/" "$INSTANCE/base/desktop/" 2>/dev/null || true
+rsync -a "$TEMPLATE/base/tunnel/" "$INSTANCE/base/tunnel/" 2>/dev/null || true
+
+# overlay: copiamo solo file esempio / non sensibili
+if [ -f "$TEMPLATE/overlay/frontend-nginx/default.conf" ]; then
+  cp "$TEMPLATE/overlay/frontend-nginx/default.conf" \
+     "$INSTANCE/overlay/frontend-nginx/default.conf.template"
+fi
+
+if [ -f "$TEMPLATE/overlay/tunnel/cloudflared/config.yml.example" ]; then
+  cp "$TEMPLATE/overlay/tunnel/cloudflared/config.yml.example" \
+     "$INSTANCE/overlay/tunnel/cloudflared/config.yml.example"
+fi
+
+if [ -f "$TEMPLATE/overlay/tunnel/cloudflared/cloudflared.env.example" ]; then
+  cp "$TEMPLATE/overlay/tunnel/cloudflared/cloudflared.env.example" \
+     "$INSTANCE/overlay/tunnel/cloudflared/cloudflared.env.example"
+fi
 
 cp "$TEMPLATE/docker-compose.local.yml" "$INSTANCE/docker-compose.local.yml"
+cp "$TEMPLATE/tunnel/docker-compose.tunnel.yml" "$INSTANCE/tunnel/docker-compose.tunnel.yml"
 cp "$TEMPLATE/README.md" "$INSTANCE/README.md"
 cp "$TEMPLATE/VERSION" "$INSTANCE/VERSION"
 cp "$TEMPLATE/release-manifest.yml" "$INSTANCE/release-manifest.yml"
+cp "$TEMPLATE/base-overlay-model.md" "$INSTANCE/base-overlay-model.md"
 
-echo "Istanza aggiornata dal template: $INSTANCE"
+echo "Istanza aggiornata dal template base/overlay: $INSTANCE"
