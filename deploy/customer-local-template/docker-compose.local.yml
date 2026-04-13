@@ -1,12 +1,10 @@
-version: "3.9"
-
 services:
   postgres:
     image: postgres:16-alpine
     container_name: greenbrain_local_postgres
     restart: unless-stopped
     env_file:
-      - ./env/customer-local.env
+      - ./overlay/env/customer-local.env
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -19,12 +17,12 @@ services:
 
   backend:
     build:
-      context: ./backend-src
+      context: ./base/backend-src
       dockerfile: Dockerfile
     container_name: greenbrain_local_backend
     restart: unless-stopped
     env_file:
-      - ./env/customer-local.env
+      - ./overlay/env/customer-local.env
     depends_on:
       - postgres
     ports:
@@ -37,8 +35,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ./frontend-dist:/usr/share/nginx/html:ro
-      - ./frontend-nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./base/frontend-dist:/usr/share/nginx/html:ro
+      - ./overlay/frontend-nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
       - "${LOCAL_FRONTEND_PORT}:80"
 
