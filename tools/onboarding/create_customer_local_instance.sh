@@ -85,11 +85,9 @@ repl = {
 for old, new in repl.items():
     s = s.replace(old, new)
 
-s = s.replace("CHANGE_ME_DB_PASSWORD", f"{'$TENANT_CODE'}_DB_PASSWORD")
-s = s.replace("CHANGE_ME_LOCAL_JWT_SECRET", f"{'$TENANT_CODE'}_LOCAL_JWT_SECRET")
-s = s.replace("CHANGE_ME_TUNNEL_TOKEN", f"{'$TENANT_CODE'}_TUNNEL_TOKEN")
-
-s = s.replace(f"{'$TENANT_CODE'}", "$TENANT_CODE")
+# Manteniamo i placeholder CHANGE_ME espliciti:
+# validate_customer_local_instance.sh deve poterli rilevare e bloccare
+# finché l'operatore non inserisce i valori reali.
 p.write_text(s)
 print("UPDATED", p)
 PY
