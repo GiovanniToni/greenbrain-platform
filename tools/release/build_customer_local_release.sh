@@ -58,6 +58,7 @@ rm -rf "$PKG/backend-src" \
 
 rm -f "$PKG/overlay/env/customer-local.env"
 rm -f "$PKG/base/backend-src/.env"
+rm -f "$PKG/overlay/tunnel/cloudflared/cloudflared.env"
 
 cat > "$OUTDIR/BUILD-INFO.txt" <<BUILDINFO
 release_version=$VERSION
