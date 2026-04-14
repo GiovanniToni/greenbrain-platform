@@ -1,5 +1,5 @@
-tunnel: REPLACE_WITH_REAL_TUNNEL_UUID
-credentials-file: /etc/cloudflared/REPLACE_WITH_REAL_TUNNEL_UUID.json
+tunnel: 22222222-2222-4222-8222-222222222222
+credentials-file: /etc/cloudflared/22222222-2222-4222-8222-222222222222.json
 
 ingress:
   - hostname: cliente-reale-demo-2.greenbrain.it
