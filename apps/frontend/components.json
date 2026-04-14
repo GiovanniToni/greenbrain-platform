@@ -1,0 +1,46 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "default",
+  "rsc": false,
+  "tsx": true,
+  "tailwind": {
+    "config": "tailwind.config.ts",
+    "css": "src/index.css",
+    "baseColor": "slate",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "aliases": {
+    "components": "@/components",
+    "utils": "@/lib/utils",
+    "ui": "@/components/ui",
+    "lib": "@/lib",
+    "hooks": "@/hooks"
+  }
+}
+
+@media print {
+  /* nasconde tutto di default */
+  body * {
+    visibility: hidden;
+  }
+
+  /* rende visibile solo la sezione reorders */
+  [data-print="reorders"],
+  [data-print="reorders"] * {
+    visibility: visible;
+  }
+
+  /* posiziona la sezione in alto */
+  [data-print="reorders"] {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  /* migliora layout stampa */
+  .no-print {
+    display: none !important;
+  }
+}
