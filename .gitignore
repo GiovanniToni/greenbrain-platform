@@ -91,3 +91,4 @@ client-runtime/release/
 # Customer local backups and live local envs
 deploy/customer-local-instances/*/backups/
 
+apps/ml-worker/**/*.orig_wave4_validation
