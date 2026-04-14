@@ -72,3 +72,22 @@ deploy/customer-local-instances/*/overlay/tunnel/cloudflared/cloudflared.env
 # generated releases
 
 releases/customer-local/
+
+# ML runtime/local artifacts
+apps/ml-worker/*.orig_wave4_validation
+apps/ml-worker/*_progress.json
+apps/ml-worker/models_v4/
+apps/ml-worker/models_v4_backup/
+apps/ml-worker/parquet_cache/
+apps/ml-worker/priors_cache/
+
+# Local generated notes / ad hoc files
+apps/ml-worker/ISTRUZIONI  & FUNZIONAMENTO/
+olvectl query *
+
+# Local release output
+client-runtime/release/
+
+# Customer local backups and live local envs
+deploy/customer-local-instances/*/backups/
+

@@ -1,0 +1,7 @@
+[Unit]
+Description=GreenBrain Cloud Sync
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/greenbrain-platform
+ExecStart=/opt/greenbrain-platform/deploy/customer-runtime-template/sync-agent/run-cloud-sync-real.sh
