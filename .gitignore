@@ -92,3 +92,21 @@ client-runtime/release/
 deploy/customer-local-instances/*/backups/
 
 apps/ml-worker/**/*.orig_wave4_validation
+
+# ML storage local junk
+apps/ml-worker/storage/__pycache__/
+apps/ml-worker/storage/*.bak_*
+
+# Local customer instance examples/templates generated per instance
+deploy/customer-local-instances/*/overlay/frontend-nginx/*.template
+deploy/customer-local-instances/*/overlay/tunnel/cloudflared/*.example
+
+# Local-only customer demo instance
+deploy/customer-local-instances/cliente-demo-5/
+
+# Local sync-agent real env
+deploy/customer-runtime-template/sync-agent/cloud-sync.env
+
+# Local stack env files
+deploy/env/*.env
+!deploy/env/*.env.example

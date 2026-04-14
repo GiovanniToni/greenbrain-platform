@@ -1,0 +1,33 @@
+name: gb-cliente2
+version: "3.9"
+
+services:
+  cliente2_postgres:
+    image: postgres:16-alpine
+    container_name: cliente2_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: greenbrain_cliente2
+      POSTGRES_USER: greenbrain_cliente2
+      POSTGRES_PASSWORD: CHANGE_ME_DB_PASSWORD
+    ports:
+      - "CHANGE_ME_POSTGRES_PORT:5432"
+    volumes:
+      - cliente2_postgres_data:/var/lib/postgresql/data
+      - ../../client-runtime/sql/init:/docker-entrypoint-initdb.d:ro
+
+  cliente2_backend:
+    build:
+      context: ../../apps/backend
+      dockerfile: Dockerfile
+    container_name: cliente2_backend
+    restart: unless-stopped
+    env_file:
+      - ../env/cliente2.env
+    ports:
+      - "CHANGE_ME_BACKEND_PORT:8000"
+    depends_on:
+      - cliente2_postgres
+
+volumes:
+  cliente2_postgres_data:
