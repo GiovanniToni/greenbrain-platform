@@ -12,22 +12,51 @@ TARGET_DIR="$2"
 ROOT="/opt/greenbrain-platform"
 ARCHIVE="$ROOT/releases/customer-local/$VERSION/customer-local-$VERSION.tar.gz"
 WORKDIR="$TARGET_DIR/customer-local-$VERSION"
+PKGDIR="$WORKDIR/package/customer-local-template"
 
 fail() {
   echo "ERRORE: $1" >&2
   exit 1
 }
 
+ok() {
+  echo "OK: $1"
+}
+
 [ -f "$ARCHIVE" ] || fail "Archivio release non trovato: $ARCHIVE"
 
 mkdir -p "$WORKDIR"
+rm -rf "$WORKDIR"/*
 tar -xzf "$ARCHIVE" -C "$WORKDIR"
 
-echo "Release estratta in: $WORKDIR"
+[ -d "$PKGDIR" ] || fail "Package estratto non valido: manca $PKGDIR"
+[ -f "$PKGDIR/VERSION" ] || fail "Package estratto non valido: manca VERSION"
+[ -f "$PKGDIR/release-manifest.yml" ] || fail "Package estratto non valido: manca release-manifest.yml"
+[ -f "$PKGDIR/docker-compose.local.yml" ] || fail "Package estratto non valido: manca docker-compose.local.yml"
+[ -f "$PKGDIR/env/customer-local.env.example" ] || fail "Package estratto non valido: manca env/customer-local.env.example"
+[ -d "$PKGDIR/base/backend-src" ] || fail "Package estratto non valido: manca base/backend-src"
+[ -d "$PKGDIR/base/frontend-dist" ] || fail "Package estratto non valido: manca base/frontend-dist"
+
+ok "release estratta e verificata"
+
 echo
-echo "Prossimi passi manuali:"
-echo "1) copiare env/customer-local.env.example in overlay/env/customer-local.env"
-echo "2) compilare customer-local.env"
-echo "3) compilare overlay tunnel"
-echo "4) registrare tenant centrale"
-echo "5) avviare docker compose locale"
+echo "Release pronta in:"
+echo "  $PKGDIR"
+
+echo
+echo "File da compilare / preparare:"
+echo "  $PKGDIR/overlay/env/customer-local.env            (da creare copiando l'example)"
+echo "  $PKGDIR/overlay/tunnel/cloudflared/config.yml     (da creare da example)"
+echo "  $PKGDIR/overlay/tunnel/cloudflared/cloudflared.env (da creare da example)"
+
+echo
+echo "Comandi suggeriti:"
+echo "  cp $PKGDIR/env/customer-local.env.example $PKGDIR/overlay/env/customer-local.env"
+echo "  cp $PKGDIR/tunnel/cloudflared/config.yml.example $PKGDIR/overlay/tunnel/cloudflared/config.yml"
+echo "  cp $PKGDIR/tunnel/cloudflared/cloudflared.env.example $PKGDIR/overlay/tunnel/cloudflared/cloudflared.env"
+
+echo
+echo "Poi:"
+echo "  1) compilare i file overlay con i valori del cliente"
+echo "  2) registrare il tenant centrale"
+echo "  3) avviare il docker compose locale"
