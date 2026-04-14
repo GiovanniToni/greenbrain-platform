@@ -77,13 +77,13 @@ ok "host tenant coerente tra env e tunnel"
 echo
 echo "== PLACEHOLDER / SEGRETI =="
 if find "$INSTANCE/overlay" -type f ! -name '*.example' -print0 | xargs -0 grep -n "REPLACE_WITH_REAL_TUNNEL_UUID" >/dev/null 2>&1; then
-  echo "WARN: tunnel UUID placeholder ancora presente"
+  fail "tunnel UUID placeholder ancora presente"
 else
   ok "nessun placeholder tunnel UUID"
 fi
 
 if find "$INSTANCE/overlay" -type f ! -name '*.example' -print0 | xargs -0 grep -n "CHANGE_ME" >/dev/null 2>&1; then
-  echo "WARN: ci sono ancora valori CHANGE_ME nell'overlay"
+  fail "ci sono ancora valori CHANGE_ME nell'overlay"
 else
   ok "nessun CHANGE_ME nell'overlay"
 fi

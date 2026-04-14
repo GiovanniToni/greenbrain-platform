@@ -54,7 +54,10 @@ echo
 echo "== STEP 5: wait backend healthy =="
 OK=0
 for i in $(seq 1 30); do
-  if curl -fsS "http://127.0.0.1:8008/health" >/dev/null 2>&1; then
+  if set -a
+source "$ENV_FILE"
+set +a
+curl -fsS "http://127.0.0.1:${LOCAL_BACKEND_PORT:-8008}/health" >/dev/null 2>&1; then
     echo "Backend healthy"
     OK=1
     break
