@@ -8,8 +8,12 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
-import Login from "@/pages/Login";
 import Landing from "@/pages/Landing";
+import Login from "@/pages/Login";
+import PricingPage from "@/pages/PricingPage";
+import CustomerPortalPage from "@/pages/CustomerPortalPage";
+import CustomerOpsConsolePage from "@/pages/CustomerOpsConsolePage";
+
 import Dashboard from "@/pages/Dashboard";
 import Reorders from "@/pages/Reorders";
 import Analytics from "@/pages/Analytics";
@@ -30,6 +34,8 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/pricing" element={<PricingPage />} />
+            <Route path="/customer-portal" element={<CustomerPortalPage />} />
 
             <Route element={<ProtectedRoute />}>
               <Route element={<AppLayout />}>
@@ -39,6 +45,7 @@ const App = () => (
                 <Route path="/assortment-planner" element={<AssortmentPlanner />} />
                 <Route path="/suppliers" element={<Suppliers />} />
                 <Route path="/account" element={<Account />} />
+                <Route path="/ops/customers" element={<CustomerOpsConsolePage />} />
               </Route>
             </Route>
 
