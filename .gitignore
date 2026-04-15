@@ -110,3 +110,7 @@ deploy/customer-runtime-template/sync-agent/cloud-sync.env
 # Local stack env files
 deploy/env/*.env
 !deploy/env/*.env.example
+
+# Infra env files with real secrets — never commit dev.env
+infra/env/dev.env
+infra/env/dev.env.bak_*

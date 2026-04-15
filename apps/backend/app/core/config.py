@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     jwt_secret: str = "CHANGE_ME_dev_only_not_for_production"
     jwt_expire_minutes: int = 60
 
+    # Supabase — required only for customer-ops endpoint (central hub)
+    supabase_url: Optional[str] = None
+    supabase_service_role_key: Optional[str] = None
+    supabase_bucket: str = "ml-snapshots"
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @model_validator(mode="after")
