@@ -14,6 +14,7 @@ from app.api.v1.planner import router as planner_router
 from app.api.v1.sales import router as sales_router
 from app.api.v1.settings import router as settings_router
 from app.api.v1.system import router as system_router
+from app.api.v1.customer_provisioning import router as customer_provisioning_router
 from app.core.config import settings
 
 app = FastAPI(title=settings.app_name)
@@ -42,6 +43,7 @@ app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(cloud_sync_router)
 app.include_router(customer_ops_router)
+app.include_router(customer_provisioning_router)
 app.include_router(settings_router)
 app.include_router(system_router)
 app.include_router(catalog_router)
