@@ -52,7 +52,6 @@ const App = () => (
                 <Route path="/ops/customers" element={<CustomerOpsConsolePage />} />
                 <Route path="/customers" element={<Customers />} />
                 <Route path="/portal" element={<Navigate to="/account" replace />} />
-                <Route path="/portal" element={<CustomerPortalDashboard />} />
               </Route>
             </Route>
 

@@ -93,14 +93,7 @@ def provision_customer_auth_user(
             )
 
         row = conn.execute(
-            text(
-                f"""
-                select *
-                from {table_name}
-                where email = :email
-                limit 1
-                """
-            ),
+            text(f"select * from {table_name} where email = :email limit 1"),
             {"email": payload["email"]},
         ).mappings().first()
 
