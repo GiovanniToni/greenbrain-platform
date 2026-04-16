@@ -3,6 +3,8 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from app.services.customer_provisioning_service import assign_release
+
 router = APIRouter(prefix="/api/v1/customer-provisioning", tags=["customer-provisioning"])
 
 
@@ -17,12 +19,18 @@ def provisioning_health():
 
 
 @router.post("/assign-release")
-def assign_release(payload: AssignReleasePayload):
+def assign_release_route(payload: AssignReleasePayload):
     try:
+        result = assign_release(
+            customer_id=payload.customer_id,
+            assigned_release_version=payload.assigned_release_version,
+        )
         return {
-            "status": "stub_assigned",
+            "status": "assigned",
             "customer_id": payload.customer_id,
             "assigned_release_version": payload.assigned_release_version,
+            "customer": result["customer"],
+            "delivery": result["delivery"],
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"customer_provisioning_failed: {exc}")
