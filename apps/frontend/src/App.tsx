@@ -12,6 +12,7 @@ import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
 import PricingPage from "@/pages/PricingPage";
 import CustomerPortalPage from "@/pages/CustomerPortalPage";
+import Signup from "@/pages/Signup";
 import CustomerOpsConsolePage from "@/pages/CustomerOpsConsolePage";
 import Customers from "@/pages/Customers";
 
@@ -37,6 +38,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/pricing" element={<PricingPage />} />
             <Route path="/customer-portal" element={<CustomerPortalPage />} />
+            <Route path="/signup" element={<Signup />} />
 
             <Route element={<ProtectedRoute />}>
               <Route element={<AppLayout />}>
