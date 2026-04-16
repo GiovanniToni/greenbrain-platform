@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict
 
 from app.repositories.customer_delivery_repository import (
@@ -37,4 +38,20 @@ def mark_delivery_sent(customer_id: str) -> Dict[str, Any]:
         "customer_id": customer_id,
         "bundle_sent_at": row.get("bundle_sent_at", ts),
         "delivery": row,
+    }
+
+
+def resolve_bundle_download(customer_profile: Dict[str, Any]) -> Dict[str, Any]:
+    delivery = customer_profile.get("delivery") or {}
+    bundle_local_path = (delivery.get("bundle_local_path") or "").strip()
+    if not bundle_local_path:
+        raise RuntimeError("bundle_not_ready")
+
+    p = Path(bundle_local_path)
+    if not p.exists() or not p.is_file():
+        raise RuntimeError(f"bundle_file_missing: {bundle_local_path}")
+
+    return {
+        "bundle_path": str(p),
+        "filename": p.name,
     }
