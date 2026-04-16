@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  getCustomerPortalBundleDownloadUrl,
+  downloadCustomerPortalBundle,
   getCustomerPortalMe,
 } from "@/lib/customerPortalApi";
 
@@ -8,6 +8,7 @@ export default function CustomerPortalDashboard() {
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     getCustomerPortalMe()
@@ -16,8 +17,31 @@ export default function CustomerPortalDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
+  async function handleDownloadBundle() {
+    try {
+      setDownloading(true);
+      setError(null);
+
+      const { blob, filename } = await downloadCustomerPortalBundle();
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Errore download bundle");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   if (loading) return <div style={{ padding: 24 }}>Caricamento...</div>;
-  if (error) return <div style={{ padding: 24, color: "red" }}>{error}</div>;
+  if (error && !data) return <div style={{ padding: 24, color: "red" }}>{error}</div>;
 
   const bundleReady = Boolean(data?.delivery?.bundle_local_path);
 
@@ -40,24 +64,19 @@ export default function CustomerPortalDashboard() {
       <p><strong>Install status:</strong> {data.delivery?.install_status || "-"}</p>
       <p><strong>Go live:</strong> {data.delivery?.go_live_at || "-"}</p>
 
-      <div style={{ marginTop: 24 }}>
-        {bundleReady ? (
-          <a
-            href={getCustomerPortalBundleDownloadUrl()}
-            style={{
-              display: "inline-block",
-              padding: "10px 14px",
-              border: "1px solid #ccc",
-              textDecoration: "none",
-              borderRadius: 8,
-            }}
-          >
-            Scarica bundle cliente
-          </a>
-        ) : (
-          <p>Bundle non ancora pronto.</p>
-        )}
-      </div>
+      {bundleReady ? (
+        <div style={{ marginTop: 24 }}>
+          <button onClick={handleDownloadBundle} disabled={downloading}>
+            {downloading ? "Download in corso..." : "Scarica bundle"}
+          </button>
+        </div>
+      ) : (
+        <p style={{ marginTop: 24 }}>
+          Bundle non ancora disponibile. GreenBrain lo preparerà dopo il provisioning.
+        </p>
+      )}
+
+      {error && <p style={{ color: "red", marginTop: 16 }}>{error}</p>}
 
       <h2 style={{ marginTop: 32 }}>Dati grezzi</h2>
       <pre>{JSON.stringify(data, null, 2)}</pre>
