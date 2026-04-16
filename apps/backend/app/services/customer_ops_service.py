@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from app.repositories.customer_ops_repository import (
-    list_customer_companies,
     create_customer_company,
+    list_customer_companies,
 )
 
 

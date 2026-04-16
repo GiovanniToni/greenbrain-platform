@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query
 
 from app.schemas.customer_ops import CustomerCompanyCreate
-from app.services.customer_ops_service import list_customers, create_customer
+from app.services.customer_ops_service import create_customer, list_customers
 
 router = APIRouter(prefix="/api/v1/customer-ops", tags=["customer-ops"])
 

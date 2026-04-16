@@ -43,11 +43,7 @@ def create_customer_company(data: Dict[str, Any]) -> Dict[str, Any]:
         "notes": data.get("notes"),
     }
 
-    response = (
-        client.table("gb_customer_companies")
-        .insert(payload)
-        .execute()
-    )
+    response = client.table("gb_customer_companies").insert(payload).execute()
 
     if not response.data:
         raise RuntimeError(f"insert_failed: {response}")
