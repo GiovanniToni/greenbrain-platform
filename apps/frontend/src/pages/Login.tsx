@@ -71,12 +71,6 @@ export default function Login() {
     setErrorMessage(null);
 
     try {
-      if (isCentralHost) {
-        const data = await apiPost("/api/v1/auth/sso/start", { email, password });
-        window.location.href = data.redirect_url;
-        return;
-      }
-
       const me = await login(email, password);
 
       toast({

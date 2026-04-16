@@ -25,6 +25,9 @@ services:
       - ../env/dev-cloud.env
     ports:
       - "8002:8000"
+    volumes:
+      - ../../runtime-reports:/opt/greenbrain-platform/runtime-reports
+      - ../../releases:/opt/greenbrain-platform/releases:ro
     depends_on:
       - dev_postgres
 
