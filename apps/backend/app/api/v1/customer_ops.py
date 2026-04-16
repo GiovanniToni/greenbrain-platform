@@ -25,7 +25,7 @@ def list_customers_route(limit: int = Query(default=100, ge=1, le=500)):
 @router.post("/customers")
 def create_customer_route(payload: CustomerCompanyCreate):
     try:
-        item = create_customer(payload.model_dump())
-        return item
+        row = create_customer(payload.model_dump())
+        return row
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"customer_ops_create_failed: {exc}")

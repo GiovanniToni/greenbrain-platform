@@ -48,7 +48,8 @@ def list_customer_companies(limit: int = 100) -> List[Dict[str, Any]]:
     for row in rows:
         delivery = row.get("gb_customer_delivery")
         if isinstance(delivery, list):
-            delivery = delivery[0] if delivery else None
+            delivery = delivery[0] if delivery else {}
+        delivery = delivery or {}
 
         normalized.append(
             {
@@ -65,15 +66,31 @@ def list_customer_companies(limit: int = 100) -> List[Dict[str, Any]]:
                 "installed_release_version": row.get("installed_release_version"),
                 "created_at": row.get("created_at"),
                 "updated_at": row.get("updated_at"),
-                "delivery_assigned_release_version": (delivery or {}).get("assigned_release_version"),
-                "bundle_generated_at": (delivery or {}).get("bundle_generated_at"),
-                "bundle_sent_at": (delivery or {}).get("bundle_sent_at"),
-                "bundle_local_path": (delivery or {}).get("bundle_local_path"),
-                "delivery_install_status": (delivery or {}).get("install_status"),
-                "delivery_onboarding_status": (delivery or {}).get("onboarding_status"),
-                "go_live_at": (delivery or {}).get("go_live_at"),
-                "delivery_updated_at": (delivery or {}).get("updated_at"),
+                "delivery_assigned_release_version": delivery.get("assigned_release_version"),
+                "bundle_generated_at": delivery.get("bundle_generated_at"),
+                "bundle_sent_at": delivery.get("bundle_sent_at"),
+                "bundle_local_path": delivery.get("bundle_local_path"),
+                "delivery_install_status": delivery.get("install_status"),
+                "delivery_onboarding_status": delivery.get("onboarding_status"),
+                "go_live_at": delivery.get("go_live_at"),
+                "delivery_updated_at": delivery.get("updated_at"),
             }
         )
 
     return normalized
+
+
+def create_customer_company(payload: Dict[str, Any]) -> Dict[str, Any]:
+    client = get_supabase_client()
+
+    response = (
+        client.table("gb_customer_companies")
+        .insert(payload)
+        .execute()
+    )
+
+    rows = response.data or []
+    if not rows:
+        raise RuntimeError("customer_create_failed")
+
+    return rows[0]
