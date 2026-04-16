@@ -4,6 +4,7 @@ export type CustomerSignupPayload = {
   company_name: string;
   contact_name?: string;
   contact_email: string;
+  portal_password: string;
   contact_phone?: string;
   vat_number?: string;
   address_line?: string;

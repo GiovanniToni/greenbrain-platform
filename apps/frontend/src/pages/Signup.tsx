@@ -6,6 +6,7 @@ export default function Signup() {
     company_name: "",
     contact_name: "",
     contact_email: "",
+    portal_password: "",
     city: "",
     country: "IT",
   });
@@ -47,6 +48,13 @@ export default function Signup() {
       <br /><br />
 
       <input placeholder="Email" onChange={(e) => update("contact_email", e.target.value)} />
+      <br /><br />
+
+      <input
+        type="password"
+        placeholder="Password portale"
+        onChange={(e) => update("portal_password", e.target.value)}
+      />
       <br /><br />
 
       <input placeholder="Città" onChange={(e) => update("city", e.target.value)} />

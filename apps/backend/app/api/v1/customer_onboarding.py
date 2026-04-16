@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, EmailStr
-from typing import Optional
 
 from app.services.customer_onboarding_service import start_customer_onboarding
 
@@ -13,6 +14,7 @@ class CustomerSignupPayload(BaseModel):
     company_name: str
     contact_name: Optional[str] = None
     contact_email: EmailStr
+    portal_password: str
     contact_phone: Optional[str] = None
     vat_number: Optional[str] = None
     address_line: Optional[str] = None
