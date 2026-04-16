@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   assignRelease,
   listCustomers,
+  markDeliverySent,
   prepareDelivery,
   type CustomerOpsItem,
 } from "@/lib/customerOpsApi";
@@ -21,12 +22,17 @@ export default function Customers() {
       setLoading(true);
       setError(null);
       const data = await listCustomers(100);
-      setItems(data.items || []);
+      const nextItems = data.items || [];
+      setItems(nextItems);
+
       setReleaseByCustomer((prev) => {
         const next = { ...prev };
-        for (const item of data.items || []) {
+        for (const item of nextItems) {
           if (!next[item.customer_id]) {
-            next[item.customer_id] = item.assigned_release_version || defaultRelease;
+            next[item.customer_id] =
+              item.assigned_release_version ||
+              item.delivery_assigned_release_version ||
+              defaultRelease;
           }
         }
         return next;
@@ -77,6 +83,7 @@ export default function Customers() {
       setActionMessage(
         `Delivery plan pronto per ${result.company_name || customerId} (${result.assigned_release_version || "-"})`,
       );
+      await load();
     } catch (err) {
       setActionMessage(
         err instanceof Error ? err.message : "Errore durante prepare delivery",
@@ -86,10 +93,28 @@ export default function Customers() {
     }
   }
 
+  async function handleMarkSent(customerId: string) {
+    try {
+      setBusyCustomerId(customerId);
+      setActionMessage(null);
+      const result = await markDeliverySent(customerId);
+      setActionMessage(
+        `Bundle marcato come inviato per ${result.customer_id} alle ${result.bundle_sent_at || "-"}`,
+      );
+      await load();
+    } catch (err) {
+      setActionMessage(
+        err instanceof Error ? err.message : "Errore durante mark sent",
+      );
+    } finally {
+      setBusyCustomerId(null);
+    }
+  }
+
   return (
     <div style={{ padding: 24, textAlign: "left" }}>
       <h1>Customers</h1>
-      <p>Vista clienti con assegnazione release e preparazione delivery.</p>
+      <p>Vista clienti con assegnazione release, delivery plan e stato bundle.</p>
 
       <div style={{ marginBottom: 16 }}>
         <button onClick={load} disabled={loading}>
@@ -119,7 +144,10 @@ export default function Customers() {
               <th style={th}>Onboarding</th>
               <th style={th}>Install</th>
               <th style={th}>DB</th>
-              <th style={th}>Assigned</th>
+              <th style={th}>Release</th>
+              <th style={th}>Bundle generated</th>
+              <th style={th}>Bundle sent</th>
+              <th style={th}>Bundle path</th>
               <th style={th}>Azioni</th>
             </tr>
           </thead>
@@ -145,6 +173,13 @@ export default function Customers() {
                     style={{ width: 120 }}
                   />
                 </td>
+                <td style={td}>{item.bundle_generated_at || "-"}</td>
+                <td style={td}>{item.bundle_sent_at || "-"}</td>
+                <td style={td}>
+                  <div style={{ maxWidth: 320, wordBreak: "break-all" }}>
+                    {item.bundle_local_path || "-"}
+                  </div>
+                </td>
                 <td style={td}>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button
@@ -159,13 +194,20 @@ export default function Customers() {
                     >
                       Prepare delivery
                     </button>
+                    <button
+                      onClick={() => handleMarkSent(item.customer_id)}
+                      disabled={busyCustomerId === item.customer_id}
+                    >
+                      Mark sent
+                    </button>
                   </div>
                 </td>
               </tr>
             ))}
+
             {!loading && sortedItems.length === 0 && (
               <tr>
-                <td style={td} colSpan={8}>
+                <td style={td} colSpan={11}>
                   Nessun cliente trovato.
                 </td>
               </tr>
