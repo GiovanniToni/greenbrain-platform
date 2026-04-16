@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query
 
 from app.schemas.customer_ops import CustomerCompanyCreate
-from app.services.customer_ops_service import list_customers
+from app.services.customer_ops_service import list_customers, create_customer
 
 router = APIRouter(prefix="/api/v1/customer-ops", tags=["customer-ops"])
 
@@ -23,8 +23,9 @@ def list_customers_route(limit: int = Query(default=100, ge=1, le=500)):
 
 
 @router.post("/customers")
-def create_customer(payload: CustomerCompanyCreate):
-    return {
-        "status": "stub_created",
-        "payload": payload.model_dump(),
-    }
+def create_customer_route(payload: CustomerCompanyCreate):
+    try:
+        item = create_customer(payload.model_dump())
+        return item
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"customer_ops_create_failed: {exc}")

@@ -13,6 +13,7 @@ import Login from "@/pages/Login";
 import PricingPage from "@/pages/PricingPage";
 import CustomerPortalPage from "@/pages/CustomerPortalPage";
 import CustomerOpsConsolePage from "@/pages/CustomerOpsConsolePage";
+import Customers from "@/pages/Customers";
 
 import Dashboard from "@/pages/Dashboard";
 import Reorders from "@/pages/Reorders";
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/pricing" element={<PricingPage />} />
             <Route path="/customer-portal" element={<CustomerPortalPage />} />
+            <Route path="/customers" element={<Customers />} />
 
             <Route element={<ProtectedRoute />}>
               <Route element={<AppLayout />}>

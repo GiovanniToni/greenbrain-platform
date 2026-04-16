@@ -15,6 +15,12 @@ class CustomerCompanyCreate(BaseModel):
     city: Optional[str] = None
     country: Optional[str] = None
     tenant_code: Optional[str] = None
+    onboarding_status: Optional[str] = "draft"
+    install_status: Optional[str] = "not_started"
+    db_integration_status: Optional[str] = "not_started"
+    assigned_release_version: Optional[str] = None
+    installed_release_version: Optional[str] = None
+    notes: Optional[str] = None
 
 
 class CustomerCompanyOut(BaseModel):
