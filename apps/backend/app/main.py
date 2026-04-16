@@ -17,6 +17,7 @@ from app.api.v1.system import router as system_router
 from app.api.v1.customer_provisioning import router as customer_provisioning_router
 from app.api.v1.customer_delivery import router as customer_delivery_router
 from app.api.v1.customer_onboarding import router as customer_onboarding_router
+from app.api.v1.customer_portal import router as customer_portal_router
 from app.core.config import settings
 
 app = FastAPI(title=settings.app_name)
@@ -48,6 +49,7 @@ app.include_router(customer_ops_router)
 app.include_router(customer_provisioning_router)
 app.include_router(customer_delivery_router)
 app.include_router(customer_onboarding_router)
+app.include_router(customer_portal_router)
 app.include_router(settings_router)
 app.include_router(system_router)
 app.include_router(catalog_router)

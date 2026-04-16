@@ -12,6 +12,7 @@ import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
 import PricingPage from "@/pages/PricingPage";
 import CustomerPortalPage from "@/pages/CustomerPortalPage";
+import CustomerPortalDashboard from "@/pages/CustomerPortalDashboard";
 import Signup from "@/pages/Signup";
 import CustomerOpsConsolePage from "@/pages/CustomerOpsConsolePage";
 import Customers from "@/pages/Customers";
@@ -50,6 +51,7 @@ const App = () => (
                 <Route path="/account" element={<Account />} />
                 <Route path="/ops/customers" element={<CustomerOpsConsolePage />} />
                 <Route path="/customers" element={<Customers />} />
+                <Route path="/portal" element={<CustomerPortalDashboard />} />
               </Route>
             </Route>
 
