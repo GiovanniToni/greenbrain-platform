@@ -3,6 +3,7 @@ import {
   downloadCustomerPortalBundle,
   getCustomerPortalMe,
 } from "@/lib/customerPortalApi";
+import { createPortalCheckout } from "@/lib/customerBillingApi";
 
 export default function CustomerPortalDashboard() {
   const [data, setData] = useState<any>(null);
@@ -40,6 +41,19 @@ export default function CustomerPortalDashboard() {
     }
   }
 
+  async function handleStartCheckout() {
+    try {
+      setError(null);
+      const data = await createPortalCheckout();
+      if (!data?.checkout_url) {
+        throw new Error("checkout_url mancante");
+      }
+      window.location.href = data.checkout_url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Errore avvio checkout");
+    }
+  }
+
   if (loading) return <div style={{ padding: 24 }}>Caricamento...</div>;
   if (error && !data) return <div style={{ padding: 24, color: "red" }}>{error}</div>;
 
@@ -57,6 +71,14 @@ export default function CustomerPortalDashboard() {
       <p><strong>Release assegnata:</strong> {data.assigned_release_version || "-"}</p>
       <p><strong>Versione installata:</strong> {data.installed_release_version || "-"}</p>
 
+      <div style={{ margin: "24px 0", padding: 16, border: "1px solid #ddd", borderRadius: 8 }}>
+        <h2>Abbonamento</h2>
+        <p><strong>Stato subscription:</strong> {data.subscription_status || "non attiva"}</p>
+        <button onClick={handleStartCheckout}>
+          Attiva abbonamento
+        </button>
+      </div>
+
       <h2>Delivery</h2>
       <p><strong>Bundle generato:</strong> {data.delivery?.bundle_generated_at || "-"}</p>
       <p><strong>Bundle inviato:</strong> {data.delivery?.bundle_sent_at || "-"}</p>
@@ -64,17 +86,12 @@ export default function CustomerPortalDashboard() {
       <p><strong>Install status:</strong> {data.delivery?.install_status || "-"}</p>
       <p><strong>Go live:</strong> {data.delivery?.go_live_at || "-"}</p>
 
-      {bundleReady ? (
-        <div style={{ marginTop: 24 }}>
-          <button onClick={handleDownloadBundle} disabled={downloading}>
-            {downloading ? "Download in corso..." : "Scarica bundle"}
-          </button>
-        </div>
-      ) : (
-        <p style={{ marginTop: 24 }}>
-          Bundle non ancora disponibile. GreenBrain lo preparerà dopo il provisioning.
-        </p>
-      )}
+      <div style={{ marginTop: 24 }}>
+        <button onClick={handleDownloadBundle} disabled={!bundleReady || downloading}>
+          {downloading ? "Download in corso..." : "Scarica bundle"}
+        </button>
+        {!bundleReady && <p style={{ marginTop: 8 }}>Bundle non ancora disponibile. Completa prima il provisioning.</p>}
+      </div>
 
       {error && <p style={{ color: "red", marginTop: 16 }}>{error}</p>}
 
