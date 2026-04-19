@@ -1,15 +1,30 @@
-import { Link } from 'react-router-dom';
-import { Leaf, TrendingUp, BarChart3, Calendar, ShoppingCart, FileSpreadsheet, Users, Clock, ArrowRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { useAuth } from '@/hooks/useAuth';
+import { Link } from "react-router-dom";
+import {
+  Leaf,
+  TrendingUp,
+  BarChart3,
+  ShoppingCart,
+  Users,
+  ArrowRight,
+  CreditCard,
+  Download,
+  ShieldCheck,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Landing() {
   const { user, loading } = useAuth();
 
+  const primaryHref = !loading && user ? "/account" : "/pricing";
+  const primaryLabel = !loading && user ? "Vai al tuo account" : "Scopri i piani";
+  const secondaryHref = !loading && user ? "/dashboard" : "/signup?plan=starter";
+  const secondaryLabel = !loading && user ? "Vai alla dashboard" : "Crea account";
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border/50 bg-card/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -18,48 +33,65 @@ export default function Landing() {
             </div>
             <span className="text-xl font-bold">GreenBrain</span>
           </div>
+
           <div className="flex items-center gap-3">
             {!loading && user ? (
               <Button asChild>
-                <Link to="/dashboard">Vai alla Dashboard</Link>
+                <Link to="/account">Area cliente</Link>
               </Button>
             ) : (
-              <Button asChild>
-                <Link to="/login">Accedi</Link>
-              </Button>
+              <>
+                <Button variant="ghost" asChild>
+                  <Link to="/login">Accedi</Link>
+                </Button>
+                <Button asChild>
+                  <Link to="/pricing">Prezzi</Link>
+                </Button>
+              </>
             )}
           </div>
         </div>
       </header>
 
-      {/* Hero Section */}
       <section className="py-24 lg:py-32">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center">
+            <Badge variant="secondary" className="mb-4">
+              Forecast • Analytics • Riordino
+            </Badge>
+
             <h1 className="text-4xl lg:text-5xl xl:text-6xl font-bold leading-tight text-foreground tracking-tight">
               Decisioni di riordino basate sui dati.
-              <span className="block text-primary mt-2">Non sull'intuito.</span>
+              <span className="block text-primary mt-2">Non sull&apos;intuito.</span>
             </h1>
+
             <p className="text-lg lg:text-xl text-muted-foreground mt-6 max-w-2xl mx-auto leading-relaxed">
-              Una piattaforma avanzata per Garden Center che vogliono controllare stock, prevedere la domanda e ottimizzare gli ordini.
+              GreenBrain aiuta Garden Center e realtà retail green a prevedere la domanda,
+              ottimizzare gli ordini e attivare un processo operativo più strutturato.
             </p>
+
             <div className="flex flex-wrap justify-center gap-4 mt-10">
-              {!loading && user ? (
-                <Button size="lg" asChild>
-                  <Link to="/dashboard">Vai alla Dashboard</Link>
-                </Button>
-              ) : (
-                <>
-                  <Button size="lg" asChild>
-                    <Link to="/login">Accedi alla piattaforma</Link>
-                  </Button>
-                  <Button size="lg" variant="outline" asChild>
-                    <Link to="/login">Richiedi accesso</Link>
-                  </Button>
-                </>
-              )}
+              <Button size="lg" asChild>
+                <Link to={primaryHref}>
+                  {primaryLabel}
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Link>
+              </Button>
+
+              <Button size="lg" variant="outline" asChild>
+                <Link to={secondaryHref}>{secondaryLabel}</Link>
+              </Button>
             </div>
-            {/* Trust text */}
+
+            {!loading && !user && (
+              <p className="text-sm text-muted-foreground mt-6">
+                Hai già un account?{" "}
+                <Link to="/login" className="underline hover:text-foreground">
+                  Accedi al portale
+                </Link>
+              </p>
+            )}
+
             <div className="mt-16 flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm text-muted-foreground font-medium tracking-wide">
               <span>Forecast</span>
               <span className="hidden sm:inline">•</span>
@@ -73,7 +105,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Executive Summary - Metrics */}
       <section className="py-20 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
@@ -96,12 +127,13 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Processo Decisionale */}
       <section className="py-24">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-16">Un processo di riordino strutturato</h2>
+          <h2 className="text-3xl font-bold text-center mb-16">
+            Un processo di riordino strutturato
+          </h2>
+
           <div className="grid md:grid-cols-3 gap-12 max-w-5xl mx-auto">
-            {/* Analizza */}
             <div className="text-center">
               <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
                 <BarChart3 className="w-7 h-7 text-primary" />
@@ -113,7 +145,7 @@ export default function Landing() {
                 <li>Performance per categoria</li>
               </ul>
             </div>
-            {/* Prevede */}
+
             <div className="text-center">
               <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
                 <TrendingUp className="w-7 h-7 text-primary" />
@@ -125,7 +157,7 @@ export default function Landing() {
                 <li>Meteo locale</li>
               </ul>
             </div>
-            {/* Ottimizza */}
+
             <div className="text-center">
               <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
                 <ShoppingCart className="w-7 h-7 text-primary" />
@@ -141,38 +173,42 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Controllo Operativo */}
       <section className="py-24 bg-muted/30">
         <div className="container mx-auto px-4">
-          <div className="max-w-3xl mx-auto">
-            <h2 className="text-3xl font-bold text-center mb-12">Controllo operativo completo</h2>
-            <div className="grid sm:grid-cols-2 gap-x-12 gap-y-4">
-              <div className="flex items-center gap-3">
-                <ArrowRight className="w-4 h-4 text-primary flex-shrink-0" />
-                <span className="text-foreground">Pianificazione settimanale e mensile</span>
+          <div className="max-w-5xl mx-auto grid md:grid-cols-3 gap-8">
+            <Card className="p-6 border-border/50">
+              <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
+                <CreditCard className="w-6 h-6 text-primary" />
               </div>
-              <div className="flex items-center gap-3">
-                <ArrowRight className="w-4 h-4 text-primary flex-shrink-0" />
-                <span className="text-foreground">Anticipo dei picchi di domanda</span>
+              <h3 className="font-semibold text-lg mb-2">Scegli il piano</h3>
+              <p className="text-sm text-muted-foreground">
+                Parti dal piano Starter oppure richiedi una configurazione Enterprise.
+              </p>
+            </Card>
+
+            <Card className="p-6 border-border/50">
+              <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
+                <ShieldCheck className="w-6 h-6 text-primary" />
               </div>
-              <div className="flex items-center gap-3">
-                <ArrowRight className="w-4 h-4 text-primary flex-shrink-0" />
-                <span className="text-foreground">Confronto anno su anno</span>
+              <h3 className="font-semibold text-lg mb-2">Attiva il portale</h3>
+              <p className="text-sm text-muted-foreground">
+                Crei il tuo account, accedi all&apos;area cliente e attivi l&apos;abbonamento.
+              </p>
+            </Card>
+
+            <Card className="p-6 border-border/50">
+              <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
+                <Download className="w-6 h-6 text-primary" />
               </div>
-              <div className="flex items-center gap-3">
-                <ArrowRight className="w-4 h-4 text-primary flex-shrink-0" />
-                <span className="text-foreground">Gestione fornitori e lead time</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <ArrowRight className="w-4 h-4 text-primary flex-shrink-0" />
-                <span className="text-foreground">Report pronti (Excel, PDF, Email)</span>
-              </div>
-            </div>
+              <h3 className="font-semibold text-lg mb-2">Scarica e installa</h3>
+              <p className="text-sm text-muted-foreground">
+                Quando il provisioning è pronto, scarichi il bundle e segui la guida di installazione.
+              </p>
+            </Card>
           </div>
         </div>
       </section>
 
-      {/* Target Section */}
       <section className="py-24">
         <div className="container mx-auto px-4">
           <div className="max-w-2xl mx-auto text-center">
@@ -181,41 +217,37 @@ export default function Landing() {
             </div>
             <h2 className="text-3xl font-bold mb-6">Progettata per strutture professionali</h2>
             <p className="text-lg text-muted-foreground leading-relaxed">
-              GreenBrain è pensata per Garden Center strutturati, catene retail green e responsabili acquisti che lavorano su volumi, margini e stagionalità reali.
+              GreenBrain è pensata per Garden Center strutturati, catene retail green
+              e responsabili acquisti che lavorano su volumi, margini e stagionalità reali.
             </p>
           </div>
         </div>
       </section>
 
-      {/* Final CTA */}
       <section className="py-24 bg-primary/5">
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl lg:text-4xl font-bold mb-6">
-            Porta metodo e dati nel processo di riordino.
+            Parti dal piano, crea l&apos;account e attiva il tuo ambiente.
           </h2>
+
           <div className="flex flex-wrap justify-center gap-4 mt-8">
-            {!loading && user ? (
-              <Button size="lg" asChild>
-                <Link to="/dashboard">Vai alla Dashboard</Link>
+            <Button size="lg" asChild>
+              <Link to={primaryHref}>{primaryLabel}</Link>
+            </Button>
+
+            {!loading && !user && (
+              <Button size="lg" variant="outline" asChild>
+                <Link to="/signup?plan=starter">Crea account</Link>
               </Button>
-            ) : (
-              <>
-                <Button size="lg" asChild>
-                  <Link to="/login">Accedi</Link>
-                </Button>
-                <Button size="lg" variant="outline" asChild>
-                  <Link to="/login">Richiedi una demo</Link>
-                </Button>
-              </>
             )}
           </div>
+
           <p className="text-sm text-muted-foreground mt-6">
-            Implementazione rapida. Nessun software da installare.
+            Processo guidato: pricing, signup, attivazione, download bundle e onboarding.
           </p>
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="border-t border-border py-8">
         <div className="container mx-auto px-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -225,9 +257,12 @@ export default function Landing() {
               </div>
               <span className="font-semibold">GreenBrain</span>
             </div>
-            <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} GreenBrain. Tutti i diritti riservati.
-            </p>
+
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <Link to="/" className="hover:text-foreground">Home</Link>
+              <Link to="/pricing" className="hover:text-foreground">Prezzi</Link>
+              <Link to="/login" className="hover:text-foreground">Login</Link>
+            </div>
           </div>
         </div>
       </footer>
