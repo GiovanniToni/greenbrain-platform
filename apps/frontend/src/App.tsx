@@ -11,17 +11,14 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
 import PricingPage from "@/pages/PricingPage";
-import CustomerPortalPage from "@/pages/CustomerPortalPage";
 import CustomerPortalDashboard from "@/pages/CustomerPortalDashboard";
 import Signup from "@/pages/Signup";
-import CustomerOpsConsolePage from "@/pages/CustomerOpsConsolePage";
 import Customers from "@/pages/Customers";
 
 import Dashboard from "@/pages/Dashboard";
 import Reorders from "@/pages/Reorders";
 import Analytics from "@/pages/Analytics";
 import Suppliers from "@/pages/Suppliers";
-import Account from "@/pages/Account";
 import AssortmentPlanner from "@/pages/AssortmentPlanner";
 import NotFound from "@/pages/NotFound";
 
@@ -38,7 +35,7 @@ const App = () => (
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/pricing" element={<PricingPage />} />
-            <Route path="/customer-portal" element={<CustomerPortalPage />} />
+            <Route path="/customer-portal" element={<Navigate to="/account" replace />} />
             <Route path="/signup" element={<Signup />} />
 
             <Route element={<ProtectedRoute />}>
@@ -49,7 +46,7 @@ const App = () => (
                 <Route path="/assortment-planner" element={<AssortmentPlanner />} />
                 <Route path="/suppliers" element={<Suppliers />} />
                 <Route path="/account" element={<CustomerPortalDashboard />} />
-                <Route path="/ops/customers" element={<CustomerOpsConsolePage />} />
+                <Route path="/ops/customers" element={<Navigate to="/customers" replace />} />
                 <Route path="/customers" element={<Customers />} />
                 <Route path="/portal" element={<Navigate to="/account" replace />} />
               </Route>
