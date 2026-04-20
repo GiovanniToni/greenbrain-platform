@@ -1,12 +1,19 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import FileResponse
 from jose import JWTError
+from pydantic import BaseModel
 
 from app.core.security import decode_token
-from app.services.customer_portal_service import build_customer_portal_profile
 from app.services.customer_delivery_service import resolve_bundle_download
+from app.services.customer_portal_service import (
+    book_customer_setup_slot,
+    build_customer_portal_profile,
+    confirm_customer_data_ok,
+)
 
 router = APIRouter(prefix="/api/v1/customer-portal", tags=["customer-portal"])
 
@@ -34,6 +41,12 @@ def get_portal_email_from_bearer(authorization: str | None = Header(default=None
     return email
 
 
+class BookSetupSlotPayload(BaseModel):
+    preferred_date: str
+    preferred_time: str
+    notes: Optional[str] = None
+
+
 @router.get("/health")
 def customer_portal_health():
     return {"status": "ok", "service": "customer-portal"}
@@ -45,6 +58,37 @@ def customer_portal_me(email: str = Depends(get_portal_email_from_bearer)):
         return build_customer_portal_profile(email)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"customer_portal_me_failed: {exc}")
+
+
+@router.post("/book-setup-slot")
+def book_setup_slot(
+    payload: BookSetupSlotPayload,
+    email: str = Depends(get_portal_email_from_bearer),
+):
+    try:
+        return book_customer_setup_slot(email, payload.model_dump())
+    except RuntimeError as exc:
+        msg = str(exc)
+        if "slot_already_requested" in msg:
+            raise HTTPException(status_code=409, detail=msg)
+        if "invalid_preferred" in msg:
+            raise HTTPException(status_code=400, detail=msg)
+        raise HTTPException(status_code=500, detail=f"book_setup_slot_failed: {exc}")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"book_setup_slot_failed: {exc}")
+
+
+@router.post("/confirm-data-ok")
+def confirm_data_ok(email: str = Depends(get_portal_email_from_bearer)):
+    try:
+        return confirm_customer_data_ok(email)
+    except RuntimeError as exc:
+        msg = str(exc)
+        if "data_not_ready_for_validation" in msg or "payment_method_missing" in msg:
+            raise HTTPException(status_code=409, detail=msg)
+        raise HTTPException(status_code=500, detail=f"confirm_data_ok_failed: {exc}")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"confirm_data_ok_failed: {exc}")
 
 
 @router.get("/download-bundle")

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from app.integrations.supabase_client import get_supabase_client
 
@@ -18,11 +18,26 @@ def list_customer_companies(limit: int = 100) -> List[Dict[str, Any]]:
             contact_name,
             contact_email,
             contact_phone,
+            portal_user_email,
             onboarding_status,
+            onboarding_step,
             install_status,
             db_integration_status,
             assigned_release_version,
             installed_release_version,
+            subscription_status,
+            subscription_plan,
+            billing_email,
+            payment_method_last4,
+            payment_method_brand,
+            payment_method_id,
+            stripe_customer_id,
+            setup_slot_preferred_date,
+            setup_slot_preferred_time,
+            setup_slot_requested_at,
+            setup_slot_confirmed_at,
+            setup_slot_scheduled_for,
+            data_validated_at,
             created_at,
             updated_at,
             gb_customer_delivery(
@@ -59,11 +74,26 @@ def list_customer_companies(limit: int = 100) -> List[Dict[str, Any]]:
                 "contact_name": row.get("contact_name"),
                 "contact_email": row.get("contact_email"),
                 "contact_phone": row.get("contact_phone"),
+                "portal_user_email": row.get("portal_user_email"),
                 "onboarding_status": row.get("onboarding_status"),
+                "onboarding_step": row.get("onboarding_step"),
                 "install_status": row.get("install_status"),
                 "db_integration_status": row.get("db_integration_status"),
                 "assigned_release_version": row.get("assigned_release_version"),
                 "installed_release_version": row.get("installed_release_version"),
+                "subscription_status": row.get("subscription_status"),
+                "subscription_plan": row.get("subscription_plan"),
+                "billing_email": row.get("billing_email"),
+                "payment_method_saved": bool(row.get("payment_method_id")),
+                "payment_method_last4": row.get("payment_method_last4"),
+                "payment_method_brand": row.get("payment_method_brand"),
+                "stripe_customer_id": row.get("stripe_customer_id"),
+                "setup_slot_preferred_date": str(row.get("setup_slot_preferred_date") or "") or None,
+                "setup_slot_preferred_time": row.get("setup_slot_preferred_time"),
+                "setup_slot_requested_at": row.get("setup_slot_requested_at"),
+                "setup_slot_confirmed_at": row.get("setup_slot_confirmed_at"),
+                "setup_slot_scheduled_for": row.get("setup_slot_scheduled_for"),
+                "data_validated_at": row.get("data_validated_at"),
                 "created_at": row.get("created_at"),
                 "updated_at": row.get("updated_at"),
                 "delivery_assigned_release_version": delivery.get("assigned_release_version"),
@@ -78,6 +108,37 @@ def list_customer_companies(limit: int = 100) -> List[Dict[str, Any]]:
         )
 
     return normalized
+
+
+def get_customer_company_detail(customer_id: str) -> Optional[Dict[str, Any]]:
+    client = get_supabase_client()
+    resp = (
+        client.table("gb_customer_companies")
+        .select("*")
+        .eq("customer_id", customer_id)
+        .limit(1)
+        .execute()
+    )
+    rows = resp.data or []
+    if not rows:
+        return None
+    row = rows[0]
+    row["payment_method_saved"] = bool(row.get("payment_method_id"))
+    return row
+
+
+def update_customer_company_onboarding(customer_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    client = get_supabase_client()
+    resp = (
+        client.table("gb_customer_companies")
+        .update(payload)
+        .eq("customer_id", customer_id)
+        .execute()
+    )
+    rows = resp.data or []
+    if not rows:
+        raise RuntimeError(f"customer_onboarding_update_failed:{customer_id}")
+    return rows[0]
 
 
 def create_customer_company(payload: Dict[str, Any]) -> Dict[str, Any]:

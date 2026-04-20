@@ -1,8 +1,21 @@
 from __future__ import annotations
 
+from datetime import date, datetime, timezone
 from typing import Any, Dict
 
-from app.repositories.customer_portal_repository import get_customer_by_portal_email
+from app.repositories.customer_portal_repository import (
+    get_customer_by_portal_email,
+    update_customer_portal_fields,
+)
+from app.services.customer_billing_service import activate_subscription_for_customer
+
+_SLOT_STATES_ALREADY_BOOKED = {
+    "slot_requested",
+    "slot_confirmed",
+    "setup_in_progress",
+    "data_validation_pending",
+    "data_validated",
+}
 
 
 def build_customer_portal_profile(user_email: str) -> Dict[str, Any]:
@@ -29,6 +42,17 @@ def build_customer_portal_profile(user_email: str) -> Dict[str, Any]:
         "db_integration_status": row.get("db_integration_status"),
         "assigned_release_version": row.get("assigned_release_version"),
         "installed_release_version": row.get("installed_release_version"),
+        "subscription_status": row.get("subscription_status"),
+        "subscription_plan": row.get("subscription_plan"),
+        "payment_method_saved": bool(row.get("payment_method_id")),
+        "payment_method_last4": row.get("payment_method_last4"),
+        "payment_method_brand": row.get("payment_method_brand"),
+        "setup_slot_preferred_date": str(row.get("setup_slot_preferred_date") or "") or None,
+        "setup_slot_preferred_time": row.get("setup_slot_preferred_time"),
+        "setup_slot_requested_at": row.get("setup_slot_requested_at"),
+        "setup_slot_confirmed_at": row.get("setup_slot_confirmed_at"),
+        "setup_slot_scheduled_for": row.get("setup_slot_scheduled_for"),
+        "data_validated_at": row.get("data_validated_at"),
         "created_at": row.get("created_at"),
         "updated_at": row.get("updated_at"),
         "delivery": {
@@ -41,4 +65,79 @@ def build_customer_portal_profile(user_email: str) -> Dict[str, Any]:
             "go_live_at": delivery.get("go_live_at"),
             "updated_at": delivery.get("updated_at"),
         },
+    }
+
+
+def book_customer_setup_slot(user_email: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    row = get_customer_by_portal_email(user_email)
+    if not row:
+        raise RuntimeError(f"customer_portal_profile_not_found_for_email: {user_email}")
+
+    preferred_time = (payload.get("preferred_time") or "").strip()
+    if preferred_time not in ("morning", "afternoon"):
+        raise RuntimeError("invalid_preferred_time: must be 'morning' or 'afternoon'")
+
+    preferred_date_str = (payload.get("preferred_date") or "").strip()
+    try:
+        preferred_date = date.fromisoformat(preferred_date_str)
+    except (ValueError, TypeError):
+        raise RuntimeError("invalid_preferred_date: must be ISO format YYYY-MM-DD")
+
+    today = datetime.now(timezone.utc).date()
+    if preferred_date <= today:
+        raise RuntimeError("invalid_preferred_date: must be a future date")
+
+    current_status = (row.get("onboarding_status") or "").strip()
+    if current_status in _SLOT_STATES_ALREADY_BOOKED:
+        raise RuntimeError("slot_already_requested")
+
+    notes = (payload.get("notes") or "").strip() or None
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    update_customer_portal_fields(user_email, {
+        "setup_slot_preferred_date": preferred_date_str,
+        "setup_slot_preferred_time": preferred_time,
+        "setup_slot_requested_at": now_iso,
+        "setup_slot_notes": notes,
+        "onboarding_status": "slot_requested",
+        "onboarding_step": "slot_requested",
+        "updated_at": now_iso,
+    })
+
+    return {
+        "status": "slot_requested",
+        "preferred_date": preferred_date_str,
+        "preferred_time": preferred_time,
+    }
+
+
+def confirm_customer_data_ok(user_email: str) -> Dict[str, Any]:
+    row = get_customer_by_portal_email(user_email)
+    if not row:
+        raise RuntimeError(f"customer_portal_profile_not_found_for_email: {user_email}")
+
+    current_status = (row.get("onboarding_status") or "").strip()
+    if current_status != "data_validation_pending":
+        raise RuntimeError("data_not_ready_for_validation")
+
+    if not (row.get("payment_method_id") or "").strip():
+        raise RuntimeError("payment_method_missing")
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    update_customer_portal_fields(user_email, {
+        "onboarding_status": "data_validated",
+        "onboarding_step": "data_validated",
+        "data_validated_at": now_iso,
+        "updated_at": now_iso,
+    })
+
+    activation_result = "triggered"
+    try:
+        activate_subscription_for_customer(row["customer_id"])
+    except RuntimeError:
+        activation_result = "failed"
+
+    return {
+        "status": "data_validated",
+        "activation": activation_result,
     }

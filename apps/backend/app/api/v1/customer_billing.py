@@ -6,8 +6,10 @@ from pydantic import BaseModel
 
 from app.core.security import decode_token
 from app.services.customer_billing_service import (
+    activate_subscription_for_customer,
     create_checkout_session_for_customer,
     create_checkout_session_for_portal_email,
+    create_setup_session_for_portal_email,
     handle_stripe_webhook,
 )
 
@@ -16,6 +18,10 @@ router = APIRouter(prefix="/api/v1/customer-billing", tags=["customer-billing"])
 
 class CheckoutPayload(BaseModel):
     customer_id: str
+
+
+class SetupSessionPayload(BaseModel):
+    plan: str
 
 
 def get_portal_email_from_bearer(authorization: str | None = Header(default=None)) -> str:
@@ -52,6 +58,22 @@ def create_checkout(payload: CheckoutPayload):
         return create_checkout_session_for_customer(payload.customer_id)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"customer_billing_checkout_failed: {exc}")
+
+
+@router.post("/setup-session")
+def create_setup_session(
+    payload: SetupSessionPayload,
+    portal_email: str = Depends(get_portal_email_from_bearer),
+):
+    try:
+        return create_setup_session_for_portal_email(portal_email, payload.plan)
+    except RuntimeError as exc:
+        msg = str(exc)
+        if "unknown_plan" in msg:
+            raise HTTPException(status_code=400, detail=msg)
+        raise HTTPException(status_code=500, detail=f"setup_session_failed: {exc}")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"setup_session_failed: {exc}")
 
 
 @router.post("/portal-checkout")

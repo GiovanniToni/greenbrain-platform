@@ -28,6 +28,19 @@ def get_customer_by_portal_email(portal_user_email: str) -> Optional[Dict[str, A
             signup_source,
             signup_completed_at,
             portal_user_email,
+            subscription_status,
+            subscription_plan,
+            billing_email,
+            payment_method_id,
+            payment_method_last4,
+            payment_method_brand,
+            stripe_customer_id,
+            setup_slot_preferred_date,
+            setup_slot_preferred_time,
+            setup_slot_requested_at,
+            setup_slot_confirmed_at,
+            setup_slot_scheduled_for,
+            data_validated_at,
             created_at,
             updated_at,
             gb_customer_delivery(
@@ -59,3 +72,17 @@ def get_customer_by_portal_email(portal_user_email: str) -> Optional[Dict[str, A
     row["delivery"] = delivery
     row.pop("gb_customer_delivery", None)
     return row
+
+
+def update_customer_portal_fields(portal_user_email: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    client = get_supabase_client()
+    resp = (
+        client.table("gb_customer_companies")
+        .update(payload)
+        .eq("portal_user_email", portal_user_email)
+        .execute()
+    )
+    rows = resp.data or []
+    if not rows:
+        raise RuntimeError(f"customer_portal_fields_update_failed:{portal_user_email}")
+    return rows[0]

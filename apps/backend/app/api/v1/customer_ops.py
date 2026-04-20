@@ -1,9 +1,20 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from typing import Optional
 
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
+
+from app.api.v1.auth import require_admin
+from app.repositories.customer_ops_repository import get_customer_company_detail
 from app.schemas.customer_ops import CustomerCompanyCreate
-from app.services.customer_ops_service import create_customer, list_customers
+from app.services.customer_ops_service import (
+    confirm_customer_setup_slot,
+    create_customer,
+    list_customers,
+    trigger_subscription_activation,
+    update_customer_onboarding_status,
+)
 
 router = APIRouter(prefix="/api/v1/customer-ops", tags=["customer-ops"])
 
@@ -13,8 +24,22 @@ def customer_ops_health():
     return {"status": "ok", "service": "customer-ops"}
 
 
+class OnboardingStatusUpdate(BaseModel):
+    onboarding_status: str
+    onboarding_step: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class ConfirmSlotPayload(BaseModel):
+    setup_slot_scheduled_for: str
+    notes: Optional[str] = None
+
+
 @router.get("/customers")
-def list_customers_route(limit: int = Query(default=100, ge=1, le=500)):
+def list_customers_route(
+    _: dict = Depends(require_admin),
+    limit: int = Query(default=100, ge=1, le=500),
+):
     try:
         items = list_customers(limit=limit)
         return {"items": items}
@@ -23,9 +48,91 @@ def list_customers_route(limit: int = Query(default=100, ge=1, le=500)):
 
 
 @router.post("/customers")
-def create_customer_route(payload: CustomerCompanyCreate):
+def create_customer_route(
+    payload: CustomerCompanyCreate,
+    _: dict = Depends(require_admin),
+):
     try:
         row = create_customer(payload.model_dump())
         return row
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"customer_ops_create_failed: {exc}")
+
+
+@router.get("/customers/{customer_id}")
+def get_customer_detail_route(
+    customer_id: str,
+    _: dict = Depends(require_admin),
+):
+    try:
+        row = get_customer_company_detail(customer_id)
+        if not row:
+            raise HTTPException(status_code=404, detail="customer_not_found")
+        return row
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"customer_ops_detail_failed: {exc}")
+
+
+@router.patch("/customers/{customer_id}/onboarding-status")
+def update_onboarding_status_route(
+    customer_id: str,
+    payload: OnboardingStatusUpdate,
+    _: dict = Depends(require_admin),
+):
+    try:
+        return update_customer_onboarding_status(
+            customer_id,
+            payload.onboarding_status,
+            payload.onboarding_step,
+            payload.notes,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"onboarding_status_update_failed: {exc}")
+
+
+@router.post("/customers/{customer_id}/confirm-slot")
+def confirm_slot_route(
+    customer_id: str,
+    payload: ConfirmSlotPayload,
+    _: dict = Depends(require_admin),
+):
+    try:
+        return confirm_customer_setup_slot(
+            customer_id,
+            payload.setup_slot_scheduled_for,
+            payload.notes,
+        )
+    except RuntimeError as exc:
+        msg = str(exc)
+        if "cannot_confirm_slot" in msg or "customer_not_found" in msg:
+            raise HTTPException(status_code=409, detail=msg)
+        raise HTTPException(status_code=500, detail=f"confirm_slot_failed: {exc}")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"confirm_slot_failed: {exc}")
+
+
+@router.post("/customers/{customer_id}/activate-subscription")
+def activate_subscription_route(
+    customer_id: str,
+    _: dict = Depends(require_admin),
+):
+    try:
+        return trigger_subscription_activation(customer_id)
+    except RuntimeError as exc:
+        msg = str(exc)
+        if any(x in msg for x in (
+            "payment_method_missing",
+            "enterprise_manual_activation",
+            "subscription_already_active",
+            "subscription_plan_missing",
+            "stripe_customer_id_missing",
+            "unknown_plan",
+        )):
+            raise HTTPException(status_code=409, detail=msg)
+        raise HTTPException(status_code=500, detail=f"activate_subscription_failed: {exc}")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"activate_subscription_failed: {exc}")

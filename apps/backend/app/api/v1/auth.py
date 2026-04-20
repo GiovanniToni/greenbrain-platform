@@ -115,6 +115,15 @@ def get_current_user(
     return user
 
 
+def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    if not user.get("is_admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return user
+
+
 @router.post("/login", response_model=TokenResponse)
 def login(body: LoginRequest, db: Session = Depends(get_db)):
     user = get_user_by_email(db, body.email)
