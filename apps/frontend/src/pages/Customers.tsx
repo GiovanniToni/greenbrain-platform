@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   assignRelease,
+  confirmCustomerSlot,
+  activateCustomerSubscription,
   listCustomers,
   markDeliverySent,
   prepareDelivery,
+  updateCustomerOnboardingStatus,
   type CustomerOpsItem,
 } from "@/lib/customerOpsApi";
 
@@ -14,6 +17,8 @@ export default function Customers() {
   const [releaseByCustomer, setReleaseByCustomer] = useState<Record<string, string>>({});
   const [busyCustomerId, setBusyCustomerId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [slotScheduledByCustomer, setSlotScheduledByCustomer] = useState<Record<string, string>>({});
+  const [statusByCustomer, setStatusByCustomer] = useState<Record<string, string>>({});
 
   const defaultRelease = "0.1.12";
 
@@ -111,6 +116,52 @@ export default function Customers() {
     }
   }
 
+  async function handleConfirmSlot(customerId: string) {
+    const scheduled = slotScheduledByCustomer[customerId];
+    if (!scheduled) return;
+    try {
+      setBusyCustomerId(customerId);
+      setActionMessage(null);
+      await confirmCustomerSlot(customerId, scheduled);
+      setActionMessage(`Slot confermato per ${customerId}: ${scheduled}`);
+      await load();
+    } catch (err) {
+      setActionMessage(err instanceof Error ? err.message : "Errore conferma slot");
+    } finally {
+      setBusyCustomerId(null);
+    }
+  }
+
+  async function handleUpdateStatus(customerId: string) {
+    const newStatus = statusByCustomer[customerId];
+    if (!newStatus) return;
+    try {
+      setBusyCustomerId(customerId);
+      setActionMessage(null);
+      await updateCustomerOnboardingStatus(customerId, newStatus);
+      setActionMessage(`Stato aggiornato: ${newStatus}`);
+      await load();
+    } catch (err) {
+      setActionMessage(err instanceof Error ? err.message : "Errore aggiornamento stato");
+    } finally {
+      setBusyCustomerId(null);
+    }
+  }
+
+  async function handleActivateSub(customerId: string) {
+    try {
+      setBusyCustomerId(customerId);
+      setActionMessage(null);
+      await activateCustomerSubscription(customerId);
+      setActionMessage(`Abbonamento attivato per ${customerId}`);
+      await load();
+    } catch (err) {
+      setActionMessage(err instanceof Error ? err.message : "Errore attivazione abbonamento");
+    } finally {
+      setBusyCustomerId(null);
+    }
+  }
+
   return (
     <div style={{ padding: 24, textAlign: "left" }}>
       <h1>Customers</h1>
@@ -142,6 +193,9 @@ export default function Customers() {
               <th style={th}>Tenant</th>
               <th style={th}>Email</th>
               <th style={th}>Onboarding</th>
+              <th style={th}>Subscription</th>
+              <th style={th}>Payment</th>
+              <th style={th}>Slot</th>
               <th style={th}>Install</th>
               <th style={th}>DB</th>
               <th style={th}>Release</th>
@@ -158,6 +212,52 @@ export default function Customers() {
                 <td style={td}>{item.tenant_code || "-"}</td>
                 <td style={td}>{item.contact_email}</td>
                 <td style={td}>{item.onboarding_status}</td>
+
+                {/* subscription */}
+                <td style={td}>
+                  <div>{item.subscription_status || "—"}</div>
+                  {item.subscription_plan && (
+                    <div style={{ fontSize: 11, color: "#888" }}>{item.subscription_plan}</div>
+                  )}
+                </td>
+
+                {/* payment */}
+                <td style={td}>
+                  {item.payment_method_saved ? (
+                    <div>
+                      <span style={{ color: "#16a34a" }}>✓</span>
+                      {item.payment_method_last4 && (
+                        <div style={{ fontSize: 11, color: "#888" }}>
+                          {item.payment_method_brand?.toUpperCase() || ""} ••••&nbsp;{item.payment_method_last4}
+                        </div>
+                      )}
+                    </div>
+                  ) : "—"}
+                </td>
+
+                {/* slot */}
+                <td style={td}>
+                  {item.setup_slot_scheduled_for ? (
+                    <div>
+                      <div style={{ fontSize: 11 }}>
+                        {new Date(item.setup_slot_scheduled_for).toLocaleString("it-IT")}
+                      </div>
+                      <div style={{ fontSize: 11, color: "#888" }}>confermato</div>
+                    </div>
+                  ) : item.setup_slot_preferred_date ? (
+                    <div>
+                      <div style={{ fontSize: 11 }}>{item.setup_slot_preferred_date}</div>
+                      <div style={{ fontSize: 11, color: "#888" }}>
+                        {item.setup_slot_preferred_time === "morning"
+                          ? "Mattina"
+                          : item.setup_slot_preferred_time === "afternoon"
+                          ? "Pomeriggio"
+                          : item.setup_slot_preferred_time || ""}
+                      </div>
+                    </div>
+                  ) : "—"}
+                </td>
+
                 <td style={td}>{item.install_status}</td>
                 <td style={td}>{item.db_integration_status}</td>
                 <td style={td}>
@@ -180,26 +280,99 @@ export default function Customers() {
                     {item.bundle_local_path || "-"}
                   </div>
                 </td>
+
+                {/* azioni */}
                 <td style={td}>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button
-                      onClick={() => handleAssignRelease(item.customer_id)}
-                      disabled={busyCustomerId === item.customer_id}
-                    >
-                      Assign release
-                    </button>
-                    <button
-                      onClick={() => handlePrepareDelivery(item.customer_id)}
-                      disabled={busyCustomerId === item.customer_id}
-                    >
-                      Prepare delivery
-                    </button>
-                    <button
-                      onClick={() => handleMarkSent(item.customer_id)}
-                      disabled={busyCustomerId === item.customer_id}
-                    >
-                      Mark sent
-                    </button>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+
+                    {/* existing delivery controls */}
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <button
+                        onClick={() => handleAssignRelease(item.customer_id)}
+                        disabled={busyCustomerId === item.customer_id}
+                      >
+                        Assign release
+                      </button>
+                      <button
+                        onClick={() => handlePrepareDelivery(item.customer_id)}
+                        disabled={busyCustomerId === item.customer_id}
+                      >
+                        Prepare delivery
+                      </button>
+                      <button
+                        onClick={() => handleMarkSent(item.customer_id)}
+                        disabled={busyCustomerId === item.customer_id}
+                      >
+                        Mark sent
+                      </button>
+                    </div>
+
+                    <hr style={{ borderColor: "#eee", margin: 0 }} />
+
+                    {/* confirm slot — only when slot_requested */}
+                    {item.onboarding_status === "slot_requested" && (
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                        <input
+                          type="datetime-local"
+                          value={slotScheduledByCustomer[item.customer_id] || ""}
+                          onChange={(e) =>
+                            setSlotScheduledByCustomer((prev) => ({
+                              ...prev,
+                              [item.customer_id]: e.target.value,
+                            }))
+                          }
+                          style={{ fontSize: 12 }}
+                        />
+                        <button
+                          onClick={() => handleConfirmSlot(item.customer_id)}
+                          disabled={
+                            busyCustomerId === item.customer_id ||
+                            !slotScheduledByCustomer[item.customer_id]
+                          }
+                        >
+                          Conferma slot
+                        </button>
+                      </div>
+                    )}
+
+                    {/* onboarding status update */}
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                      <select
+                        value={statusByCustomer[item.customer_id] || ""}
+                        onChange={(e) =>
+                          setStatusByCustomer((prev) => ({
+                            ...prev,
+                            [item.customer_id]: e.target.value,
+                          }))
+                        }
+                        style={{ fontSize: 12 }}
+                      >
+                        <option value="">— stato —</option>
+                        <option value="slot_confirmed">slot_confirmed</option>
+                        <option value="setup_in_progress">setup_in_progress</option>
+                        <option value="data_validation_pending">data_validation_pending</option>
+                        <option value="data_validated">data_validated</option>
+                      </select>
+                      <button
+                        onClick={() => handleUpdateStatus(item.customer_id)}
+                        disabled={
+                          busyCustomerId === item.customer_id ||
+                          !statusByCustomer[item.customer_id]
+                        }
+                      >
+                        Aggiorna
+                      </button>
+                    </div>
+
+                    {/* activate subscription */}
+                    {item.payment_method_saved && item.subscription_status !== "active" && (
+                      <button
+                        onClick={() => handleActivateSub(item.customer_id)}
+                        disabled={busyCustomerId === item.customer_id}
+                      >
+                        Attiva abbonamento
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -207,7 +380,7 @@ export default function Customers() {
 
             {!loading && sortedItems.length === 0 && (
               <tr>
-                <td style={td} colSpan={11}>
+                <td style={td} colSpan={14}>
                   Nessun cliente trovato.
                 </td>
               </tr>
