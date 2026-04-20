@@ -156,7 +156,7 @@ def list_families(engine):
     return fams
 
 def run_train(fam: str, logf) -> int:
-    cmd = [sys.executable, TRAIN_SCRIPT, "--family", fam]
+    cmd = [sys.executable, "-m", "jobs.train_family_router", "--family", fam]
     start = datetime.utcnow()
     try:
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=TRAIN_TIMEOUT)
@@ -182,7 +182,7 @@ def run_train(fam: str, logf) -> int:
 
 
 def run_predict(fam: str, logf) -> int:
-    cmd = [sys.executable, "-u", PREDICT_SCRIPT, "--family", fam, "--write_db", "1"]
+    cmd = [sys.executable, "-u", "-m", "jobs.predict_family_router", "--family", fam, "--write_db", "1"]
     start = datetime.utcnow()
 
     try:

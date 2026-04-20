@@ -217,7 +217,7 @@ def _run_train_predict(family_name: str) -> tuple[int, int]:
 
     print(f"  [run-now] train   '{family_name}'")
     t_rc = subprocess.run(
-        [py, os.path.join(repo, "jobs/train_family_router.py"), "--family", family_name],
+        [py, "-m", "jobs.train_family_router", "--family", family_name],
         cwd=repo,
     ).returncode
     if t_rc != 0:
@@ -226,7 +226,7 @@ def _run_train_predict(family_name: str) -> tuple[int, int]:
 
     print(f"  [run-now] predict '{family_name}'")
     p_rc = subprocess.run(
-        [py, os.path.join(repo, "jobs/predict_family_router.py"),
+        [py, "-m", "jobs.predict_family_router",
          "--family", family_name, "--write_db", "1"],
         cwd=repo,
     ).returncode
