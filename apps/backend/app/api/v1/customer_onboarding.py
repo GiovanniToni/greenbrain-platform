@@ -23,6 +23,7 @@ class CustomerSignupPayload(BaseModel):
     tenant_code: Optional[str] = None
     assigned_release_version: Optional[str] = "0.1.12"
     signup_source: Optional[str] = "landing_page"
+    subscription_plan: Optional[str] = None
     notes: Optional[str] = None
 
 

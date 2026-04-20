@@ -38,6 +38,7 @@ export default function Signup() {
       const res = await signupCustomer({
         ...form,
         assigned_release_version: "0.1.12",
+        subscription_plan: plan,
       });
       setResult(res);
     } catch (err) {
@@ -47,9 +48,10 @@ export default function Signup() {
     }
   }
 
+  const resultCustomer = result?.customer;
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
       <header className="border-b border-border/50 bg-card/80 backdrop-blur-sm">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
@@ -64,36 +66,39 @@ export default function Signup() {
         </div>
       </header>
 
-      {/* Main */}
       <div className="flex-1 flex items-center justify-center py-12 px-4">
         {result ? (
-          /* Success */
           <Card className="w-full max-w-md p-8 text-center">
             <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
               <CheckCircle2 className="w-8 h-8 text-primary" />
             </div>
             <h2 className="text-2xl font-bold mb-2">Account creato</h2>
             <p className="text-muted-foreground text-sm mb-6">
-              Il tuo account GreenBrain è pronto. Accedi con le credenziali scelte per entrare nella tua area cliente e attivare l&apos;abbonamento.
+              Il tuo account GreenBrain è pronto. Accedi con le credenziali scelte per entrare
+              nella tua area cliente e salvare il metodo di pagamento per avviare l&apos;attivazione.
             </p>
             <Separator className="mb-6" />
             <div className="text-left space-y-3 text-sm mb-8">
-              {result.company_name && (
+              {resultCustomer?.company_name && (
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Azienda</span>
-                  <span className="font-medium">{result.company_name}</span>
+                  <span className="font-medium">{resultCustomer.company_name}</span>
                 </div>
               )}
-              {result.tenant_code && (
+              {resultCustomer?.tenant_code && (
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Tenant</span>
-                  <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">{result.tenant_code}</span>
+                  <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">
+                    {resultCustomer.tenant_code}
+                  </span>
                 </div>
               )}
-              {(result.portal_user_email || result.contact_email) && (
+              {(resultCustomer?.portal_user_email || resultCustomer?.contact_email) && (
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Email accesso</span>
-                  <span className="font-medium">{result.portal_user_email ?? result.contact_email}</span>
+                  <span className="font-medium">
+                    {resultCustomer?.portal_user_email ?? resultCustomer?.contact_email}
+                  </span>
                 </div>
               )}
             </div>
@@ -104,7 +109,6 @@ export default function Signup() {
             </Button>
           </Card>
         ) : (
-          /* Form */
           <Card className="w-full max-w-md p-8">
             <div className="mb-8">
               <div className="flex items-center justify-between mb-2">
@@ -112,7 +116,8 @@ export default function Signup() {
                 <Badge variant="secondary" className="capitalize">{plan}</Badge>
               </div>
               <p className="text-muted-foreground text-sm">
-                Dopo la registrazione potrai accedere alla tua area cliente, attivare l&apos;abbonamento e scaricare il bundle GreenBrain.
+                Dopo la registrazione potrai accedere alla tua area cliente,
+                salvare il metodo di pagamento e avviare il processo di attivazione GreenBrain.
               </p>
             </div>
 

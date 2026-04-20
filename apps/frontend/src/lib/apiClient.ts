@@ -86,3 +86,27 @@ export async function apiPost(path: string, body: unknown): Promise<any> {
 
   return res.json();
 }
+
+export async function apiPatch(path: string, body: unknown): Promise<any> {
+  const origin = BASE || window.location.origin;
+  const url = new URL(path, origin);
+
+  const res = await fetch(url.toString(), {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const b = await res.json();
+      detail = b?.detail ?? b?.message ?? detail;
+    } catch {
+      // ignore parse error
+    }
+    throw new ApiError(res.status, detail);
+  }
+
+  return res.json();
+}

@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from "@/lib/apiClient";
+import { apiGet, apiPatch, apiPost } from "@/lib/apiClient";
 
 export type CustomerOpsItem = {
   customer_id: string;
@@ -14,6 +14,16 @@ export type CustomerOpsItem = {
   installed_release_version?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+
+  subscription_status?: string | null;
+  subscription_plan?: string | null;
+  payment_method_saved?: boolean;
+  payment_method_last4?: string | null;
+  payment_method_brand?: string | null;
+  setup_slot_preferred_date?: string | null;
+  setup_slot_preferred_time?: string | null;
+  setup_slot_scheduled_for?: string | null;
+  data_validated_at?: string | null;
 
   delivery_assigned_release_version?: string | null;
   bundle_generated_at?: string | null;
@@ -77,4 +87,26 @@ export async function markDeliverySent(
   return apiPost("/api/v1/customer-delivery/mark-sent", {
     customer_id,
   });
+}
+
+export async function confirmCustomerSlot(
+  customer_id: string,
+  scheduled_for: string,
+) {
+  return apiPost(`/api/v1/customer-ops/customers/${customer_id}/confirm-slot`, {
+    setup_slot_scheduled_for: scheduled_for,
+  });
+}
+
+export async function updateCustomerOnboardingStatus(
+  customer_id: string,
+  onboarding_status: string,
+) {
+  return apiPatch(`/api/v1/customer-ops/customers/${customer_id}/onboarding-status`, {
+    onboarding_status,
+  });
+}
+
+export async function activateCustomerSubscription(customer_id: string) {
+  return apiPost(`/api/v1/customer-ops/customers/${customer_id}/activate-subscription`, {});
 }

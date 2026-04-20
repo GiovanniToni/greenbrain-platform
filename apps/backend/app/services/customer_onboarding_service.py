@@ -82,6 +82,7 @@ def start_customer_onboarding(payload: Dict[str, Any]) -> Dict[str, Any]:
         "installed_release_version": None,
         "notes": (payload.get("notes") or "").strip() or None,
         "signup_source": (payload.get("signup_source") or "landing_page").strip(),
+        "subscription_plan": (payload.get("subscription_plan") or "").strip() or None,
         "signup_completed_at": now_iso,
         "onboarding_step": "company_created",
         "portal_user_email": contact_email,

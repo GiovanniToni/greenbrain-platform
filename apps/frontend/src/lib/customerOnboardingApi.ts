@@ -11,6 +11,7 @@ export type CustomerSignupPayload = {
   city?: string;
   country?: string;
   assigned_release_version?: string;
+  subscription_plan?: string;
 };
 
 export async function signupCustomer(payload: CustomerSignupPayload) {
