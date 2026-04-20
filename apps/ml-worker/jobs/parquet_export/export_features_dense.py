@@ -117,8 +117,9 @@ def get_last_success_window(cur):
             nullif(payload->>'rebuild_days','')::int,
             90
           ) as rebuild_days
-        from public.etl_runs
-        where status in ('success', 'ok')
+        from etl.t_etl_runs
+        where pipeline = 'greenhouse_daily_full'
+          and status in ('success', 'ok')
         order by coalesce(ended_at, started_at) desc
         limit 1
       )
@@ -130,7 +131,7 @@ def get_last_success_window(cur):
     """)
     row = cur.fetchone()
     if not row or row[0] is None:
-        raise RuntimeError("Non trovo un run SUCCESS in public.etl_runs.")
+        raise RuntimeError("Non trovo un run SUCCESS in etl.t_etl_runs.")
     target_last, rebuild_days, start_day = row
     return start_day, target_last, rebuild_days
 

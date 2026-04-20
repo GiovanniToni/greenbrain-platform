@@ -20,6 +20,23 @@ psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$PG_DB" -c "select public.ref
 psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$PG_DB" -c "select public.refresh_forecast_features_dense_range(current_date - interval '30 day', current_date + interval '30 day');" || true
 psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$PG_DB" -c "refresh materialized view public.mv_famiglie_catalog;" || true
 
+echo "===== ETL TRACKING ====="
+SUPABASE_PG_PASSWORD="$(grep '^PG_PASSWORD=' /opt/greenbrain-platform/infra/env/dev.env | cut -d= -f2-)"
+PGPASSWORD="$SUPABASE_PG_PASSWORD" psql \
+  "host=aws-1-eu-west-1.pooler.supabase.com port=5432 dbname=postgres user=postgres.xbyhmzrlycixxrfjggvn sslmode=require" \
+  -c "INSERT INTO etl.t_etl_runs (pipeline, status, payload)
+      SELECT
+        'greenhouse_daily_full',
+        'success',
+        jsonb_build_object(
+          'target_last',
+          (select max(data_movimento)::date::text from public.greenhouse_sales_raw),
+          'rebuild_days',
+          30
+        );" \
+  && echo "[ETL TRACKING] written to Supabase etl.t_etl_runs" \
+  || echo "[ETL TRACKING] WARN: write failed"
+
 echo "===== EXPORT ====="
 cd "$BASE/apps/ml-worker"
 ./run_export_runtime.sh
