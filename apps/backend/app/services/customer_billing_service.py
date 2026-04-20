@@ -132,6 +132,8 @@ def create_setup_session_for_portal_email(user_email: str, plan: str) -> Dict[st
     session = stripe.checkout.Session.create(
         mode="setup",
         customer=stripe_customer_id,
+        payment_method_types=["card"],
+        currency="eur",
         success_url=f"{app_base_url}/account?setup=success",
         cancel_url=f"{app_base_url}/account?setup=cancel",
         metadata={"customer_id": customer_id, "plan": plan},
