@@ -10,6 +10,45 @@ import {
   type CustomerOpsItem,
 } from "@/lib/customerOpsApi";
 
+const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
+  active:                   { bg: "#dcfce7", color: "#166534" },
+  data_validated:           { bg: "#dcfce7", color: "#166534" },
+  installed:                { bg: "#dcfce7", color: "#166534" },
+  slot_requested:           { bg: "#fef9c3", color: "#854d0e" },
+  data_validation_pending:  { bg: "#fef9c3", color: "#854d0e" },
+  checkout_started:         { bg: "#fef9c3", color: "#854d0e" },
+  slot_confirmed:           { bg: "#ede9fe", color: "#5b21b6" },
+  setup_in_progress:        { bg: "#ede9fe", color: "#5b21b6" },
+  failed:                   { bg: "#fee2e2", color: "#991b1b" },
+  error:                    { bg: "#fee2e2", color: "#991b1b" },
+  past_due:                 { bg: "#fee2e2", color: "#991b1b" },
+  incomplete:               { bg: "#fee2e2", color: "#991b1b" },
+};
+
+function statusBadge(status: string | null | undefined) {
+  const s = (status || "—").toLowerCase();
+  const c = STATUS_COLORS[s] ?? { bg: "#f3f4f6", color: "#6b7280" };
+  return (
+    <span style={{
+      background: c.bg, color: c.color,
+      borderRadius: 4, padding: "2px 7px",
+      fontSize: 11, fontWeight: 600,
+      display: "inline-block", whiteSpace: "nowrap",
+    }}>
+      {status || "—"}
+    </span>
+  );
+}
+
+function fmtDt(iso: string | null | undefined, mode: "date" | "datetime" = "date") {
+  if (!iso) return null;
+  try {
+    return mode === "datetime"
+      ? new Date(iso).toLocaleString("it-IT")
+      : new Date(iso).toLocaleDateString("it-IT");
+  } catch { return iso; }
+}
+
 export default function Customers() {
   const [items, setItems] = useState<CustomerOpsItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -206,17 +245,21 @@ export default function Customers() {
     }
   }
 
+  const busy = (id: string) => busyCustomerId === id;
+
   return (
     <div style={{ padding: 24, textAlign: "left" }}>
+
+      {/* header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
         <h1 style={{ margin: 0 }}>Gestione clienti</h1>
         <button onClick={load} disabled={loading} style={{ fontSize: 13 }}>
-          {loading ? "Caricamento..." : "Ricarica"}
+          {loading ? "Caricamento..." : "↺ Ricarica"}
         </button>
       </div>
 
       {/* summary strip */}
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
         {([
           { label: "Totale", value: stats.total },
           { label: "Pagamento salvato", value: stats.paymentSaved },
@@ -225,13 +268,13 @@ export default function Customers() {
           { label: "Abbonamenti attivi", value: stats.active },
         ] as const).map(({ label, value }) => (
           <div key={label} style={statBox}>
-            <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>{value}</div>
-            <div style={{ fontSize: 11, color: "#6b7280", marginTop: 3 }}>{label}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1 }}>{value}</div>
+            <div style={{ fontSize: 10, color: "#6b7280", marginTop: 3 }}>{label}</div>
           </div>
         ))}
       </div>
 
-      {/* search + quick filters */}
+      {/* search */}
       <div style={{ marginBottom: 8 }}>
         <input
           type="search"
@@ -241,6 +284,8 @@ export default function Customers() {
           style={searchInput}
         />
       </div>
+
+      {/* quick filters */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
         {([
           { key: "tutti", label: "Tutti" },
@@ -253,14 +298,10 @@ export default function Customers() {
             key={f.key}
             onClick={() => setQuickFilter(f.key)}
             style={{
-              padding: "4px 12px",
-              borderRadius: 6,
-              border: "1px solid",
+              padding: "4px 12px", borderRadius: 6, border: "1px solid", cursor: "pointer", fontSize: 13,
               borderColor: quickFilter === f.key ? "#16a34a" : "#e5e7eb",
               background: quickFilter === f.key ? "#dcfce7" : "white",
               color: quickFilter === f.key ? "#166534" : "#374151",
-              fontSize: 13,
-              cursor: "pointer",
             }}
           >
             {f.label}
@@ -268,218 +309,223 @@ export default function Customers() {
         ))}
       </div>
 
+      {/* error */}
       {error && (
-        <div style={{ marginBottom: 16, color: "crimson" }}>
+        <div style={{ marginBottom: 12, padding: "8px 12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, color: "#991b1b", fontSize: 13 }}>
           <strong>Errore:</strong> {error}
         </div>
       )}
 
+      {/* action feedback */}
       {actionMessage && (
-        <div style={{ marginBottom: 16 }}>
+        <div style={{ marginBottom: 12, padding: "8px 12px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 6, fontSize: 13, color: "#166534" }}>
           <strong>Esito:</strong> {actionMessage}
         </div>
       )}
 
+      {/* table */}
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <th style={th}>Company</th>
-              <th style={th}>Tenant</th>
-              <th style={th}>Email</th>
+              <th style={th}>Cliente</th>
               <th style={th}>Onboarding</th>
-              <th style={th}>Subscription</th>
-              <th style={th}>Payment</th>
               <th style={th}>Slot</th>
-              <th style={th}>Install</th>
-              <th style={th}>DB</th>
-              <th style={th}>Release</th>
-              <th style={th}>Bundle generated</th>
-              <th style={th}>Bundle sent</th>
-              <th style={th}>Bundle path</th>
+              <th style={th}>Abbonamento</th>
+              <th style={th}>Release / Bundle</th>
               <th style={th}>Azioni</th>
             </tr>
           </thead>
           <tbody>
             {filteredItems.map((item) => (
               <tr key={item.customer_id}>
-                <td style={td}>{item.company_name}</td>
-                <td style={td}>{item.tenant_code || "-"}</td>
-                <td style={td}>{item.contact_email}</td>
+
+                {/* Cliente */}
                 <td style={td}>
-                  <div>{item.onboarding_status}</div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{item.company_name}</div>
+                  <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>{item.tenant_code || "—"}</div>
+                  <div style={{ fontSize: 11, color: "#9ca3af" }}>{item.contact_email}</div>
+                </td>
+
+                {/* Onboarding */}
+                <td style={td}>
+                  {statusBadge(item.onboarding_status)}
                   {item.data_validated_at && (
-                    <div style={{ fontSize: 10, color: "#6b7280", marginTop: 2 }}>
-                      Val.: {new Date(item.data_validated_at).toLocaleDateString("it-IT")}
+                    <div style={{ fontSize: 10, color: "#16a34a", marginTop: 4 }}>
+                      ✓ Validato: {fmtDt(item.data_validated_at)}
                     </div>
                   )}
+                  <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 4 }}>
+                    Install: {item.install_status}
+                  </div>
+                  <div style={{ fontSize: 10, color: "#9ca3af" }}>
+                    DB: {item.db_integration_status}
+                  </div>
                 </td>
 
-                {/* subscription */}
-                <td style={td}>
-                  <div>{item.subscription_status || "—"}</div>
-                  {item.subscription_plan && (
-                    <div style={{ fontSize: 11, color: "#888" }}>{item.subscription_plan}</div>
-                  )}
-                </td>
-
-                {/* payment */}
-                <td style={td}>
-                  {item.payment_method_saved ? (
-                    <div>
-                      <span style={{ color: "#16a34a" }}>✓</span>
-                      {item.payment_method_last4 && (
-                        <div style={{ fontSize: 11, color: "#888" }}>
-                          {item.payment_method_brand?.toUpperCase() || ""} ••••&nbsp;{item.payment_method_last4}
-                        </div>
-                      )}
-                    </div>
-                  ) : "—"}
-                </td>
-
-                {/* slot */}
+                {/* Slot */}
                 <td style={td}>
                   {item.setup_slot_scheduled_for ? (
-                    <div>
-                      <div style={{ fontSize: 11 }}>
-                        {new Date(item.setup_slot_scheduled_for).toLocaleString("it-IT")}
-                      </div>
-                      <div style={{ fontSize: 11, color: "#888" }}>confermato</div>
-                    </div>
+                    <>
+                      <div style={{ fontSize: 11, fontWeight: 600 }}>{fmtDt(item.setup_slot_scheduled_for, "datetime")}</div>
+                      <div style={{ fontSize: 10, color: "#16a34a" }}>✓ Confermato</div>
+                    </>
                   ) : item.setup_slot_preferred_date ? (
-                    <div>
+                    <>
                       <div style={{ fontSize: 11 }}>{item.setup_slot_preferred_date}</div>
-                      <div style={{ fontSize: 11, color: "#888" }}>
-                        {item.setup_slot_preferred_time === "morning"
-                          ? "Mattina"
-                          : item.setup_slot_preferred_time === "afternoon"
-                          ? "Pomeriggio"
+                      <div style={{ fontSize: 10, color: "#6b7280" }}>
+                        {item.setup_slot_preferred_time === "morning" ? "Mattina"
+                          : item.setup_slot_preferred_time === "afternoon" ? "Pomeriggio"
                           : item.setup_slot_preferred_time || ""}
                       </div>
-                    </div>
-                  ) : "—"}
+                      <div style={{ fontSize: 10, color: "#f59e0b" }}>In attesa conferma</div>
+                    </>
+                  ) : (
+                    <span style={{ color: "#9ca3af", fontSize: 11 }}>—</span>
+                  )}
                   {item.setup_slot_confirmed_at && (
-                    <div style={{ fontSize: 10, color: "#6b7280", marginTop: 2 }}>
-                      conf.: {new Date(item.setup_slot_confirmed_at).toLocaleDateString("it-IT")}
+                    <div style={{ fontSize: 10, color: "#6b7280", marginTop: 3 }}>
+                      conf. il: {fmtDt(item.setup_slot_confirmed_at)}
+                    </div>
+                  )}
+                  {item.setup_slot_requested_at && !item.setup_slot_scheduled_for && (
+                    <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 2 }}>
+                      richiesto: {fmtDt(item.setup_slot_requested_at)}
                     </div>
                   )}
                 </td>
 
-                <td style={td}>{item.install_status}</td>
-                <td style={td}>{item.db_integration_status}</td>
+                {/* Abbonamento */}
+                <td style={td}>
+                  {statusBadge(item.subscription_status || "—")}
+                  {item.subscription_plan && (
+                    <div style={{ fontSize: 10, color: "#6b7280", marginTop: 3 }}>
+                      Piano: {item.subscription_plan}
+                    </div>
+                  )}
+                  {item.payment_method_saved ? (
+                    <div style={{ fontSize: 10, color: "#16a34a", marginTop: 4 }}>
+                      ✓ {item.payment_method_brand?.toUpperCase() || "Carta"} ••••{item.payment_method_last4 || ""}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 4 }}>Carta non salvata</div>
+                  )}
+                </td>
+
+                {/* Release / Bundle */}
                 <td style={td}>
                   <input
                     type="text"
                     value={releaseByCustomer[item.customer_id] || ""}
                     onChange={(e) =>
-                      setReleaseByCustomer((prev) => ({
-                        ...prev,
-                        [item.customer_id]: e.target.value,
-                      }))
+                      setReleaseByCustomer((prev) => ({ ...prev, [item.customer_id]: e.target.value }))
                     }
-                    style={{ width: 120 }}
+                    style={{ width: 100, fontSize: 12 }}
                   />
-                </td>
-                <td style={td}>{item.bundle_generated_at || "-"}</td>
-                <td style={td}>{item.bundle_sent_at || "-"}</td>
-                <td style={td}>
-                  <div style={{ maxWidth: 320, wordBreak: "break-all" }}>
-                    {item.bundle_local_path || "-"}
-                  </div>
-                </td>
-
-                {/* azioni */}
-                <td style={td}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-
-                    {/* existing delivery controls */}
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      <button
-                        onClick={() => handleAssignRelease(item.customer_id)}
-                        disabled={busyCustomerId === item.customer_id}
-                      >
-                        Assign release
-                      </button>
-                      <button
-                        onClick={() => handlePrepareDelivery(item.customer_id)}
-                        disabled={busyCustomerId === item.customer_id}
-                      >
-                        Prepare delivery
-                      </button>
-                      <button
-                        onClick={() => handleMarkSent(item.customer_id)}
-                        disabled={busyCustomerId === item.customer_id}
-                      >
-                        Mark sent
-                      </button>
+                  {item.bundle_generated_at && (
+                    <div style={{ fontSize: 10, color: "#6b7280", marginTop: 4 }}>
+                      Gen.: {fmtDt(item.bundle_generated_at)}
                     </div>
+                  )}
+                  {item.bundle_sent_at && (
+                    <div style={{ fontSize: 10, color: "#6b7280" }}>
+                      Inv.: {fmtDt(item.bundle_sent_at)}
+                    </div>
+                  )}
+                  {item.bundle_local_path && (
+                    <div style={{ fontSize: 9, color: "#9ca3af", wordBreak: "break-all", maxWidth: 200, marginTop: 2 }}>
+                      {item.bundle_local_path}
+                    </div>
+                  )}
+                </td>
 
-                    <hr style={{ borderColor: "#eee", margin: 0 }} />
+                {/* Azioni */}
+                <td style={td}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 230 }}>
 
-                    {/* confirm slot — only when slot_requested */}
+                    {/* Slot: confirm — only when slot_requested */}
                     {item.onboarding_status === "slot_requested" && (
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                      <div style={actionGroup}>
+                        <div style={actionGroupLabel}>📅 Slot</div>
                         <input
                           type="datetime-local"
                           value={slotScheduledByCustomer[item.customer_id] || ""}
                           onChange={(e) =>
-                            setSlotScheduledByCustomer((prev) => ({
-                              ...prev,
-                              [item.customer_id]: e.target.value,
-                            }))
+                            setSlotScheduledByCustomer((prev) => ({ ...prev, [item.customer_id]: e.target.value }))
                           }
-                          style={{ fontSize: 12 }}
+                          style={{ fontSize: 11 }}
                         />
                         <button
                           onClick={() => handleConfirmSlot(item.customer_id)}
-                          disabled={
-                            busyCustomerId === item.customer_id ||
-                            !slotScheduledByCustomer[item.customer_id]
-                          }
+                          disabled={busy(item.customer_id) || !slotScheduledByCustomer[item.customer_id]}
+                          style={btnPrimary}
                         >
                           Conferma slot
                         </button>
                       </div>
                     )}
 
-                    {/* onboarding status update */}
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                      <select
-                        value={statusByCustomer[item.customer_id] || ""}
-                        onChange={(e) =>
-                          setStatusByCustomer((prev) => ({
-                            ...prev,
-                            [item.customer_id]: e.target.value,
-                          }))
-                        }
-                        style={{ fontSize: 12 }}
-                      >
-                        <option value="">— stato —</option>
-                        <option value="slot_confirmed">slot_confirmed</option>
-                        <option value="setup_in_progress">setup_in_progress</option>
-                        <option value="data_validation_pending">data_validation_pending</option>
-                        <option value="data_validated">data_validated</option>
-                      </select>
-                      <button
-                        onClick={() => handleUpdateStatus(item.customer_id)}
-                        disabled={
-                          busyCustomerId === item.customer_id ||
-                          !statusByCustomer[item.customer_id]
-                        }
-                      >
-                        Aggiorna
-                      </button>
+                    {/* Onboarding status */}
+                    <div style={actionGroup}>
+                      <div style={actionGroupLabel}>🔄 Onboarding</div>
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <select
+                          value={statusByCustomer[item.customer_id] || ""}
+                          onChange={(e) =>
+                            setStatusByCustomer((prev) => ({ ...prev, [item.customer_id]: e.target.value }))
+                          }
+                          style={{ fontSize: 11, flex: 1 }}
+                        >
+                          <option value="">— stato —</option>
+                          <option value="slot_confirmed">slot_confirmed</option>
+                          <option value="setup_in_progress">setup_in_progress</option>
+                          <option value="data_validation_pending">data_validation_pending</option>
+                          <option value="data_validated">data_validated</option>
+                        </select>
+                        <button
+                          onClick={() => handleUpdateStatus(item.customer_id)}
+                          disabled={busy(item.customer_id) || !statusByCustomer[item.customer_id]}
+                          style={btn}
+                        >
+                          Salva
+                        </button>
+                      </div>
                     </div>
 
-                    {/* activate subscription */}
-                    {item.payment_method_saved && item.subscription_status !== "active" && (
-                      <button
-                        onClick={() => handleActivateSub(item.customer_id)}
-                        disabled={busyCustomerId === item.customer_id}
-                      >
-                        Attiva abbonamento
-                      </button>
-                    )}
+                    {/* Subscription */}
+                    <div style={actionGroup}>
+                      <div style={actionGroupLabel}>💳 Abbonamento</div>
+                      {item.subscription_status === "active" ? (
+                        <span style={{ fontSize: 11, color: "#16a34a" }}>✓ Attivo</span>
+                      ) : item.payment_method_saved ? (
+                        <button
+                          onClick={() => handleActivateSub(item.customer_id)}
+                          disabled={busy(item.customer_id)}
+                          style={btnPrimary}
+                        >
+                          Attiva abbonamento
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: 11, color: "#9ca3af" }}>In attesa carta</span>
+                      )}
+                    </div>
+
+                    {/* Delivery */}
+                    <div style={actionGroup}>
+                      <div style={actionGroupLabel}>📦 Delivery</div>
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        <button onClick={() => handleAssignRelease(item.customer_id)} disabled={busy(item.customer_id)} style={btn}>
+                          Assign release
+                        </button>
+                        <button onClick={() => handlePrepareDelivery(item.customer_id)} disabled={busy(item.customer_id)} style={btn}>
+                          Prepare
+                        </button>
+                        <button onClick={() => handleMarkSent(item.customer_id)} disabled={busy(item.customer_id)} style={btn}>
+                          Mark sent
+                        </button>
+                      </div>
+                    </div>
+
                   </div>
                 </td>
               </tr>
@@ -487,8 +533,8 @@ export default function Customers() {
 
             {!loading && filteredItems.length === 0 && (
               <tr>
-                <td style={td} colSpan={14}>
-                  Nessun cliente trovato.
+                <td colSpan={6} style={{ ...td, textAlign: "center", padding: 40, color: "#9ca3af" }}>
+                  {search || quickFilter !== "tutti" ? "Nessun cliente corrisponde al filtro." : "Nessun cliente trovato."}
                 </td>
               </tr>
             )}
@@ -505,12 +551,12 @@ const statBox: React.CSSProperties = {
   borderRadius: 8,
   padding: "10px 16px",
   textAlign: "center",
-  minWidth: 110,
+  minWidth: 105,
 };
 
 const searchInput: React.CSSProperties = {
   width: "100%",
-  maxWidth: 400,
+  maxWidth: 420,
   padding: "7px 12px",
   border: "1px solid #e5e7eb",
   borderRadius: 8,
@@ -518,13 +564,55 @@ const searchInput: React.CSSProperties = {
 };
 
 const th: React.CSSProperties = {
-  borderBottom: "1px solid #ddd",
-  padding: 10,
+  borderBottom: "2px solid #e5e7eb",
+  padding: "10px 12px",
   textAlign: "left",
+  fontSize: 12,
+  fontWeight: 700,
+  color: "#374151",
+  background: "#f9fafb",
 };
 
 const td: React.CSSProperties = {
-  borderBottom: "1px solid #eee",
-  padding: 10,
+  borderBottom: "1px solid #f3f4f6",
+  padding: "10px 12px",
   verticalAlign: "top",
+};
+
+const actionGroup: React.CSSProperties = {
+  background: "#f9fafb",
+  border: "1px solid #f3f4f6",
+  borderRadius: 6,
+  padding: "6px 8px",
+  display: "flex",
+  flexDirection: "column",
+  gap: 5,
+};
+
+const actionGroupLabel: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 700,
+  color: "#6b7280",
+  textTransform: "uppercase",
+  letterSpacing: "0.04em",
+};
+
+const btn: React.CSSProperties = {
+  fontSize: 11,
+  padding: "3px 8px",
+  borderRadius: 4,
+  border: "1px solid #e5e7eb",
+  background: "white",
+  cursor: "pointer",
+};
+
+const btnPrimary: React.CSSProperties = {
+  fontSize: 11,
+  padding: "3px 10px",
+  borderRadius: 4,
+  border: "1px solid #16a34a",
+  background: "#dcfce7",
+  color: "#166534",
+  cursor: "pointer",
+  fontWeight: 600,
 };

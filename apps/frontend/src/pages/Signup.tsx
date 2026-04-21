@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { signupCustomer } from "@/lib/customerOnboardingApi";
+import { planDisplayName, planDisplayPrice } from "@/lib/planConfig";
 
 export default function Signup() {
   const [searchParams] = useSearchParams();
@@ -113,7 +114,12 @@ export default function Signup() {
             <div className="mb-8">
               <div className="flex items-center justify-between mb-2">
                 <h1 className="text-2xl font-bold">Crea account aziendale</h1>
-                <Badge variant="secondary" className="capitalize">{plan}</Badge>
+                <div className="text-right">
+                  <Badge variant="secondary">{planDisplayName(plan)}</Badge>
+                  {planDisplayPrice(plan) && (
+                    <p className="text-xs text-muted-foreground mt-1">{planDisplayPrice(plan)}</p>
+                  )}
+                </div>
               </div>
               <p className="text-muted-foreground text-sm">
                 Dopo la registrazione potrai accedere alla tua area cliente,

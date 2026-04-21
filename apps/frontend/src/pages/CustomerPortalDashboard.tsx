@@ -16,6 +16,7 @@ import {
   bookSetupSlot,
   confirmDataOk,
 } from "@/lib/customerPortalApi";
+import { planDisplayName, planDisplayPrice } from "@/lib/planConfig";
 import { createSetupSession } from "@/lib/customerBillingApi";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -184,9 +185,8 @@ export default function CustomerPortalDashboard() {
 
   const phase = getLifecyclePhase(data);
   const bundleReady = Boolean(data?.delivery?.bundle_local_path);
-  const planLabel = data?.subscription_plan
-    ? data.subscription_plan.charAt(0).toUpperCase() + data.subscription_plan.slice(1)
-    : null;
+  const planLabel = planDisplayName(data?.subscription_plan);
+  const planPrice = planDisplayPrice(data?.subscription_plan);
 
   const nextSteps = [
     {
@@ -282,7 +282,10 @@ export default function CustomerPortalDashboard() {
           </div>
           <div className="flex justify-between items-center">
             <span className="text-muted-foreground">Piano</span>
-            <span>{planLabel || "—"}</span>
+            <div className="text-right">
+              <span>{planLabel}</span>
+              {planPrice && <span className="text-xs text-muted-foreground ml-1.5">{planPrice}</span>}
+            </div>
           </div>
           {data?.assigned_release_version && (
             <div className="flex justify-between items-center">
@@ -465,7 +468,7 @@ export default function CustomerPortalDashboard() {
           <div className="flex items-center gap-2 text-sm">
             <CheckCircle2 className="w-4 h-4 text-primary" />
             <span>
-              Abbonamento attivo{planLabel ? ` — Piano ${planLabel}` : ""}
+              Abbonamento attivo{planLabel && planLabel !== "—" ? ` — ${planLabel}` : ""}
             </span>
           </div>
         )}
