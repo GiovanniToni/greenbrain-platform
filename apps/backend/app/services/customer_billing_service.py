@@ -300,9 +300,6 @@ def handle_stripe_webhook(payload: bytes, signature: str) -> Dict[str, str]:
                 "updated_at": now_iso,
             })
 
-    return {"status": "ok", "event_type": event_type}
-
-    # --- HANDLE SETUP INTENT SUCCEEDED ---
     if event_type == "setup_intent.succeeded":
         metadata = obj.get("metadata") or {}
         customer_id = (metadata.get("customer_id") or "").strip()
@@ -339,3 +336,5 @@ def handle_stripe_webhook(payload: bytes, signature: str) -> Dict[str, str]:
                 fields["subscription_plan"] = plan
 
             update_customer_company_subscription_fields(customer_id, fields)
+
+    return {"status": "ok", "event_type": event_type}
