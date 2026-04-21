@@ -137,6 +137,7 @@ def create_setup_session_for_portal_email(user_email: str, plan: str) -> Dict[st
         success_url=f"{app_base_url}/account?setup=success",
         cancel_url=f"{app_base_url}/account?setup=cancel",
         metadata={"customer_id": customer_id, "plan": plan},
+        setup_intent_data={"metadata": {"customer_id": customer_id, "plan": plan}},
     )
 
     update_customer_company_subscription_fields(customer_id, {
@@ -300,3 +301,41 @@ def handle_stripe_webhook(payload: bytes, signature: str) -> Dict[str, str]:
             })
 
     return {"status": "ok", "event_type": event_type}
+
+    # --- HANDLE SETUP INTENT SUCCEEDED ---
+    if event_type == "setup_intent.succeeded":
+        metadata = obj.get("metadata") or {}
+        customer_id = (metadata.get("customer_id") or "").strip()
+        plan = (metadata.get("plan") or "").strip()
+        stripe_customer_id = (obj.get("customer") or "").strip()
+        pm_id = (obj.get("payment_method") or "").strip()
+
+        if customer_id and stripe_customer_id and pm_id:
+            pm = stripe.PaymentMethod.retrieve(pm_id)
+            card = pm.get("card") or {}
+
+            try:
+                stripe.PaymentMethod.attach(pm_id, customer=stripe_customer_id)
+            except Exception:
+                pass
+
+            stripe.Customer.modify(
+                stripe_customer_id,
+                invoice_settings={"default_payment_method": pm_id},
+            )
+
+            now_iso = datetime.now(timezone.utc).isoformat()
+            fields = {
+                "payment_method_id": pm_id,
+                "payment_method_last4": card.get("last4"),
+                "payment_method_brand": card.get("brand"),
+                "stripe_customer_id": stripe_customer_id,
+                "onboarding_status": "payment_method_saved",
+                "onboarding_step": "payment_method_saved",
+                "updated_at": now_iso,
+            }
+
+            if plan:
+                fields["subscription_plan"] = plan
+
+            update_customer_company_subscription_fields(customer_id, fields)
