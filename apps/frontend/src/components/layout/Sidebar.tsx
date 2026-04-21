@@ -9,8 +9,10 @@ import {
   CalendarRange,
   ChevronLeft,
   ChevronRight,
+  Terminal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 const navItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -28,6 +30,7 @@ type SidebarProps = {
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const location = useLocation();
+  const { user } = useAuth();
 
   return (
     <aside
@@ -89,6 +92,25 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               </li>
             );
           })}
+
+          {user?.is_admin && (
+            <li key="/ops">
+              <Link
+                to="/ops"
+                className={cn(
+                  "flex items-center gap-3 rounded-lg transition-colors",
+                  collapsed ? "px-3 py-3 justify-center" : "px-4 py-3",
+                  location.pathname.startsWith("/ops") || location.pathname === "/customers"
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                )}
+                title={collapsed ? "Console Ops" : undefined}
+              >
+                <Terminal className="w-5 h-5 shrink-0" />
+                {!collapsed && <span className="font-medium">Console Ops</span>}
+              </Link>
+            </li>
+          )}
         </ul>
       </nav>
 

@@ -19,6 +19,8 @@ export default function Customers() {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [slotScheduledByCustomer, setSlotScheduledByCustomer] = useState<Record<string, string>>({});
   const [statusByCustomer, setStatusByCustomer] = useState<Record<string, string>>({});
+  const [search, setSearch] = useState("");
+  const [quickFilter, setQuickFilter] = useState("tutti");
 
   const defaultRelease = "0.1.12";
 
@@ -60,6 +62,48 @@ export default function Customers() {
       ),
     [items],
   );
+
+  const stats = useMemo(() => ({
+    total: items.length,
+    paymentSaved: items.filter((x) => x.payment_method_saved).length,
+    slotRequested: items.filter((x) =>
+      x.onboarding_status === "slot_requested" || x.onboarding_status === "slot_confirmed"
+    ).length,
+    dataValidationPending: items.filter((x) => x.onboarding_status === "data_validation_pending").length,
+    active: items.filter((x) => x.subscription_status === "active").length,
+  }), [items]);
+
+  const filteredItems = useMemo(() => {
+    let result = sortedItems;
+
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      result = result.filter((item) =>
+        (item.company_name || "").toLowerCase().includes(q) ||
+        (item.tenant_code || "").toLowerCase().includes(q) ||
+        (item.contact_email || "").toLowerCase().includes(q),
+      );
+    }
+
+    switch (quickFilter) {
+      case "awaiting_payment":
+        result = result.filter((x) => !x.payment_method_saved);
+        break;
+      case "slot_requested":
+        result = result.filter((x) => x.onboarding_status === "slot_requested");
+        break;
+      case "data_validation_pending":
+        result = result.filter((x) => x.onboarding_status === "data_validation_pending");
+        break;
+      case "active":
+        result = result.filter((x) => x.subscription_status === "active");
+        break;
+      default:
+        break;
+    }
+
+    return result;
+  }, [sortedItems, search, quickFilter]);
 
   async function handleAssignRelease(customerId: string) {
     try {
@@ -164,13 +208,64 @@ export default function Customers() {
 
   return (
     <div style={{ padding: 24, textAlign: "left" }}>
-      <h1>Customers</h1>
-      <p>Vista clienti con assegnazione release, delivery plan e stato bundle.</p>
-
-      <div style={{ marginBottom: 16 }}>
-        <button onClick={load} disabled={loading}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <h1 style={{ margin: 0 }}>Gestione clienti</h1>
+        <button onClick={load} disabled={loading} style={{ fontSize: 13 }}>
           {loading ? "Caricamento..." : "Ricarica"}
         </button>
+      </div>
+
+      {/* summary strip */}
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+        {([
+          { label: "Totale", value: stats.total },
+          { label: "Pagamento salvato", value: stats.paymentSaved },
+          { label: "Slot richiesti", value: stats.slotRequested },
+          { label: "Val. pendente", value: stats.dataValidationPending },
+          { label: "Abbonamenti attivi", value: stats.active },
+        ] as const).map(({ label, value }) => (
+          <div key={label} style={statBox}>
+            <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>{value}</div>
+            <div style={{ fontSize: 11, color: "#6b7280", marginTop: 3 }}>{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* search + quick filters */}
+      <div style={{ marginBottom: 8 }}>
+        <input
+          type="search"
+          placeholder="Cerca per azienda, tenant, email..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={searchInput}
+        />
+      </div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+        {([
+          { key: "tutti", label: "Tutti" },
+          { key: "awaiting_payment", label: "In attesa pagamento" },
+          { key: "slot_requested", label: "Slot richiesti" },
+          { key: "data_validation_pending", label: "Validazione dati" },
+          { key: "active", label: "Attivi" },
+        ] as const).map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setQuickFilter(f.key)}
+            style={{
+              padding: "4px 12px",
+              borderRadius: 6,
+              border: "1px solid",
+              borderColor: quickFilter === f.key ? "#16a34a" : "#e5e7eb",
+              background: quickFilter === f.key ? "#dcfce7" : "white",
+              color: quickFilter === f.key ? "#166534" : "#374151",
+              fontSize: 13,
+              cursor: "pointer",
+            }}
+          >
+            {f.label}
+          </button>
+        ))}
       </div>
 
       {error && (
@@ -206,12 +301,19 @@ export default function Customers() {
             </tr>
           </thead>
           <tbody>
-            {sortedItems.map((item) => (
+            {filteredItems.map((item) => (
               <tr key={item.customer_id}>
                 <td style={td}>{item.company_name}</td>
                 <td style={td}>{item.tenant_code || "-"}</td>
                 <td style={td}>{item.contact_email}</td>
-                <td style={td}>{item.onboarding_status}</td>
+                <td style={td}>
+                  <div>{item.onboarding_status}</div>
+                  {item.data_validated_at && (
+                    <div style={{ fontSize: 10, color: "#6b7280", marginTop: 2 }}>
+                      Val.: {new Date(item.data_validated_at).toLocaleDateString("it-IT")}
+                    </div>
+                  )}
+                </td>
 
                 {/* subscription */}
                 <td style={td}>
@@ -256,6 +358,11 @@ export default function Customers() {
                       </div>
                     </div>
                   ) : "—"}
+                  {item.setup_slot_confirmed_at && (
+                    <div style={{ fontSize: 10, color: "#6b7280", marginTop: 2 }}>
+                      conf.: {new Date(item.setup_slot_confirmed_at).toLocaleDateString("it-IT")}
+                    </div>
+                  )}
                 </td>
 
                 <td style={td}>{item.install_status}</td>
@@ -378,7 +485,7 @@ export default function Customers() {
               </tr>
             ))}
 
-            {!loading && sortedItems.length === 0 && (
+            {!loading && filteredItems.length === 0 && (
               <tr>
                 <td style={td} colSpan={14}>
                   Nessun cliente trovato.
@@ -391,6 +498,24 @@ export default function Customers() {
     </div>
   );
 }
+
+const statBox: React.CSSProperties = {
+  background: "#f9fafb",
+  border: "1px solid #e5e7eb",
+  borderRadius: 8,
+  padding: "10px 16px",
+  textAlign: "center",
+  minWidth: 110,
+};
+
+const searchInput: React.CSSProperties = {
+  width: "100%",
+  maxWidth: 400,
+  padding: "7px 12px",
+  border: "1px solid #e5e7eb",
+  borderRadius: 8,
+  fontSize: 14,
+};
 
 const th: React.CSSProperties = {
   borderBottom: "1px solid #ddd",

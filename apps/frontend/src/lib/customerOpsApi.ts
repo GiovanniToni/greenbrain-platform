@@ -22,6 +22,8 @@ export type CustomerOpsItem = {
   payment_method_brand?: string | null;
   setup_slot_preferred_date?: string | null;
   setup_slot_preferred_time?: string | null;
+  setup_slot_requested_at?: string | null;
+  setup_slot_confirmed_at?: string | null;
   setup_slot_scheduled_for?: string | null;
   data_validated_at?: string | null;
 

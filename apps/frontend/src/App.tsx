@@ -12,6 +12,7 @@ import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
 import PricingPage from "@/pages/PricingPage";
 import CustomerPortalDashboard from "@/pages/CustomerPortalDashboard";
+import CustomerOpsConsolePage from "@/pages/CustomerOpsConsolePage";
 import Signup from "@/pages/Signup";
 import Customers from "@/pages/Customers";
 
@@ -46,6 +47,7 @@ const App = () => (
                 <Route path="/assortment-planner" element={<AssortmentPlanner />} />
                 <Route path="/suppliers" element={<Suppliers />} />
                 <Route path="/account" element={<CustomerPortalDashboard />} />
+                <Route path="/ops" element={<CustomerOpsConsolePage />} />
                 <Route path="/ops/customers" element={<Navigate to="/customers" replace />} />
                 <Route path="/customers" element={<Customers />} />
                 <Route path="/portal" element={<Navigate to="/account" replace />} />
