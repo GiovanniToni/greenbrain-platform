@@ -40,6 +40,8 @@ const App = () => (
             <Route path="/signup" element={<Signup />} />
 
             <Route element={<ProtectedRoute />}>
+              <Route path="/ops" element={<CustomerOpsConsolePage />} />
+
               <Route element={<AppLayout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/dashboard/reorders" element={<Reorders />} />
@@ -47,7 +49,6 @@ const App = () => (
                 <Route path="/assortment-planner" element={<AssortmentPlanner />} />
                 <Route path="/suppliers" element={<Suppliers />} />
                 <Route path="/account" element={<CustomerPortalDashboard />} />
-                <Route path="/ops" element={<CustomerOpsConsolePage />} />
                 <Route path="/ops/customers" element={<Navigate to="/customers" replace />} />
                 <Route path="/customers" element={<Customers />} />
                 <Route path="/portal" element={<Navigate to="/account" replace />} />
