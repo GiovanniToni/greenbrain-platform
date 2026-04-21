@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   assignRelease,
   confirmCustomerSlot,
@@ -342,7 +343,14 @@ export default function Customers() {
 
                 {/* Cliente */}
                 <td style={td}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{item.company_name}</div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>
+                    <Link
+                      to={`/customers/${item.customer_id}`}
+                      style={{ color: "inherit", textDecoration: "none", borderBottom: "1px solid #d1d5db" }}
+                    >
+                      {item.company_name}
+                    </Link>
+                  </div>
                   <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>{item.tenant_code || "—"}</div>
                   <div style={{ fontSize: 11, color: "#9ca3af" }}>{item.contact_email}</div>
                 </td>

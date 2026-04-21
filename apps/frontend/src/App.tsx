@@ -15,6 +15,7 @@ import CustomerPortalDashboard from "@/pages/CustomerPortalDashboard";
 import CustomerOpsConsolePage from "@/pages/CustomerOpsConsolePage";
 import Signup from "@/pages/Signup";
 import Customers from "@/pages/Customers";
+import CustomerDetail from "@/pages/CustomerDetail";
 
 import Dashboard from "@/pages/Dashboard";
 import Reorders from "@/pages/Reorders";
@@ -51,6 +52,7 @@ const App = () => (
                 <Route path="/account" element={<CustomerPortalDashboard />} />
                 <Route path="/ops/customers" element={<Navigate to="/customers" replace />} />
                 <Route path="/customers" element={<Customers />} />
+                <Route path="/customers/:customerId" element={<CustomerDetail />} />
                 <Route path="/portal" element={<Navigate to="/account" replace />} />
               </Route>
             </Route>
