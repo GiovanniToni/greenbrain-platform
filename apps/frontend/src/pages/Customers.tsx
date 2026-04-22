@@ -41,6 +41,15 @@ function statusBadge(status: string | null | undefined) {
   );
 }
 
+const NEXT_ONBOARDING_STATUS: Record<string, string> = {
+  slot_requested:          "slot_confirmed",
+  slot_confirmed:          "setup_in_progress",
+  setup_in_progress:       "data_validation_pending",
+  data_validation_pending: "data_validated",
+};
+
+const LATEST_RELEASE = "27684520.2023.2279060";
+
 function fmtDt(iso: string | null | undefined, mode: "date" | "datetime" = "date") {
   if (!iso) return null;
   try {
@@ -58,11 +67,10 @@ export default function Customers() {
   const [busyCustomerId, setBusyCustomerId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [slotScheduledByCustomer, setSlotScheduledByCustomer] = useState<Record<string, string>>({});
-  const [statusByCustomer, setStatusByCustomer] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
   const [quickFilter, setQuickFilter] = useState("tutti");
 
-  const defaultRelease = "0.1.12";
+  const defaultRelease = LATEST_RELEASE;
 
   async function load() {
     try {
@@ -200,6 +208,21 @@ export default function Customers() {
     }
   }
 
+  async function handleSendRelease(customerId: string) {
+    try {
+      setBusyCustomerId(customerId);
+      setActionMessage(null);
+      const r = await assignRelease(customerId, LATEST_RELEASE);
+      await prepareDelivery(customerId);
+      setActionMessage(`Release ${r.assigned_release_version} assegnata e delivery preparata per ${customerId}`);
+      await load();
+    } catch (err) {
+      setActionMessage(err instanceof Error ? err.message : "Errore invio release");
+    } finally {
+      setBusyCustomerId(null);
+    }
+  }
+
   async function handleConfirmSlot(customerId: string) {
     const scheduled = slotScheduledByCustomer[customerId];
     if (!scheduled) return;
@@ -216,8 +239,7 @@ export default function Customers() {
     }
   }
 
-  async function handleUpdateStatus(customerId: string) {
-    const newStatus = statusByCustomer[customerId];
+  async function handleUpdateStatus(customerId: string, newStatus: string) {
     if (!newStatus) return;
     try {
       setBusyCustomerId(customerId);
@@ -422,27 +444,27 @@ export default function Customers() {
 
                 {/* Release / Bundle */}
                 <td style={td}>
-                  <input
-                    type="text"
-                    value={releaseByCustomer[item.customer_id] || ""}
-                    onChange={(e) =>
-                      setReleaseByCustomer((prev) => ({ ...prev, [item.customer_id]: e.target.value }))
-                    }
-                    style={{ width: 100, fontSize: 12 }}
-                  />
+                  <div style={{ fontSize: 11, marginBottom: 2 }}>
+                    <span style={{ color: "#6b7280" }}>Ass.: </span>
+                    <strong>{item.assigned_release_version || item.delivery_assigned_release_version || "—"}</strong>
+                  </div>
+                  {item.installed_release_version && (
+                    <div style={{ fontSize: 11 }}>
+                      <span style={{ color: "#6b7280" }}>Inst.: </span>
+                      <strong>{item.installed_release_version}</strong>
+                    </div>
+                  )}
+                  <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 2 }}>
+                    Target: {LATEST_RELEASE}
+                  </div>
                   {item.bundle_generated_at && (
                     <div style={{ fontSize: 10, color: "#6b7280", marginTop: 4 }}>
                       Gen.: {fmtDt(item.bundle_generated_at)}
                     </div>
                   )}
                   {item.bundle_sent_at && (
-                    <div style={{ fontSize: 10, color: "#6b7280" }}>
+                    <div style={{ fontSize: 10, color: "#16a34a" }}>
                       Inv.: {fmtDt(item.bundle_sent_at)}
-                    </div>
-                  )}
-                  {item.bundle_local_path && (
-                    <div style={{ fontSize: 9, color: "#9ca3af", wordBreak: "break-all", maxWidth: 200, marginTop: 2 }}>
-                      {item.bundle_local_path}
                     </div>
                   )}
                 </td>
@@ -473,31 +495,35 @@ export default function Customers() {
                       </div>
                     )}
 
-                    {/* Onboarding status */}
+                    {/* Onboarding status — guided next step only */}
                     <div style={actionGroup}>
                       <div style={actionGroupLabel}>🔄 Onboarding</div>
-                      <div style={{ display: "flex", gap: 4 }}>
-                        <select
-                          value={statusByCustomer[item.customer_id] || ""}
-                          onChange={(e) =>
-                            setStatusByCustomer((prev) => ({ ...prev, [item.customer_id]: e.target.value }))
-                          }
-                          style={{ fontSize: 11, flex: 1 }}
-                        >
-                          <option value="">— stato —</option>
-                          <option value="slot_confirmed">slot_confirmed</option>
-                          <option value="setup_in_progress">setup_in_progress</option>
-                          <option value="data_validation_pending">data_validation_pending</option>
-                          <option value="data_validated">data_validated</option>
-                        </select>
-                        <button
-                          onClick={() => handleUpdateStatus(item.customer_id)}
-                          disabled={busy(item.customer_id) || !statusByCustomer[item.customer_id]}
-                          style={btn}
-                        >
-                          Salva
-                        </button>
-                      </div>
+                      {(() => {
+                        const nextStatus = NEXT_ONBOARDING_STATUS[item.onboarding_status];
+                        const waitingCustomerStatuses = ["draft", "signup_started", "checkout_started"];
+
+                        if (waitingCustomerStatuses.includes(item.onboarding_status || "")) {
+                          return (
+                            <span style={{ fontSize: 11, color: "#9ca3af" }}>
+                              In attesa azione cliente
+                            </span>
+                          );
+                        }
+
+                        if (!nextStatus) {
+                          return <span style={{ fontSize: 11, color: "#16a34a" }}>✓ Completato</span>;
+                        }
+
+                        return (
+                          <button
+                            onClick={() => handleUpdateStatus(item.customer_id, nextStatus)}
+                            disabled={busy(item.customer_id)}
+                            style={btn}
+                          >
+                            → {nextStatus}
+                          </button>
+                        );
+                      })()}
                     </div>
 
                     {/* Subscription */}
@@ -505,34 +531,62 @@ export default function Customers() {
                       <div style={actionGroupLabel}>💳 Abbonamento</div>
                       {item.subscription_status === "active" ? (
                         <span style={{ fontSize: 11, color: "#16a34a" }}>✓ Attivo</span>
-                      ) : item.payment_method_saved ? (
-                        <button
-                          onClick={() => handleActivateSub(item.customer_id)}
-                          disabled={busy(item.customer_id)}
-                          style={btnPrimary}
-                        >
-                          Attiva abbonamento
-                        </button>
-                      ) : (
-                        <span style={{ fontSize: 11, color: "#9ca3af" }}>In attesa carta</span>
-                      )}
+                      ) : (() => {
+                        const canActivate =
+                          item.onboarding_status === "data_validated" &&
+                          item.payment_method_saved === true;
+                        return (
+                          <>
+                            <button
+                              onClick={() => handleActivateSub(item.customer_id)}
+                              disabled={busy(item.customer_id) || !canActivate}
+                              style={canActivate ? btnPrimary : btn}
+                            >
+                              Attiva abbonamento
+                            </button>
+                            {!canActivate && (
+                              <span style={{ fontSize: 10, color: "#9ca3af" }}>
+                                Richiede validazione dati e metodo di pagamento
+                              </span>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
 
                     {/* Delivery */}
-                    <div style={actionGroup}>
-                      <div style={actionGroupLabel}>📦 Delivery</div>
-                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                        <button onClick={() => handleAssignRelease(item.customer_id)} disabled={busy(item.customer_id)} style={btn}>
-                          Assign release
-                        </button>
-                        <button onClick={() => handlePrepareDelivery(item.customer_id)} disabled={busy(item.customer_id)} style={btn}>
-                          Prepare
-                        </button>
-                        <button onClick={() => handleMarkSent(item.customer_id)} disabled={busy(item.customer_id)} style={btn}>
-                          Mark sent
-                        </button>
-                      </div>
-                    </div>
+                    {(() => {
+                      const isAligned =
+                        item.assigned_release_version === LATEST_RELEASE &&
+                        item.installed_release_version === LATEST_RELEASE;
+                      return (
+                        <div style={actionGroup}>
+                          <div style={actionGroupLabel}>📦 Delivery</div>
+                          {isAligned ? (
+                            <span style={{ fontSize: 11, color: "#16a34a", fontWeight: 600 }}>✓ Sistema aggiornato</span>
+                          ) : (
+                            <button
+                              onClick={() => handleSendRelease(item.customer_id)}
+                              disabled={busy(item.customer_id)}
+                              style={btnPrimary}
+                            >
+                              Invia release {LATEST_RELEASE}
+                            </button>
+                          )}
+                          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 2 }}>
+                            <button onClick={() => handleAssignRelease(item.customer_id)} disabled={busy(item.customer_id)} style={btn}>
+                              Assign
+                            </button>
+                            <button onClick={() => handlePrepareDelivery(item.customer_id)} disabled={busy(item.customer_id)} style={btn}>
+                              Prepare
+                            </button>
+                            <button onClick={() => handleMarkSent(item.customer_id)} disabled={busy(item.customer_id)} style={btn}>
+                              Mark sent
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                   </div>
                 </td>
