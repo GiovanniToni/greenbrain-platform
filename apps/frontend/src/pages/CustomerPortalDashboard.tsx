@@ -184,26 +184,20 @@ export default function CustomerPortalDashboard() {
   }
 
   const phase = getLifecyclePhase(data);
-  const bundleReady = Boolean(data?.delivery?.bundle_local_path);
+  const bundleReady = Boolean(data?.payment_method_saved && data?.setup_slot_requested_at);
   const planLabel = planDisplayName(data?.subscription_plan);
   const planPrice = planDisplayPrice(data?.subscription_plan);
 
-  const bundleSubtitle = bundleReady
-    ? "Pacchetto pronto — puoi scaricarlo ora"
-    : data?.delivery?.bundle_generated_at
-    ? "Bundle in preparazione finale"
-    : data?.setup_slot_scheduled_for
-    ? "Il bundle verrà preparato dopo la sessione di setup confermata"
-    : data?.setup_slot_requested_at
-    ? "Il bundle sarà disponibile dopo la conferma della sessione di setup"
-    : "Il bundle verrà preparato dal team GreenBrain dopo la sessione di setup";
+  const bundleSubtitle = !data?.payment_method_saved
+    ? "Il download si attiverà dopo il salvataggio del metodo di pagamento"
+    : !data?.setup_slot_requested_at
+    ? "Il download si attiverà dopo l'invio della richiesta di setup"
+    : "Ultima versione disponibile pronta per il download";
 
   const bundleButtonLabel = downloading
     ? "Download in corso..."
     : bundleReady
-    ? "Scarica bundle GreenBrain"
-    : data?.setup_slot_scheduled_for
-    ? "Bundle in preparazione — non ancora disponibile"
+    ? "Scarica l'ultima versione disponibile"
     : "Bundle non ancora disponibile";
 
   const nextSteps = [
@@ -233,9 +227,9 @@ export default function CustomerPortalDashboard() {
       detail: "L'abbonamento verrà attivato dal team dopo la conferma dei dati.",
     },
     {
-      done: Boolean(data?.delivery?.bundle_generated_at),
-      label: "Bundle GreenBrain pronto",
-      detail: "Il pacchetto di installazione verrà preparato dal team.",
+      done: Boolean(data?.payment_method_saved && data?.setup_slot_requested_at),
+      label: "Bundle GreenBrain disponibile",
+      detail: "Dopo pagamento e richiesta slot puoi scaricare l'ultima versione disponibile.",
     },
     {
       done: data?.delivery?.install_status === "installed",
@@ -572,9 +566,9 @@ export default function CustomerPortalDashboard() {
             )}
           </div>
         )}
-        {!bundleReady && !data?.setup_slot_requested_at && (
+        {!bundleReady && (
           <p className="text-xs text-muted-foreground mb-3">
-            Per ricevere il bundle, completa prima la sessione di setup con il team GreenBrain.
+            Il download si attiva dopo il salvataggio del metodo di pagamento e l'invio della richiesta di setup.
           </p>
         )}
         <Button
