@@ -11,7 +11,9 @@ from app.schemas.customer_ops import CustomerCompanyCreate
 from app.services.customer_ops_service import (
     confirm_customer_setup_slot,
     create_customer,
+    get_customer_ops_item,
     list_customers,
+    send_release,
     trigger_subscription_activation,
     update_customer_onboarding_status,
 )
@@ -46,33 +48,8 @@ def list_customers_route(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"customer_ops_list_failed: {exc}")
 
-
-
-@router.get("/customers/{customer_id}")
-def get_customer_ops_item(
-    customer_id: str,
-    service: CustomerOpsService = Depends(get_customer_ops_service),
-):
-    try:
-        return service.get_customer_ops_item(customer_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
-
-
 class SendReleasePayload(BaseModel):
     release_version: str
-
-
-@router.post("/customers/{customer_id}/send-release")
-def send_release(
-    customer_id: str,
-    payload: SendReleasePayload,
-    service: CustomerOpsService = Depends(get_customer_ops_service),
-):
-    try:
-        return service.send_release(customer_id, payload.release_version)
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
 
 
 @router.post("/customers")
@@ -101,6 +78,24 @@ def get_customer_detail_route(
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"customer_ops_detail_failed: {exc}")
+
+
+
+@router.post("/customers/{customer_id}/send-release")
+def send_release_route(
+    customer_id: str,
+    payload: SendReleasePayload,
+    _: dict = Depends(require_admin),
+):
+    try:
+        return send_release(customer_id, payload.release_version)
+    except ValueError as exc:
+        msg = str(exc)
+        if "customer_not_found" in msg:
+            raise HTTPException(status_code=404, detail=msg)
+        raise HTTPException(status_code=400, detail=msg)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"send_release_failed: {exc}")
 
 
 @router.patch("/customers/{customer_id}/onboarding-status")

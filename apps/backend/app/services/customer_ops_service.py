@@ -19,18 +19,33 @@ _ALLOWED_OPS_TRANSITIONS = {
 }
 
 
-
-def get_customer_ops_item(self, customer_id: str):
-    item = self.repository.get_customer_ops_item(customer_id)
+def get_customer_ops_item(customer_id: str) -> Dict[str, Any]:
+    item = get_customer_company_detail(customer_id)
     if not item:
-        raise ValueError(f"Customer not found: {customer_id}")
+        raise ValueError(f"customer_not_found:{customer_id}")
+    item["payment_method_saved"] = bool(item.get("payment_method_id"))
     return item
 
 
-def send_release(self, customer_id: str, release_version: str):
-    assigned = self.assign_release(customer_id, release_version)
-    self.prepare_delivery(customer_id)
-    return self.get_customer_ops_item(customer_id)
+def send_release(customer_id: str, release_version: str) -> Dict[str, Any]:
+    customer = get_customer_company_detail(customer_id)
+    if not customer:
+        raise ValueError(f"customer_not_found:{customer_id}")
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    update_customer_company_onboarding(customer_id, {
+        "assigned_release_version": release_version,
+        "updated_at": now_iso,
+    })
+
+    detail = get_customer_company_detail(customer_id) or {}
+    return {
+        "customer_id": customer_id,
+        "assigned_release_version": release_version,
+        "updated_at": now_iso,
+        "company_name": detail.get("company_name"),
+    }
 
 
 def list_customers(limit: int = 100) -> List[Dict[str, Any]]:
