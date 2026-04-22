@@ -47,6 +47,34 @@ def list_customers_route(
         raise HTTPException(status_code=500, detail=f"customer_ops_list_failed: {exc}")
 
 
+
+@router.get("/customers/{customer_id}")
+def get_customer_ops_item(
+    customer_id: str,
+    service: CustomerOpsService = Depends(get_customer_ops_service),
+):
+    try:
+        return service.get_customer_ops_item(customer_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+class SendReleasePayload(BaseModel):
+    release_version: str
+
+
+@router.post("/customers/{customer_id}/send-release")
+def send_release(
+    customer_id: str,
+    payload: SendReleasePayload,
+    service: CustomerOpsService = Depends(get_customer_ops_service),
+):
+    try:
+        return service.send_release(customer_id, payload.release_version)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
 @router.post("/customers")
 def create_customer_route(
     payload: CustomerCompanyCreate,

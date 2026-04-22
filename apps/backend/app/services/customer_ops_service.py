@@ -19,6 +19,20 @@ _ALLOWED_OPS_TRANSITIONS = {
 }
 
 
+
+def get_customer_ops_item(self, customer_id: str):
+    item = self.repository.get_customer_ops_item(customer_id)
+    if not item:
+        raise ValueError(f"Customer not found: {customer_id}")
+    return item
+
+
+def send_release(self, customer_id: str, release_version: str):
+    assigned = self.assign_release(customer_id, release_version)
+    self.prepare_delivery(customer_id)
+    return self.get_customer_ops_item(customer_id)
+
+
 def list_customers(limit: int = 100) -> List[Dict[str, Any]]:
     return list_customer_companies(limit=limit)
 
