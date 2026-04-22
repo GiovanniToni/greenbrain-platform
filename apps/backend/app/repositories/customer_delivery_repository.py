@@ -48,6 +48,19 @@ def upsert_customer_delivery(
     return rows[0] if rows else payload
 
 
+def get_delivery_row(customer_id: str) -> Dict[str, Any] | None:
+    client = get_supabase_client()
+    resp = (
+        client.table("gb_customer_delivery")
+        .select("*")
+        .eq("customer_id", customer_id)
+        .limit(1)
+        .execute()
+    )
+    rows = resp.data or []
+    return rows[0] if rows else None
+
+
 def mark_bundle_sent(customer_id: str, bundle_sent_at: str) -> Dict[str, Any]:
     client = get_supabase_client()
     resp = (

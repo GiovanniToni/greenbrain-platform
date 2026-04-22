@@ -188,6 +188,24 @@ export default function CustomerPortalDashboard() {
   const planLabel = planDisplayName(data?.subscription_plan);
   const planPrice = planDisplayPrice(data?.subscription_plan);
 
+  const bundleSubtitle = bundleReady
+    ? "Pacchetto pronto — puoi scaricarlo ora"
+    : data?.delivery?.bundle_generated_at
+    ? "Bundle in preparazione finale"
+    : data?.setup_slot_scheduled_for
+    ? "Il bundle verrà preparato dopo la sessione di setup confermata"
+    : data?.setup_slot_requested_at
+    ? "Il bundle sarà disponibile dopo la conferma della sessione di setup"
+    : "Il bundle verrà preparato dal team GreenBrain dopo la sessione di setup";
+
+  const bundleButtonLabel = downloading
+    ? "Download in corso..."
+    : bundleReady
+    ? "Scarica bundle GreenBrain"
+    : data?.setup_slot_scheduled_for
+    ? "Bundle in preparazione — non ancora disponibile"
+    : "Bundle non ancora disponibile";
+
   const nextSteps = [
     {
       done: Boolean(data?.payment_method_saved),
@@ -474,6 +492,56 @@ export default function CustomerPortalDashboard() {
         )}
       </Card>
 
+      {/* Gestione abbonamento */}
+      <Card className="p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+            <CreditCard className="w-5 h-5 text-primary" />
+          </div>
+          <h2 className="font-semibold">Gestione abbonamento</h2>
+        </div>
+        <Separator className="my-4" />
+        <div className="grid sm:grid-cols-2 gap-y-3 gap-x-6 text-sm mb-5">
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">Piano</span>
+            <div className="text-right">
+              <span>{planLabel}</span>
+              {planPrice && <span className="text-xs text-muted-foreground ml-1.5">{planPrice}</span>}
+            </div>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">Stato abbonamento</span>
+            <Badge variant={data?.subscription_status === "active" ? "default" : "outline"}>
+              {data?.subscription_status || "—"}
+            </Badge>
+          </div>
+          {data?.payment_method_saved && data?.payment_method_last4 && (
+            <div className="flex justify-between items-center col-span-full">
+              <span className="text-muted-foreground">Metodo di pagamento</span>
+              <span className="flex items-center gap-1.5 text-xs">
+                <CreditCard className="w-3.5 h-3.5" />
+                {data.payment_method_brand ? `${data.payment_method_brand.toUpperCase()} ` : ""}
+                ••••&nbsp;{data.payment_method_last4}
+              </span>
+            </div>
+          )}
+        </div>
+        <Separator className="my-4" />
+        {data?.cancellation_requested ? (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 text-center">
+            <p className="font-semibold">Disdetta richiesta il {fmtDate(data.cancellation_requested_at)}</p>
+            <p className="text-xs text-amber-700 mt-1">In attesa gestione amministrativa</p>
+          </div>
+        ) : (
+          <Button variant="outline" disabled className="w-full text-muted-foreground cursor-not-allowed">
+            Richiedi disdetta
+          </Button>
+        )}
+        <p className="text-xs text-muted-foreground mt-3 text-center">
+          La gestione della disdetta viene effettuata tramite il team GreenBrain.
+        </p>
+      </Card>
+
       {/* Bundle & install */}
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
@@ -483,9 +551,7 @@ export default function CustomerPortalDashboard() {
             </div>
             <div>
               <h2 className="font-semibold">Bundle &amp; installazione</h2>
-              <p className="text-xs text-muted-foreground">
-                {bundleReady ? "Pacchetto disponibile per il download" : "In attesa di provisioning"}
-              </p>
+              <p className="text-xs text-muted-foreground">{bundleSubtitle}</p>
             </div>
           </div>
           {installBadge(data?.delivery?.install_status)}
@@ -506,6 +572,11 @@ export default function CustomerPortalDashboard() {
             )}
           </div>
         )}
+        {!bundleReady && !data?.setup_slot_requested_at && (
+          <p className="text-xs text-muted-foreground mb-3">
+            Per ricevere il bundle, completa prima la sessione di setup con il team GreenBrain.
+          </p>
+        )}
         <Button
           className="w-full"
           variant={bundleReady ? "default" : "outline"}
@@ -513,7 +584,7 @@ export default function CustomerPortalDashboard() {
           disabled={!bundleReady || downloading}
         >
           <Download className="w-4 h-4 mr-2" />
-          {downloading ? "Download in corso..." : bundleReady ? "Scarica bundle" : "Bundle non ancora disponibile"}
+          {bundleButtonLabel}
         </Button>
       </Card>
 

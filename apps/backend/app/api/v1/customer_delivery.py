@@ -43,5 +43,10 @@ def mark_delivery_sent_route(
 ):
     try:
         return mark_delivery_sent(payload.customer_id)
+    except ValueError as exc:
+        msg = str(exc)
+        if msg in ("bundle_not_generated_yet", "delivery_row_missing"):
+            raise HTTPException(status_code=409, detail=msg)
+        raise HTTPException(status_code=400, detail=msg)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"customer_delivery_mark_sent_failed: {exc}")

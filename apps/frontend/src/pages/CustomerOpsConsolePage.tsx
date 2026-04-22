@@ -11,8 +11,11 @@ function computeKpis(items: CustomerOpsItem[]) {
     slotPending: items.filter((x) => x.onboarding_status === "slot_requested").length,
     dataValidation: items.filter((x) => x.onboarding_status === "data_validation_pending").length,
     deliveryPending: items.filter(
-      (x) => x.subscription_status === "active" && !x.bundle_generated_at,
+      (x) =>
+        Boolean(x.assigned_release_version) &&
+        (!x.delivery_status || x.delivery_status === "pending" || x.delivery_status === "prepared"),
     ).length,
+    noPayment: items.filter((x) => !x.payment_method_saved).length,
   };
 }
 
@@ -30,18 +33,19 @@ export default function CustomerOpsConsolePage() {
       .finally(() => setLoadingKpis(false));
   }, []);
 
-  const kpiItems: { label: string; value: number; color: string }[] = kpis
+  const kpiItems: { label: string; value: number; color: string; alert?: boolean }[] = kpis
     ? [
-        { label: "Clienti totali", value: kpis.total, color: "#374151" },
-        { label: "Abbonamenti attivi", value: kpis.active, color: "#16a34a" },
-        { label: "Slot da confermare", value: kpis.slotPending, color: "#d97706" },
-        { label: "Validazione pendente", value: kpis.dataValidation, color: "#7c3aed" },
-        { label: "Delivery pendenti", value: kpis.deliveryPending, color: "#0369a1" },
+        { label: "Clienti totali",        value: kpis.total,         color: "#374151" },
+        { label: "Abbonamenti attivi",     value: kpis.active,        color: "#16a34a" },
+        { label: "Slot da confermare",     value: kpis.slotPending,   color: "#d97706", alert: kpis.slotPending > 0 },
+        { label: "Validazione pendente",   value: kpis.dataValidation,color: "#7c3aed", alert: kpis.dataValidation > 0 },
+        { label: "Delivery pendenti",      value: kpis.deliveryPending,color: "#0369a1",alert: kpis.deliveryPending > 0 },
+        { label: "Senza pagamento",        value: kpis.noPayment,     color: "#b91c1c", alert: kpis.noPayment > 0 },
       ]
     : [];
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-4xl">
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-3">
           <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
@@ -56,17 +60,26 @@ export default function CustomerOpsConsolePage() {
 
       {/* live KPI strip */}
       <div className="mb-8">
-        {loadingKpis ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-            Caricamento dati...
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">KPI in tempo reale</span>
+          {loadingKpis && <RefreshCw className="w-3 h-3 animate-spin text-muted-foreground" />}
+        </div>
+        {loadingKpis && !kpis ? (
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="bg-muted/30 border border-dashed rounded-lg p-2.5 h-14 animate-pulse" />
+            ))}
           </div>
         ) : kpis ? (
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            {kpiItems.map(({ label, value, color }) => (
-              <div key={label} className="bg-muted/50 border rounded-lg p-3 text-center">
-                <div style={{ fontSize: 30, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
-                <div className="text-xs text-muted-foreground mt-1.5 leading-tight">{label}</div>
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+            {kpiItems.map(({ label, value, color, alert }) => (
+              <div
+                key={label}
+                className="border rounded-lg p-2.5 text-center"
+                style={{ background: alert && value > 0 ? `${color}10` : "#fafafa", borderColor: alert && value > 0 ? `${color}40` : undefined }}
+              >
+                <div style={{ fontSize: 26, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
+                <div className="text-xs text-muted-foreground mt-1 leading-tight" style={{ fontSize: 10 }}>{label}</div>
               </div>
             ))}
           </div>
@@ -78,16 +91,26 @@ export default function CustomerOpsConsolePage() {
       {/* main entry cards */}
       <div className="grid sm:grid-cols-2 gap-4">
         <Link to="/customers">
-          <Card className="p-6 hover:border-primary/50 hover:shadow-sm transition-all cursor-pointer h-full">
+          <Card className="p-6 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer h-full group border-primary/20">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+              <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                 <Users className="w-5 h-5 text-primary" />
               </div>
-              <h2 className="font-semibold text-lg">Gestisci clienti</h2>
+              <div>
+                <h2 className="font-semibold text-lg leading-tight">Gestisci clienti</h2>
+                {kpis && <p className="text-xs text-muted-foreground">{kpis.total} clienti · {kpis.active} attivi</p>}
+              </div>
             </div>
             <p className="text-sm text-muted-foreground">
-              Visualizza e gestisci tutti i clienti: onboarding, slot di setup, delivery, abbonamenti.
+              Onboarding, slot setup, delivery, abbonamenti e disdette.
             </p>
+            {kpis && (kpis.slotPending > 0 || kpis.dataValidation > 0 || kpis.deliveryPending > 0) && (
+              <div className="flex gap-2 mt-3 flex-wrap">
+                {kpis.slotPending > 0 && <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">{kpis.slotPending} slot</span>}
+                {kpis.dataValidation > 0 && <span className="text-xs px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200">{kpis.dataValidation} validazioni</span>}
+                {kpis.deliveryPending > 0 && <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">{kpis.deliveryPending} delivery</span>}
+              </div>
+            )}
           </Card>
         </Link>
 

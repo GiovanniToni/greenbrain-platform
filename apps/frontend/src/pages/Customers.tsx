@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { LATEST_RELEASE, customerHealth } from "@/lib/opsConfig";
 import {
   assignRelease,
   confirmCustomerSlot,
@@ -7,7 +8,9 @@ import {
   listCustomers,
   markDeliverySent,
   prepareDelivery,
+  sendRelease,
   updateCustomerOnboardingStatus,
+  DELIVERY_STATUS_LABELS,
   type CustomerOpsItem,
 } from "@/lib/customerOpsApi";
 
@@ -48,7 +51,49 @@ const NEXT_ONBOARDING_STATUS: Record<string, string> = {
   data_validation_pending: "data_validated",
 };
 
-const LATEST_RELEASE = "27684520.2023.2279060";
+const PIPELINE_STEPS: { key: string; short: string }[] = [
+  { key: "slot_requested",          short: "Slot" },
+  { key: "slot_confirmed",          short: "Conf." },
+  { key: "setup_in_progress",       short: "Setup" },
+  { key: "data_validation_pending", short: "Val." },
+  { key: "data_validated",          short: "Validato" },
+];
+
+function PipelineBar({ item }: { item: CustomerOpsItem }) {
+  const isActive = (item.subscription_status || "").toLowerCase() === "active";
+  const currentIdx = isActive
+    ? PIPELINE_STEPS.length
+    : PIPELINE_STEPS.findIndex((s) => s.key === item.onboarding_status);
+
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 2, marginTop: 5 }}>
+      {PIPELINE_STEPS.map((step, i) => {
+        const done = isActive || currentIdx > i;
+        const current = !isActive && currentIdx === i;
+        return (
+          <span
+            key={step.key}
+            title={step.key}
+            style={{
+              fontSize: 9, fontWeight: current ? 800 : 600,
+              padding: "1px 5px", borderRadius: 3, whiteSpace: "nowrap" as const,
+              background: done ? "#dcfce7" : current ? "#ede9fe" : "#f3f4f6",
+              color: done ? "#166534" : current ? "#5b21b6" : "#9ca3af",
+              border: current ? "1px solid #a78bfa" : "1px solid transparent",
+            }}
+          >
+            {done ? "✓" : ""}{step.short}
+          </span>
+        );
+      })}
+      {isActive && (
+        <span style={{ fontSize: 9, fontWeight: 800, padding: "1px 5px", borderRadius: 3, background: "#dcfce7", color: "#166534", border: "1px solid #86efac", whiteSpace: "nowrap" as const }}>
+          ✓ Attivo
+        </span>
+      )}
+    </div>
+  );
+}
 
 function fmtDt(iso: string | null | undefined, mode: "date" | "datetime" = "date") {
   if (!iso) return null;
@@ -57,6 +102,30 @@ function fmtDt(iso: string | null | undefined, mode: "date" | "datetime" = "date
       ? new Date(iso).toLocaleString("it-IT")
       : new Date(iso).toLocaleDateString("it-IT");
   } catch { return iso; }
+}
+
+const DELIVERY_BADGE_COLORS: Record<string, { bg: string; color: string }> = {
+  pending:   { bg: "#fef9c3", color: "#854d0e" },
+  prepared:  { bg: "#ede9fe", color: "#5b21b6" },
+  sent:      { bg: "#dbeafe", color: "#1e40af" },
+  installed: { bg: "#dcfce7", color: "#166534" },
+  failed:    { bg: "#fee2e2", color: "#991b1b" },
+};
+
+function deliveryStatusBadge(ds: string | null | undefined) {
+  if (!ds) return null;
+  const label = DELIVERY_STATUS_LABELS[ds] ?? ds;
+  const c = DELIVERY_BADGE_COLORS[ds.toLowerCase()] ?? { bg: "#f3f4f6", color: "#6b7280" };
+  return (
+    <span style={{
+      background: c.bg, color: c.color,
+      fontSize: 9, fontWeight: 700,
+      padding: "1px 5px", borderRadius: 3,
+      display: "inline-block", whiteSpace: "nowrap" as const,
+    }}>
+      {label}
+    </span>
+  );
 }
 
 export default function Customers() {
@@ -114,11 +183,16 @@ export default function Customers() {
   const stats = useMemo(() => ({
     total: items.length,
     paymentSaved: items.filter((x) => x.payment_method_saved).length,
+    noPayment: items.filter((x) => !x.payment_method_saved).length,
     slotRequested: items.filter((x) =>
       x.onboarding_status === "slot_requested" || x.onboarding_status === "slot_confirmed"
     ).length,
     dataValidationPending: items.filter((x) => x.onboarding_status === "data_validation_pending").length,
     active: items.filter((x) => x.subscription_status === "active").length,
+    deliveryPending: items.filter((x) =>
+      Boolean(x.assigned_release_version) &&
+      (!x.delivery_status || x.delivery_status === "pending" || x.delivery_status === "prepared")
+    ).length,
   }), [items]);
 
   const filteredItems = useMemo(() => {
@@ -212,9 +286,9 @@ export default function Customers() {
     try {
       setBusyCustomerId(customerId);
       setActionMessage(null);
-      const r = await assignRelease(customerId, LATEST_RELEASE);
-      await prepareDelivery(customerId);
-      setActionMessage(`Release ${r.assigned_release_version} assegnata e delivery preparata per ${customerId}`);
+      const r = await sendRelease(customerId, LATEST_RELEASE);
+      const label = DELIVERY_STATUS_LABELS[r.delivery_status] ?? r.delivery_status;
+      setActionMessage(`Release ${r.assigned_release_version} inviata — delivery: ${label}`);
       await load();
     } catch (err) {
       setActionMessage(err instanceof Error ? err.message : "Errore invio release");
@@ -282,16 +356,25 @@ export default function Customers() {
       </div>
 
       {/* summary strip */}
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
-        {([
-          { label: "Totale", value: stats.total },
-          { label: "Pagamento salvato", value: stats.paymentSaved },
-          { label: "Slot richiesti", value: stats.slotRequested },
-          { label: "Val. pendente", value: stats.dataValidationPending },
-          { label: "Abbonamenti attivi", value: stats.active },
-        ] as const).map(({ label, value }) => (
-          <div key={label} style={statBox}>
-            <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1 }}>{value}</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+        {[
+          { label: "Totale",            value: stats.total,                color: "#374151", alert: false },
+          { label: "Attivi",            value: stats.active,               color: "#16a34a", alert: false },
+          { label: "Pagamento salvato", value: stats.paymentSaved,         color: "#0369a1", alert: false },
+          { label: "Senza pagamento",   value: stats.noPayment,            color: "#b91c1c", alert: stats.noPayment > 0 },
+          { label: "Slot / conferma",   value: stats.slotRequested,        color: "#d97706", alert: stats.slotRequested > 0 },
+          { label: "Val. pendente",     value: stats.dataValidationPending,color: "#7c3aed", alert: stats.dataValidationPending > 0 },
+          { label: "Delivery pendente", value: stats.deliveryPending,      color: "#0369a1", alert: stats.deliveryPending > 0 },
+        ].map(({ label, value, color, alert }) => (
+          <div
+            key={label}
+            style={{
+              ...statBox,
+              borderColor: alert && value > 0 ? `${color}60` : undefined,
+              background: alert && value > 0 ? `${color}08` : undefined,
+            }}
+          >
+            <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1, color }}>{value}</div>
             <div style={{ fontSize: 10, color: "#6b7280", marginTop: 3 }}>{label}</div>
           </div>
         ))}
@@ -375,22 +458,25 @@ export default function Customers() {
                   </div>
                   <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>{item.tenant_code || "—"}</div>
                   <div style={{ fontSize: 11, color: "#9ca3af" }}>{item.contact_email}</div>
+                  {(() => {
+                    const h = customerHealth(item);
+                    return (
+                      <span style={{ display: "inline-block", marginTop: 5, fontSize: 10, fontWeight: 700, background: h.bg, color: h.color, borderRadius: 4, padding: "2px 7px", border: `1px solid ${h.color}30` }}>
+                        {h.label}
+                      </span>
+                    );
+                  })()}
                 </td>
 
                 {/* Onboarding */}
                 <td style={td}>
                   {statusBadge(item.onboarding_status)}
+                  <PipelineBar item={item} />
                   {item.data_validated_at && (
                     <div style={{ fontSize: 10, color: "#16a34a", marginTop: 4 }}>
                       ✓ Validato: {fmtDt(item.data_validated_at)}
                     </div>
                   )}
-                  <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 4 }}>
-                    Install: {item.install_status}
-                  </div>
-                  <div style={{ fontSize: 10, color: "#9ca3af" }}>
-                    DB: {item.db_integration_status}
-                  </div>
                 </td>
 
                 {/* Slot */}
@@ -440,17 +526,22 @@ export default function Customers() {
                   ) : (
                     <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 4 }}>Carta non salvata</div>
                   )}
+                  {item.cancellation_requested && (
+                    <div style={{ fontSize: 9, color: "#d97706", fontWeight: 700, marginTop: 4 }}>
+                      ⚑ Disdetta richiesta
+                    </div>
+                  )}
                 </td>
 
                 {/* Release / Bundle */}
                 <td style={td}>
                   <div style={{ fontSize: 11, marginBottom: 2 }}>
-                    <span style={{ color: "#6b7280" }}>Ass.: </span>
+                    <span style={{ color: "#6b7280" }}>Assegnata: </span>
                     <strong>{item.assigned_release_version || item.delivery_assigned_release_version || "—"}</strong>
                   </div>
                   {item.installed_release_version && (
                     <div style={{ fontSize: 11 }}>
-                      <span style={{ color: "#6b7280" }}>Inst.: </span>
+                      <span style={{ color: "#6b7280" }}>Installata: </span>
                       <strong>{item.installed_release_version}</strong>
                     </div>
                   )}
@@ -459,12 +550,17 @@ export default function Customers() {
                   </div>
                   {item.bundle_generated_at && (
                     <div style={{ fontSize: 10, color: "#6b7280", marginTop: 4 }}>
-                      Gen.: {fmtDt(item.bundle_generated_at)}
+                      Generato: {fmtDt(item.bundle_generated_at)}
                     </div>
                   )}
                   {item.bundle_sent_at && (
                     <div style={{ fontSize: 10, color: "#16a34a" }}>
-                      Inv.: {fmtDt(item.bundle_sent_at)}
+                      ✓ Inviato: {fmtDt(item.bundle_sent_at)}
+                    </div>
+                  )}
+                  {item.delivery_status && (
+                    <div style={{ marginTop: 4 }}>
+                      {deliveryStatusBadge(item.delivery_status)}
                     </div>
                   )}
                 </td>
@@ -511,7 +607,10 @@ export default function Customers() {
                         }
 
                         if (!nextStatus) {
-                          return <span style={{ fontSize: 11, color: "#16a34a" }}>✓ Completato</span>;
+                          if (item.onboarding_status === "data_validated") {
+                            return <span style={{ fontSize: 11, color: "#16a34a" }}>✓ Completato</span>;
+                          }
+                          return <span style={{ fontSize: 11, color: "#9ca3af" }}>Stato: {item.onboarding_status || "—"}</span>;
                         }
 
                         return (
@@ -556,9 +655,7 @@ export default function Customers() {
 
                     {/* Delivery */}
                     {(() => {
-                      const isAligned =
-                        item.assigned_release_version === LATEST_RELEASE &&
-                        item.installed_release_version === LATEST_RELEASE;
+                      const isAligned = item.assigned_release_version === LATEST_RELEASE;
                       return (
                         <div style={actionGroup}>
                           <div style={actionGroupLabel}>📦 Delivery</div>

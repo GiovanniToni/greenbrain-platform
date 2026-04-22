@@ -35,6 +35,17 @@ export type CustomerOpsItem = {
   delivery_onboarding_status?: string | null;
   go_live_at?: string | null;
   delivery_updated_at?: string | null;
+  delivery_status?: string | null;
+  cancellation_requested?: boolean;
+  cancellation_requested_at?: string | null;
+};
+
+export const DELIVERY_STATUS_LABELS: Record<string, string> = {
+  pending:   "In attesa",
+  prepared:  "Preparato",
+  sent:      "Inviato",
+  installed: "Installato",
+  failed:    "Errore",
 };
 
 export type AssignReleaseResponse = {
@@ -61,8 +72,33 @@ export type MarkSentResponse = {
   delivery?: Record<string, unknown>;
 };
 
+export type SendReleaseResponse = {
+  customer_id: string;
+  assigned_release_version: string;
+  bundle_generated_at?: string | null;
+  bundle_local_path?: string | null;
+  delivery_status: string;
+};
+
 export async function listCustomers(limit = 100): Promise<{ items: CustomerOpsItem[] }> {
   return apiGet(`/api/v1/customer-ops/customers?limit=${limit}`);
+}
+
+export async function getCustomerById(customer_id: string): Promise<CustomerOpsItem> {
+  return apiGet(`/api/v1/customer-ops/customers/${customer_id}`);
+}
+
+export async function sendRelease(
+  customer_id: string,
+  release_version: string,
+): Promise<SendReleaseResponse> {
+  return apiPost(`/api/v1/customer-ops/customers/${customer_id}/send-release`, {
+    release_version,
+  });
+}
+
+export async function requestCustomerCancellation(customer_id: string) {
+  return apiPost(`/api/v1/customer-ops/customers/${customer_id}/request-cancellation`, {});
 }
 
 export async function assignRelease(

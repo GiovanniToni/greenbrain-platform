@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Leaf, Mail, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,14 +11,15 @@ import { ApiError, apiPost, setStoredToken } from "@/lib/apiClient";
 function redirectAfterLogin(user: AuthUser, navigate: ReturnType<typeof useNavigate>) {
   const currentHost = window.location.host;
   const targetHost = user.home_host?.trim();
-  const targetPath = user.home_path?.trim() || "/dashboard";
+  const defaultPath = user.is_admin ? "/ops" : "/account";
+  const targetPath = user.home_path?.trim() || defaultPath;
 
   if (targetHost && targetHost !== currentHost) {
     window.location.href = `https://${targetHost}${targetPath}`;
     return;
   }
 
-  navigate(targetPath || "/dashboard", { replace: true });
+  navigate(targetPath, { replace: true });
 }
 
 export default function Login() {
@@ -108,14 +109,19 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4 p-4">
+      <div className="w-full max-w-md">
+        <Link to="/" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
+          ← Torna alla home
+        </Link>
+      </div>
       <Card className="w-full max-w-md p-8 animate-fade-in">
-        <div className="flex items-center justify-center gap-3 mb-8">
+        <Link to="/" className="flex items-center justify-center gap-3 mb-8 hover:opacity-80 transition-opacity">
           <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
             <Leaf className="w-7 h-7 text-primary-foreground" />
           </div>
           <span className="text-2xl font-bold">GreenBrain</span>
-        </div>
+        </Link>
 
         <h1 className="text-xl font-semibold text-center mb-2">Bentornato!</h1>
         <p className="text-sm text-muted-foreground text-center mb-8">Accedi al tuo Garden Center</p>

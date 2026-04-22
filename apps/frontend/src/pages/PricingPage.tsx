@@ -49,8 +49,8 @@ export default function PricingPage() {
               Prezzi chiari per partire con GreenBrain
             </h1>
             <p className="text-lg text-muted-foreground mt-6 leading-relaxed">
-              Tre piani in abbonamento mensile, senza vincoli pluriennali. Parti da Starter
-              e passa a Pro o Advanced quando vuoi.
+              Tre piani in abbonamento mensile. Parti da Starter e passa a Pro o Advanced
+              in base alle esigenze della tua struttura.
             </p>
             <p className="text-sm text-muted-foreground/70 mt-2">
               Abbonamento mensile — onboarding guidato incluso in tutti i piani
@@ -206,7 +206,7 @@ export default function PricingPage() {
                 },
                 {
                   q: "Come funziona la disdetta?",
-                  a: "I piani sono in abbonamento mensile senza vincoli pluriennali. Per disdire è sufficiente contattare il team GreenBrain con almeno 30 giorni di anticipo rispetto alla scadenza mensile. La gestione della disdetta automatica dal portale è in sviluppo.",
+                  a: "La gestione della disdetta viene effettuata tramite il team GreenBrain. Le condizioni economiche e i termini di recesso sono disciplinati dal contratto commerciale.",
                 },
               ] as const).map(({ q, a }) => (
                 <div key={q}>

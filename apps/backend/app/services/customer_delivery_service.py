@@ -6,6 +6,7 @@ from typing import Any, Dict
 
 from app.repositories.customer_delivery_repository import (
     get_customer_by_id,
+    get_delivery_row,
     mark_bundle_sent,
 )
 
@@ -31,6 +32,11 @@ def prepare_delivery_plan(customer_id: str) -> Dict[str, Any]:
 
 
 def mark_delivery_sent(customer_id: str) -> Dict[str, Any]:
+    delivery = get_delivery_row(customer_id)
+    if not delivery:
+        raise ValueError("delivery_row_missing")
+    if not delivery.get("bundle_generated_at"):
+        raise ValueError("bundle_not_generated_yet")
     ts = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
     row = mark_bundle_sent(customer_id=customer_id, bundle_sent_at=ts)
     return {

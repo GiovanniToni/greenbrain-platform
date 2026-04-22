@@ -100,7 +100,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 className={cn(
                   "flex items-center gap-3 rounded-lg transition-colors",
                   collapsed ? "px-3 py-3 justify-center" : "px-4 py-3",
-                  location.pathname.startsWith("/ops") || location.pathname === "/customers"
+                  location.pathname.startsWith("/ops") || location.pathname.startsWith("/customers")
                     ? "bg-sidebar-accent text-sidebar-accent-foreground"
                     : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
                 )}

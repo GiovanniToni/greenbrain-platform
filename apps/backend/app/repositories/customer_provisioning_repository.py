@@ -24,6 +24,11 @@ def assign_release_to_customer(customer_id: str, assigned_release_version: str) 
         "assigned_release_version": assigned_release_version,
         "onboarding_status": company_rows[0].get("onboarding_status") or "draft",
         "install_status": company_rows[0].get("install_status") or "not_started",
+        # Reset bundle fields so stale data from a previous release does not persist.
+        # prepare_assigned_bundle.sh will re-populate these when the new bundle is ready.
+        "bundle_generated_at": None,
+        "bundle_local_path": None,
+        "bundle_sent_at": None,
     }
 
     delivery_resp = (

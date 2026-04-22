@@ -1,15 +1,21 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from app.repositories.customer_ops_repository import (
     create_customer_company,
     get_customer_company_detail,
+    get_customer_ops_item_by_id,
     list_customer_companies,
     update_customer_company_onboarding,
 )
 from app.services.customer_billing_service import activate_subscription_for_customer
+from app.services.customer_delivery_service import prepare_delivery_plan
+from app.services.customer_provisioning_service import assign_release as provisioning_assign_release
+
+logger = logging.getLogger(__name__)
 
 _ALLOWED_OPS_TRANSITIONS = {
     "slot_confirmed",
@@ -19,32 +25,87 @@ _ALLOWED_OPS_TRANSITIONS = {
 }
 
 
+def normalize_delivery_state(item: Dict[str, Any]) -> str:
+    """
+    Derive a canonical delivery_status from an ops item's delivery fields.
+    Guarantees return value is one of: pending, prepared, sent, installed, failed.
+    Also logs data-consistency warnings when bundle fields are in an incoherent state.
+    """
+    install_st = (item.get("delivery_install_status") or "").lower()
+    if install_st == "installed":
+        return "installed"
+    if "failed" in install_st or "error" in install_st:
+        return "failed"
+
+    bundle_generated = item.get("bundle_generated_at")
+    bundle_path = item.get("bundle_local_path")
+    bundle_sent = item.get("bundle_sent_at")
+
+    if bundle_sent and not bundle_generated:
+        logger.warning(
+            "[normalize_delivery_state] customer=%s: bundle_sent_at set but bundle_generated_at missing",
+            item.get("customer_id"),
+        )
+        return "sent"
+
+    if bundle_generated and not bundle_path:
+        logger.warning(
+            "[normalize_delivery_state] customer=%s: bundle_generated_at set but bundle_local_path missing",
+            item.get("customer_id"),
+        )
+        return "failed"
+
+    if bundle_sent:
+        return "sent"
+    if bundle_generated and bundle_path:
+        return "prepared"
+    return "pending"
+
+
 def get_customer_ops_item(customer_id: str) -> Dict[str, Any]:
-    item = get_customer_company_detail(customer_id)
+    """Return a fully-enriched ops item (company + delivery join + derived delivery_status)."""
+    item = get_customer_ops_item_by_id(customer_id)
     if not item:
         raise ValueError(f"customer_not_found:{customer_id}")
-    item["payment_method_saved"] = bool(item.get("payment_method_id"))
+    item["delivery_status"] = normalize_delivery_state(item)
     return item
 
 
 def send_release(customer_id: str, release_version: str) -> Dict[str, Any]:
+    """
+    Atomic send-release:
+      Step 1 — assign release via provisioning service:
+               writes assigned_release_version to gb_customer_companies
+               AND upserts a delivery row in gb_customer_delivery.
+               If this fails → stop, return error (nothing written to delivery).
+      Step 2 — validate delivery readiness via delivery service.
+               If this fails → return error, no silent continuation.
+    Returns a unified snapshot: customer_id, assigned_release_version,
+    bundle_generated_at, bundle_local_path, delivery_status.
+    """
     customer = get_customer_company_detail(customer_id)
     if not customer:
         raise ValueError(f"customer_not_found:{customer_id}")
 
-    now_iso = datetime.now(timezone.utc).isoformat()
+    logger.info("[send_release] step1: assigning release=%s to customer=%s", release_version, customer_id)
+    provisioning_assign_release(customer_id, release_version)
+    logger.info("[send_release] step1: OK")
 
-    update_customer_company_onboarding(customer_id, {
-        "assigned_release_version": release_version,
-        "updated_at": now_iso,
-    })
+    logger.info("[send_release] step2: prepare delivery for customer=%s", customer_id)
+    try:
+        delivery_plan = prepare_delivery_plan(customer_id)
+    except Exception as exc:
+        logger.error("[send_release] step2: prepare failed: %s", exc)
+        raise ValueError(f"prepare_delivery_failed:{exc}") from exc
+    logger.info("[send_release] step2: OK — status=%s", delivery_plan.get("status"))
 
-    detail = get_customer_company_detail(customer_id) or {}
+    updated = get_customer_ops_item_by_id(customer_id) or {}
     return {
         "customer_id": customer_id,
         "assigned_release_version": release_version,
-        "updated_at": now_iso,
-        "company_name": detail.get("company_name"),
+        "bundle_generated_at": updated.get("bundle_generated_at"),
+        "bundle_local_path": updated.get("bundle_local_path"),
+        "delivery_status": normalize_delivery_state(updated),
     }
 
 
@@ -105,3 +166,28 @@ def confirm_customer_setup_slot(
 
 def trigger_subscription_activation(customer_id: str) -> Dict[str, Any]:
     return activate_subscription_for_customer(customer_id)
+
+
+def request_cancellation(customer_id: str) -> Dict[str, Any]:
+    """
+    Mark a customer as requesting cancellation.
+    Stores timestamp on gb_customer_companies.
+    Does NOT call Stripe — placeholder for future Stripe cancellation integration.
+    Requires migration: 2026-04-22_customer_cancellation_fields.sql.
+    """
+    customer = get_customer_company_detail(customer_id)
+    if not customer:
+        raise ValueError(f"customer_not_found:{customer_id}")
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    update_customer_company_onboarding(customer_id, {
+        "cancellation_requested": True,
+        "cancellation_requested_at": now_iso,
+        "updated_at": now_iso,
+    })
+    logger.info("[request_cancellation] customer=%s cancellation requested at %s", customer_id, now_iso)
+    return {
+        "customer_id": customer_id,
+        "cancellation_requested": True,
+        "cancellation_requested_at": now_iso,
+    }

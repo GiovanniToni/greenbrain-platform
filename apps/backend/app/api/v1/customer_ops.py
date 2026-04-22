@@ -6,13 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from app.api.v1.auth import require_admin
-from app.repositories.customer_ops_repository import get_customer_company_detail
 from app.schemas.customer_ops import CustomerCompanyCreate
 from app.services.customer_ops_service import (
     confirm_customer_setup_slot,
     create_customer,
     get_customer_ops_item,
     list_customers,
+    request_cancellation,
     send_release,
     trigger_subscription_activation,
     update_customer_onboarding_status,
@@ -70,12 +70,12 @@ def get_customer_detail_route(
     _: dict = Depends(require_admin),
 ):
     try:
-        row = get_customer_company_detail(customer_id)
-        if not row:
-            raise HTTPException(status_code=404, detail="customer_not_found")
-        return row
-    except HTTPException:
-        raise
+        return get_customer_ops_item(customer_id)
+    except ValueError as exc:
+        msg = str(exc)
+        if "customer_not_found" in msg:
+            raise HTTPException(status_code=404, detail=msg)
+        raise HTTPException(status_code=400, detail=msg)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"customer_ops_detail_failed: {exc}")
 
@@ -136,6 +136,22 @@ def confirm_slot_route(
         raise HTTPException(status_code=500, detail=f"confirm_slot_failed: {exc}")
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"confirm_slot_failed: {exc}")
+
+
+@router.post("/customers/{customer_id}/request-cancellation")
+def request_cancellation_route(
+    customer_id: str,
+    _: dict = Depends(require_admin),
+):
+    try:
+        return request_cancellation(customer_id)
+    except ValueError as exc:
+        msg = str(exc)
+        if "customer_not_found" in msg:
+            raise HTTPException(status_code=404, detail=msg)
+        raise HTTPException(status_code=400, detail=msg)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"request_cancellation_failed: {exc}")
 
 
 @router.post("/customers/{customer_id}/activate-subscription")

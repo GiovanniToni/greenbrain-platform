@@ -41,9 +41,8 @@ const App = () => (
             <Route path="/signup" element={<Signup />} />
 
             <Route element={<ProtectedRoute />}>
-              <Route path="/ops" element={<CustomerOpsConsolePage />} />
-
               <Route element={<AppLayout />}>
+                <Route path="/ops" element={<CustomerOpsConsolePage />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/dashboard/reorders" element={<Reorders />} />
                 <Route path="/analytics" element={<Analytics />} />

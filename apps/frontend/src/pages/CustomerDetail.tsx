@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
-  listCustomers,
-  assignRelease,
-  prepareDelivery,
+  getCustomerById,
+  sendRelease,
+  requestCustomerCancellation,
   markDeliverySent,
   confirmCustomerSlot,
   updateCustomerOnboardingStatus,
   activateCustomerSubscription,
+  DELIVERY_STATUS_LABELS,
   type CustomerOpsItem,
 } from "@/lib/customerOpsApi";
 import { planDisplayName, planDisplayPrice } from "@/lib/planConfig";
+import { LATEST_RELEASE, customerHealth } from "@/lib/opsConfig";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -53,14 +55,58 @@ function fmtDt(iso: string | null | undefined, mode: "date" | "datetime" = "date
   } catch { return iso; }
 }
 
-const LATEST_RELEASE = "27684520.2023.2279060";
-
 const NEXT_ONBOARDING_STATUS: Record<string, string> = {
   slot_requested:          "slot_confirmed",
   slot_confirmed:          "setup_in_progress",
   setup_in_progress:       "data_validation_pending",
   data_validation_pending: "data_validated",
 };
+
+const ONBOARDING_STEPS: { key: string; label: string }[] = [
+  { key: "slot_requested",          label: "Slot richiesto" },
+  { key: "slot_confirmed",          label: "Slot confermato" },
+  { key: "setup_in_progress",       label: "Setup in corso" },
+  { key: "data_validation_pending", label: "Validazione dati" },
+  { key: "data_validated",          label: "Dati validati" },
+];
+
+function OnboardingStepper({ item }: { item: CustomerOpsItem }) {
+  const isActive = (item.subscription_status || "").toLowerCase() === "active";
+  const allSteps = [...ONBOARDING_STEPS.map((s) => s.label), "Abbonamento attivo"];
+  const currentIdx = isActive
+    ? allSteps.length
+    : ONBOARDING_STEPS.findIndex((s) => s.key === item.onboarding_status);
+
+  return (
+    <div style={stepperBox}>
+      {allSteps.flatMap((label, i) => {
+        const done = i < currentIdx || isActive;
+        const current = !isActive && currentIdx === i;
+        const circle = (
+          <div key={`step-${i}`} style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", minWidth: 52 }}>
+            <div style={{
+              width: 26, height: 26, borderRadius: "50%",
+              background: done ? "#dcfce7" : current ? "#ede9fe" : "#f9fafb",
+              border: `2px solid ${done ? "#86efac" : current ? "#a78bfa" : "#e5e7eb"}`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 10, fontWeight: 800,
+              color: done ? "#16a34a" : current ? "#7c3aed" : "#9ca3af",
+            }}>
+              {done ? "✓" : i + 1}
+            </div>
+            <div style={{ fontSize: 8, fontWeight: current ? 700 : 500, marginTop: 3, color: done ? "#16a34a" : current ? "#7c3aed" : "#9ca3af", textAlign: "center" as const, lineHeight: 1.2, maxWidth: 52 }}>
+              {label}
+            </div>
+          </div>
+        );
+        if (i < allSteps.length - 1) {
+          return [circle, <div key={`line-${i}`} style={{ flex: 1, height: 2, background: done ? "#86efac" : "#e5e7eb", minWidth: 8, marginTop: 12 }} />];
+        }
+        return [circle];
+      })}
+    </div>
+  );
+}
 
 // ── sub-components ────────────────────────────────────────────────────────────
 
@@ -124,13 +170,13 @@ export default function CustomerDetail() {
   const load = useCallback(() => {
     if (!customerId) return;
     setLoading(true);
-    listCustomers(200)
-      .then(({ items }) => {
-        const found = items.find((x) => x.customer_id === customerId) ?? null;
-        setItem(found);
-        if (!found) setError("Cliente non trovato.");
+    setError(null);
+    getCustomerById(customerId)
+      .then((found) => setItem(found))
+      .catch((err) => {
+        const msg = err instanceof Error ? err.message : "Errore caricamento";
+        setError(msg.includes("customer_not_found") ? "Cliente non trovato." : msg);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Errore caricamento"))
       .finally(() => setLoading(false));
   }, [customerId]);
 
@@ -173,8 +219,7 @@ export default function CustomerDetail() {
   const nextStatus     = NEXT_ONBOARDING_STATUS[item.onboarding_status] ?? null;
   const canConfirmSlot = item.onboarding_status === "slot_requested" && slotScheduled.length > 0;
   const canActivateSub = item.onboarding_status === "data_validated" && item.payment_method_saved === true;
-  const releaseAligned = item.assigned_release_version === LATEST_RELEASE
-    && item.installed_release_version === LATEST_RELEASE;
+  const releaseAligned = item.assigned_release_version === LATEST_RELEASE;
 
   return (
     <div style={page}>
@@ -194,8 +239,20 @@ export default function CustomerDetail() {
           <StatusPill label="Onboarding" value={item.onboarding_status} />
           <StatusPill label="Abbonamento" value={item.subscription_status} />
           {item.subscription_plan && <StatusPill label="Piano" value={item.subscription_plan} raw />}
+          {(() => {
+            const h = customerHealth(item);
+            return (
+              <div style={{ textAlign: "center" as const }}>
+                <div style={{ fontSize: 9, color: "#9ca3af", fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: "0.04em", marginBottom: 3 }}>Salute</div>
+                <span style={{ background: h.bg, color: h.color, borderRadius: 4, padding: "2px 8px", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" as const }}>{h.label}</span>
+              </div>
+            );
+          })()}
         </div>
       </div>
+
+      {/* ── onboarding stepper ── */}
+      <OnboardingStepper item={item} />
 
       {/* ── action feedback ── */}
       {actionMsg && (
@@ -207,7 +264,7 @@ export default function CustomerDetail() {
       {/* ── info grid (2 col) ── */}
       <div style={infoGrid}>
 
-        {/* Left */}
+        {/* Left: identity → payment */}
         <div style={{ display: "flex", flexDirection: "column" as const, gap: 12 }}>
           <Section title="Contatti">
             <Row label="Referente" value={item.contact_name} />
@@ -218,6 +275,25 @@ export default function CustomerDetail() {
             <Row label="Aggiornato il" value={fmtDt(item.updated_at, "datetime")} />
           </Section>
 
+          <Section title="Pagamento e abbonamento">
+            <Row label="Piano" value={planName !== "—" ? `${planName}${planPrice ? ` — ${planPrice}` : ""}` : null} />
+            <Row label="Stato abbonamento" value={badge(item.subscription_status)} />
+            <Row
+              label="Metodo di pagamento"
+              value={
+                item.payment_method_saved
+                  ? `${item.payment_method_brand?.toUpperCase() || "Carta"} ••••${item.payment_method_last4 || ""}`
+                  : "Carta non salvata"
+              }
+            />
+            {item.cancellation_requested && (
+              <Row label="Disdetta" value={<span style={{ color: "#d97706", fontWeight: 600, fontSize: 11 }}>Richiesta il {fmtDt(item.cancellation_requested_at, "datetime")}</span>} />
+            )}
+          </Section>
+        </div>
+
+        {/* Right: slot → onboarding → delivery */}
+        <div style={{ display: "flex", flexDirection: "column" as const, gap: 12 }}>
           <Section title="Slot setup">
             <Row label="Data preferita" value={item.setup_slot_preferred_date} />
             <Row
@@ -232,24 +308,8 @@ export default function CustomerDetail() {
             <Row label="Confermato il" value={fmtDt(item.setup_slot_confirmed_at, "datetime")} />
             <Row label="Schedulato per" value={fmtDt(item.setup_slot_scheduled_for, "datetime")} />
           </Section>
-        </div>
 
-        {/* Right */}
-        <div style={{ display: "flex", flexDirection: "column" as const, gap: 12 }}>
-          <Section title="Pagamento e abbonamento">
-            <Row label="Piano" value={planName !== "—" ? `${planName}${planPrice ? ` — ${planPrice}` : ""}` : null} />
-            <Row label="Stato abbonamento" value={badge(item.subscription_status)} />
-            <Row
-              label="Metodo di pagamento"
-              value={
-                item.payment_method_saved
-                  ? `${item.payment_method_brand?.toUpperCase() || "Carta"} ••••${item.payment_method_last4 || ""}`
-                  : "Non salvato"
-              }
-            />
-          </Section>
-
-          <Section title="Onboarding">
+          <Section title="Onboarding e validazione">
             <Row label="Stato" value={badge(item.onboarding_status)} />
             <Row label="Install status" value={badge(item.install_status)} />
             <Row label="DB integration" value={badge(item.db_integration_status)} />
@@ -264,7 +324,7 @@ export default function CustomerDetail() {
             <Row label="Bundle inviato il" value={fmtDt(item.bundle_sent_at, "datetime")} />
             <Row label="Bundle path" value={item.bundle_local_path ? <code style={{ fontSize: 10, wordBreak: "break-all" as const }}>{item.bundle_local_path}</code> : null} />
             <Row label="Go-live il" value={fmtDt(item.go_live_at, "datetime")} />
-            <Row label="Delivery stato" value={badge(item.delivery_install_status)} />
+            <Row label="Delivery stato" value={item.delivery_status ? badge(DELIVERY_STATUS_LABELS[item.delivery_status] ?? item.delivery_status) : badge(item.delivery_install_status)} />
           </Section>
         </div>
       </div>
@@ -278,6 +338,8 @@ export default function CustomerDetail() {
           <ActionGroup emoji="📅" title="Slot setup">
             {item.setup_slot_scheduled_for ? (
               <span style={{ fontSize: 12, color: "#16a34a" }}>✓ Confermato — {fmtDt(item.setup_slot_scheduled_for, "datetime")}</span>
+            ) : item.onboarding_status === "slot_confirmed" ? (
+              <span style={{ fontSize: 11, color: "#6b7280" }}>Slot confermato, schedulazione in corso</span>
             ) : item.onboarding_status === "slot_requested" ? (
               <>
                 <input
@@ -297,16 +359,10 @@ export default function CustomerDetail() {
                   Conferma slot
                 </button>
               </>
-            ) : item.setup_slot_scheduled_for ? (
-              <span style={{ fontSize: 12, color: "#16a34a" }}>
-                ✓ Confermato — {fmtDt(item.setup_slot_scheduled_for, "datetime")}
-              </span>
             ) : item.setup_slot_preferred_date ? (
-              <span style={{ fontSize: 11, color: "#6b7280" }}>
-                Slot richiesto dal cliente, in attesa di conferma operatore
-              </span>
+              <span style={{ fontSize: 11, color: "#6b7280" }}>Preferenza: {item.setup_slot_preferred_date}</span>
             ) : (
-              <span style={{ fontSize: 11, color: "#9ca3af" }}>Slot non ancora richiesto</span>
+              <span style={{ fontSize: 11, color: "#9ca3af" }}>—</span>
             )}
           </ActionGroup>
 
@@ -341,7 +397,10 @@ export default function CustomerDetail() {
                 );
               }
 
-              return <span style={{ fontSize: 11, color: "#16a34a" }}>✓ Completato</span>;
+              if (item.onboarding_status === "data_validated") {
+                return <span style={{ fontSize: 11, color: "#16a34a" }}>✓ Completato</span>;
+              }
+              return <span style={{ fontSize: 11, color: "#9ca3af" }}>Stato: {item.onboarding_status || "—"}</span>;
             })()}
           </ActionGroup>
 
@@ -372,19 +431,36 @@ export default function CustomerDetail() {
 
           {/* Delivery */}
           <ActionGroup emoji="📦" title="Delivery">
-            <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4, lineHeight: 1.6 }}>
-              Target: <strong>{LATEST_RELEASE}</strong>
-              {" · "}Assegnata: <strong>{item.assigned_release_version || "—"}</strong>
-              {" · "}Installata: <strong>{item.installed_release_version || "—"}</strong>
+            <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 10, rowGap: 3, fontSize: 11, marginBottom: 6 }}>
+              <span style={{ color: "#9ca3af" }}>Target</span>
+              <strong style={{ color: "#111827" }}>{LATEST_RELEASE}</strong>
+              <span style={{ color: "#9ca3af" }}>Assegnata</span>
+              <strong style={{ color: "#111827" }}>{item.assigned_release_version || "—"}</strong>
+              <span style={{ color: "#9ca3af" }}>Installata</span>
+              <strong style={{ color: "#111827" }}>{item.installed_release_version || "—"}</strong>
+              {item.delivery_status && (
+                <>
+                  <span style={{ color: "#9ca3af" }}>Stato</span>
+                  <span style={{
+                    fontWeight: 700,
+                    color: item.delivery_status === "installed" ? "#166534"
+                         : item.delivery_status === "failed" ? "#991b1b"
+                         : item.delivery_status === "sent" ? "#1e40af"
+                         : "#374151",
+                  }}>
+                    {DELIVERY_STATUS_LABELS[item.delivery_status] ?? item.delivery_status}
+                  </span>
+                </>
+              )}
             </div>
             {releaseAligned ? (
               <span style={alignedBadge}>✓ Sistema aggiornato</span>
             ) : (
               <button
                 onClick={() => run(async () => {
-                  const res = await assignRelease(item.customer_id, LATEST_RELEASE);
-                  await prepareDelivery(item.customer_id);
-                  return `Release ${res.assigned_release_version} assegnata, delivery preparata`;
+                  const res = await sendRelease(item.customer_id, LATEST_RELEASE);
+                  const label = DELIVERY_STATUS_LABELS[res.delivery_status] ?? res.delivery_status;
+                  return `Release ${res.assigned_release_version} inviata — delivery: ${label}`;
                 })}
                 disabled={busy}
                 style={busy ? btnDisabled : btnPrimary}
@@ -402,6 +478,43 @@ export default function CustomerDetail() {
             >
               Segna come inviato
             </button>
+          </ActionGroup>
+
+          {/* Disdetta */}
+          <ActionGroup emoji="🚫" title="Gestione disdetta">
+            {item.cancellation_requested ? (
+              <>
+                <div style={{ background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 5, padding: "6px 10px", fontSize: 11 }}>
+                  <div style={{ fontWeight: 700, color: "#92400e" }}>Disdetta richiesta</div>
+                  <div style={{ color: "#b45309", marginTop: 2 }}>{fmtDt(item.cancellation_requested_at, "datetime") || "—"}</div>
+                </div>
+                <span style={{ fontSize: 10, color: "#9ca3af" }}>In attesa gestione amministrativa</span>
+                <button disabled style={btnDisabled}>Richiedi disdetta</button>
+              </>
+            ) : (() => {
+              const canCancel = ["active", "trialing", "past_due", "incomplete"].includes(
+                (item.subscription_status || "").toLowerCase(),
+              );
+              return (
+                <>
+                  <button
+                    onClick={() => run(async () => {
+                      await requestCustomerCancellation(item.customer_id);
+                      return "Richiesta registrata — in attesa gestione amministrativa";
+                    })}
+                    disabled={busy || !canCancel}
+                    style={canCancel && !busy ? btn : btnDisabled}
+                  >
+                    Richiedi disdetta
+                  </button>
+                  {!canCancel && (
+                    <span style={{ fontSize: 10, color: "#9ca3af" }}>
+                      Solo per abbonamenti attivi / in scadenza
+                    </span>
+                  )}
+                </>
+              );
+            })()}
           </ActionGroup>
 
         </div>
@@ -497,8 +610,17 @@ const actionsPanelTitle: React.CSSProperties = {
 
 const actionsGrid: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1fr 1fr",
+  gridTemplateColumns: "repeat(3, 1fr)",
   gap: 12,
+};
+
+const stepperBox: React.CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  overflowX: "auto",
+  padding: "10px 0 16px",
+  marginBottom: 20,
+  borderBottom: "1px solid #f3f4f6",
 };
 
 const actionGroupBox: React.CSSProperties = {
