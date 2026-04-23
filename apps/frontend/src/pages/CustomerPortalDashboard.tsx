@@ -208,7 +208,7 @@ export default function CustomerPortalDashboard() {
   );
   const bundleDownloadEnabled = Boolean(
     data?.payment_method_saved &&
-    (data?.setup_slot_requested_at || data?.setup_slot_confirmed_at || data?.setup_slot_scheduled_for) &&
+    (data?.setup_slot_confirmed_at || data?.setup_slot_scheduled_for) &&
     (data?.latest_available_release_version || data?.delivery?.bundle_generated_at || data?.delivery?.bundle_local_path)
   );
   const planLabel = planDisplayName(data?.subscription_plan);
