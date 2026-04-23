@@ -202,7 +202,6 @@ export default function CustomerPortalDashboard() {
   }
 
   const phase = getLifecyclePhase(data);
-  const bundleReady = Boolean(data?.payment_method_saved && data?.setup_slot_requested_at);
   const bundleAvailable = Boolean(
     data?.latest_available_release_version || data?.delivery?.bundle_generated_at
   );
@@ -228,8 +227,10 @@ export default function CustomerPortalDashboard() {
 
   const bundleSubtitle = !data?.payment_method_saved
     ? "Il download si attiverà dopo il salvataggio del metodo di pagamento"
-    : !(data?.setup_slot_requested_at || data?.setup_slot_confirmed_at || data?.setup_slot_scheduled_for)
-    ? "Il download si attiverà dopo l'invio della richiesta di setup"
+    : !(data?.setup_slot_confirmed_at || data?.setup_slot_scheduled_for)
+    ? "Il download si attiverà dopo la conferma della sessione di setup"
+    : !bundleAvailable
+    ? "Il bundle sarà disponibile quando la release sarà pronta"
     : hasUpdateAvailable
     ? `Aggiornamento disponibile: ${latestAvailableVersion}`
     : latestAvailableVersion
@@ -630,7 +631,7 @@ export default function CustomerPortalDashboard() {
         </div>
         {!bundleDownloadEnabled && (
           <p className="text-xs text-muted-foreground mb-3">
-            Il download si attiva dopo il salvataggio del metodo di pagamento e l'invio della richiesta di setup.
+            Il download si attiva solo dopo salvataggio metodo di pagamento, conferma della sessione di setup e disponibilità del bundle.
           </p>
         )}
         <Button
