@@ -636,7 +636,7 @@ export default function CustomerPortalDashboard() {
         )}
         <Button
           className="w-full"
-          variant={bundleDownloadEnabled ? (hasUpdateAvailable ? "default" : "outline") : "outline"}
+          variant={bundleDownloadEnabled ? "default" : "outline"}
           onClick={handleDownloadBundle}
           disabled={!bundleDownloadEnabled || downloading}
         >
