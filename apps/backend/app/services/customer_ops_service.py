@@ -11,7 +11,11 @@ from app.repositories.customer_ops_repository import (
     list_customer_companies,
     update_customer_company_onboarding,
 )
-from app.services.customer_billing_service import activate_subscription_for_customer
+from app.services.customer_billing_service import (
+    activate_subscription_for_customer,
+    cancel_subscription_at_period_end,
+    force_activate_subscription_for_customer as _force_activate,
+)
 from app.services.customer_delivery_service import prepare_delivery_plan
 from app.services.customer_provisioning_service import assign_release as provisioning_assign_release
 
@@ -21,7 +25,6 @@ _ALLOWED_OPS_TRANSITIONS = {
     "slot_confirmed",
     "setup_in_progress",
     "data_validation_pending",
-    "data_validated",
 }
 
 
@@ -168,26 +171,22 @@ def trigger_subscription_activation(customer_id: str) -> Dict[str, Any]:
     return activate_subscription_for_customer(customer_id)
 
 
+def force_activate_subscription(customer_id: str) -> Dict[str, Any]:
+    return _force_activate(customer_id)
+
+
 def request_cancellation(customer_id: str) -> Dict[str, Any]:
     """
-    Mark a customer as requesting cancellation.
-    Stores timestamp on gb_customer_companies.
-    Does NOT call Stripe — placeholder for future Stripe cancellation integration.
-    Requires migration: 2026-04-22_customer_cancellation_fields.sql.
+    Mark a customer as requesting cancellation and set cancel_at_period_end on Stripe.
+    If stripe_subscription_id is missing, the DB fields are still written and Stripe is skipped.
     """
     customer = get_customer_company_detail(customer_id)
     if not customer:
         raise ValueError(f"customer_not_found:{customer_id}")
 
-    now_iso = datetime.now(timezone.utc).isoformat()
-    update_customer_company_onboarding(customer_id, {
-        "cancellation_requested": True,
-        "cancellation_requested_at": now_iso,
-        "updated_at": now_iso,
-    })
-    logger.info("[request_cancellation] customer=%s cancellation requested at %s", customer_id, now_iso)
-    return {
-        "customer_id": customer_id,
-        "cancellation_requested": True,
-        "cancellation_requested_at": now_iso,
-    }
+    result = cancel_subscription_at_period_end(customer_id)
+    logger.info(
+        "[request_cancellation] customer=%s stripe_updated=%s",
+        customer_id, result.get("stripe_updated"),
+    )
+    return result

@@ -17,6 +17,10 @@ export async function confirmDataOk() {
   return apiPost("/api/v1/customer-portal/confirm-data-ok", {});
 }
 
+export async function cancelPortalSubscription() {
+  return apiPost("/api/v1/customer-portal/cancel-subscription", {});
+}
+
 export async function downloadCustomerPortalBundle(): Promise<{ blob: Blob; filename: string }> {
   const token = getStoredToken();
 

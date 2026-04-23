@@ -8,6 +8,7 @@ import {
   confirmCustomerSlot,
   updateCustomerOnboardingStatus,
   activateCustomerSubscription,
+  forceActivateCustomerSubscription,
   DELIVERY_STATUS_LABELS,
   type CustomerOpsItem,
 } from "@/lib/customerOpsApi";
@@ -59,7 +60,6 @@ const NEXT_ONBOARDING_STATUS: Record<string, string> = {
   slot_requested:          "slot_confirmed",
   slot_confirmed:          "setup_in_progress",
   setup_in_progress:       "data_validation_pending",
-  data_validation_pending: "data_validated",
 };
 
 const ONBOARDING_STEPS: { key: string; label: string }[] = [
@@ -166,6 +166,9 @@ export default function CustomerDetail() {
   const [busy, setBusy] = useState(false);
   const [actionMsg, setActionMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [slotScheduled, setSlotScheduled] = useState("");
+  const [forceModal, setForceModal] = useState(false);
+  const [forceConfirmed, setForceConfirmed] = useState(false);
+  const [forceBusy, setForceBusy] = useState(false);
 
   const load = useCallback(() => {
     if (!customerId) return;
@@ -221,8 +224,33 @@ export default function CustomerDetail() {
   const canActivateSub = item.onboarding_status === "data_validated" && item.payment_method_saved === true;
   const releaseAligned = item.assigned_release_version === LATEST_RELEASE;
 
+  async function handleForceActivate() {
+    setForceBusy(true);
+    setActionMsg(null);
+    try {
+      await forceActivateCustomerSubscription(item.customer_id);
+      setActionMsg({ type: "ok", text: `Abbonamento attivato (override) per ${item.company_name}` });
+      setForceModal(false);
+      load();
+    } catch (err) {
+      setActionMsg({ type: "err", text: err instanceof Error ? err.message : "Errore" });
+      setForceModal(false);
+    } finally {
+      setForceBusy(false);
+    }
+  }
+
   return (
     <div style={page}>
+      {forceModal && item && (
+        <ForceActivateModal
+          onClose={() => setForceModal(false)}
+          onConfirm={handleForceActivate}
+          confirmed={forceConfirmed}
+          setConfirmed={setForceConfirmed}
+          busy={forceBusy}
+        />
+      )}
       <BackLink />
 
       {/* ── header ── */}
@@ -319,6 +347,8 @@ export default function CustomerDetail() {
           <Section title="Release e delivery">
             <Row label="Release assegnata" value={item.assigned_release_version || item.delivery_assigned_release_version} />
             <Row label="Release installata" value={item.installed_release_version} />
+            <Row label="Ultima scaricata" value={item.last_downloaded_release_version} />
+            <Row label="Scaricata il" value={fmtDt(item.last_downloaded_at, "datetime")} />
             <Row label="Release target" value={<strong>{LATEST_RELEASE}</strong>} />
             <Row label="Bundle generato il" value={fmtDt(item.bundle_generated_at, "datetime")} />
             <Row label="Bundle inviato il" value={fmtDt(item.bundle_sent_at, "datetime")} />
@@ -425,6 +455,13 @@ export default function CustomerDetail() {
                     Richiede validazione dati e metodo di pagamento
                   </span>
                 )}
+                <button
+                  onClick={() => { setForceModal(true); setForceConfirmed(false); }}
+                  disabled={busy || item.subscription_status === "active"}
+                  style={{ ...btn, fontSize: 11, color: "#b45309", borderColor: "#fcd34d", marginTop: 2 }}
+                >
+                  Attiva abbonamento (override)
+                </button>
               </>
             )}
           </ActionGroup>
@@ -524,6 +561,62 @@ export default function CustomerDetail() {
         <Link to="/customers" style={{ fontSize: 13, color: "#6b7280" }}>
           ← Torna alla lista clienti
         </Link>
+      </div>
+    </div>
+  );
+}
+
+function ForceActivateModal({
+  onClose,
+  onConfirm,
+  confirmed,
+  setConfirmed,
+  busy,
+}: {
+  onClose: () => void;
+  onConfirm: () => void;
+  confirmed: boolean;
+  setConfirmed: (v: boolean) => void;
+  busy: boolean;
+}) {
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      zIndex: 999,
+    }}>
+      <div style={{
+        background: "white", borderRadius: 10, padding: "28px 32px",
+        maxWidth: 420, width: "90%", boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+      }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: "#92400e", marginBottom: 10 }}>
+          ⚠️ Override attivazione abbonamento
+        </div>
+        <p style={{ fontSize: 13, color: "#374151", marginBottom: 14, lineHeight: 1.5 }}>
+          Stai per attivare l&apos;abbonamento <strong>senza</strong> che il cliente abbia confermato i propri dati.
+          Questa azione bypassa il controllo di validazione e crea una sottoscrizione Stripe immediatamente.
+        </p>
+        <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: "#1f2937", cursor: "pointer", marginBottom: 20 }}>
+          <input
+            type="checkbox"
+            checked={confirmed}
+            onChange={(e) => setConfirmed(e.target.checked)}
+            style={{ marginTop: 2, flexShrink: 0 }}
+          />
+          Confermo di voler attivare l&apos;abbonamento senza la conferma dati del cliente
+        </label>
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button onClick={onClose} disabled={busy} style={btn}>Annulla</button>
+          <button
+            onClick={onConfirm}
+            disabled={!confirmed || busy}
+            style={!confirmed || busy ? btnDisabled : {
+              ...btnPrimary, background: "#fef3c7", borderColor: "#fcd34d", color: "#92400e",
+            }}
+          >
+            {busy ? "Attivazione..." : "Conferma override"}
+          </button>
+        </div>
       </div>
     </div>
   );

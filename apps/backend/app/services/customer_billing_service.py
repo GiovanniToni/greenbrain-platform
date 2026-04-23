@@ -149,12 +149,15 @@ def create_setup_session_for_portal_email(user_email: str, plan: str) -> Dict[st
     return {"setup_url": session.url, "session_id": session.id}
 
 
-def activate_subscription_for_customer(customer_id: str) -> Dict[str, str]:
+def activate_subscription_for_customer(customer_id: str, require_data_validated: bool = True) -> Dict[str, str]:
     _init_stripe()
 
     customer = get_customer_company(customer_id)
     if not customer:
         raise RuntimeError(f"customer_not_found:{customer_id}")
+
+    if require_data_validated and not customer.get("data_validated_at"):
+        raise RuntimeError("data_not_validated")
 
     plan = (customer.get("subscription_plan") or "").strip()
     if not plan:
@@ -201,6 +204,46 @@ def activate_subscription_for_customer(customer_id: str) -> Dict[str, str]:
     })
 
     return {"stripe_subscription_id": sub.id, "status": "subscription_created"}
+
+
+def force_activate_subscription_for_customer(customer_id: str) -> Dict[str, str]:
+    return activate_subscription_for_customer(customer_id, require_data_validated=False)
+
+
+def cancel_subscription_at_period_end(customer_id: str) -> Dict[str, str]:
+    _init_stripe()
+
+    customer = get_customer_company(customer_id)
+    if not customer:
+        raise RuntimeError(f"customer_not_found:{customer_id}")
+
+    sub_id = (customer.get("stripe_subscription_id") or "").strip()
+    now_iso = datetime.now(timezone.utc).isoformat()
+    stripe_updated = False
+
+    if sub_id:
+        stripe.Subscription.modify(sub_id, cancel_at_period_end=True)
+        stripe_updated = True
+
+    update_customer_company_subscription_fields(customer_id, {
+        "cancellation_requested": True,
+        "cancellation_requested_at": now_iso,
+        "updated_at": now_iso,
+    })
+
+    return {
+        "customer_id": customer_id,
+        "cancellation_requested": True,
+        "cancellation_requested_at": now_iso,
+        "stripe_updated": stripe_updated,
+    }
+
+
+def cancel_subscription_at_period_end_for_portal_email(user_email: str) -> Dict[str, str]:
+    customer = get_customer_company_by_portal_email(user_email)
+    if not customer:
+        raise RuntimeError(f"customer_not_found_for_email:{user_email}")
+    return cancel_subscription_at_period_end(customer["customer_id"])
 
 
 def handle_stripe_webhook(payload: bytes, signature: str) -> Dict[str, str]:

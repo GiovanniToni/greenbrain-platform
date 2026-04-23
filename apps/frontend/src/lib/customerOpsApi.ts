@@ -12,6 +12,8 @@ export type CustomerOpsItem = {
   db_integration_status: string;
   assigned_release_version?: string | null;
   installed_release_version?: string | null;
+  last_downloaded_release_version?: string | null;
+  last_downloaded_at?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 
@@ -147,4 +149,8 @@ export async function updateCustomerOnboardingStatus(
 
 export async function activateCustomerSubscription(customer_id: string) {
   return apiPost(`/api/v1/customer-ops/customers/${customer_id}/activate-subscription`, {});
+}
+
+export async function forceActivateCustomerSubscription(customer_id: string) {
+  return apiPost(`/api/v1/customer-ops/customers/${customer_id}/force-activate-subscription`, {});
 }

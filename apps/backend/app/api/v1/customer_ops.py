@@ -10,6 +10,7 @@ from app.schemas.customer_ops import CustomerCompanyCreate
 from app.services.customer_ops_service import (
     confirm_customer_setup_slot,
     create_customer,
+    force_activate_subscription,
     get_customer_ops_item,
     list_customers,
     request_cancellation,
@@ -170,8 +171,32 @@ def activate_subscription_route(
             "subscription_plan_missing",
             "stripe_customer_id_missing",
             "unknown_plan",
+            "data_not_validated",
         )):
             raise HTTPException(status_code=409, detail=msg)
         raise HTTPException(status_code=500, detail=f"activate_subscription_failed: {exc}")
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"activate_subscription_failed: {exc}")
+
+
+@router.post("/customers/{customer_id}/force-activate-subscription")
+def force_activate_subscription_route(
+    customer_id: str,
+    _: dict = Depends(require_admin),
+):
+    try:
+        return force_activate_subscription(customer_id)
+    except RuntimeError as exc:
+        msg = str(exc)
+        if any(x in msg for x in (
+            "payment_method_missing",
+            "enterprise_manual_activation",
+            "subscription_already_active",
+            "subscription_plan_missing",
+            "stripe_customer_id_missing",
+            "unknown_plan",
+        )):
+            raise HTTPException(status_code=409, detail=msg)
+        raise HTTPException(status_code=500, detail=f"force_activate_subscription_failed: {exc}")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"force_activate_subscription_failed: {exc}")

@@ -7,7 +7,11 @@ from app.repositories.customer_portal_repository import (
     get_customer_by_portal_email,
     update_customer_portal_fields,
 )
-from app.services.customer_billing_service import activate_subscription_for_customer
+from app.services.customer_billing_service import (
+    activate_subscription_for_customer,
+    cancel_subscription_at_period_end_for_portal_email,
+)
+from app.services.customer_delivery_service import get_latest_available_release_version
 
 _SLOT_STATES_ALREADY_BOOKED = {
     "slot_requested",
@@ -24,6 +28,7 @@ def build_customer_portal_profile(user_email: str) -> Dict[str, Any]:
         raise RuntimeError(f"customer_portal_profile_not_found_for_email: {user_email}")
 
     delivery = row.get("delivery") or {}
+    latest_available_release_version = get_latest_available_release_version()
 
     return {
         "customer_id": row.get("customer_id"),
@@ -42,6 +47,9 @@ def build_customer_portal_profile(user_email: str) -> Dict[str, Any]:
         "db_integration_status": row.get("db_integration_status"),
         "assigned_release_version": row.get("assigned_release_version"),
         "installed_release_version": row.get("installed_release_version"),
+        "last_downloaded_release_version": row.get("last_downloaded_release_version"),
+        "last_downloaded_at": row.get("last_downloaded_at"),
+        "latest_available_release_version": latest_available_release_version,
         "subscription_status": row.get("subscription_status"),
         "subscription_plan": row.get("subscription_plan"),
         "payment_method_saved": bool(row.get("payment_method_id")),
@@ -53,6 +61,8 @@ def build_customer_portal_profile(user_email: str) -> Dict[str, Any]:
         "setup_slot_confirmed_at": row.get("setup_slot_confirmed_at"),
         "setup_slot_scheduled_for": row.get("setup_slot_scheduled_for"),
         "data_validated_at": row.get("data_validated_at"),
+        "cancellation_requested": bool(row.get("cancellation_requested")),
+        "cancellation_requested_at": row.get("cancellation_requested_at"),
         "created_at": row.get("created_at"),
         "updated_at": row.get("updated_at"),
         "delivery": {
@@ -66,6 +76,13 @@ def build_customer_portal_profile(user_email: str) -> Dict[str, Any]:
             "updated_at": delivery.get("updated_at"),
         },
     }
+
+
+def cancel_customer_portal_subscription(user_email: str) -> Dict[str, Any]:
+    row = get_customer_by_portal_email(user_email)
+    if not row:
+        raise RuntimeError(f"customer_portal_profile_not_found_for_email: {user_email}")
+    return cancel_subscription_at_period_end_for_portal_email(user_email)
 
 
 def book_customer_setup_slot(user_email: str, payload: Dict[str, Any]) -> Dict[str, Any]:

@@ -25,6 +25,8 @@ def get_customer_by_portal_email(portal_user_email: str) -> Optional[Dict[str, A
             db_integration_status,
             assigned_release_version,
             installed_release_version,
+            last_downloaded_release_version,
+            last_downloaded_at,
             signup_source,
             signup_completed_at,
             portal_user_email,
@@ -41,6 +43,8 @@ def get_customer_by_portal_email(portal_user_email: str) -> Optional[Dict[str, A
             setup_slot_confirmed_at,
             setup_slot_scheduled_for,
             data_validated_at,
+            cancellation_requested,
+            cancellation_requested_at,
             created_at,
             updated_at,
             gb_customer_delivery(
@@ -86,3 +90,28 @@ def update_customer_portal_fields(portal_user_email: str, payload: Dict[str, Any
     if not rows:
         raise RuntimeError(f"customer_portal_fields_update_failed:{portal_user_email}")
     return rows[0]
+
+
+def update_customer_last_download(
+    customer_id: str,
+    last_downloaded_release_version: str,
+    last_downloaded_at: str,
+):
+    client = get_supabase_client()
+    resp = (
+        client.table("gb_customer_companies")
+        .update(
+            {
+                "last_downloaded_release_version": last_downloaded_release_version,
+                "last_downloaded_at": last_downloaded_at,
+            }
+        )
+        .eq("customer_id", customer_id)
+        .execute()
+    )
+    rows = resp.data or []
+    return rows[0] if rows else {
+        "customer_id": customer_id,
+        "last_downloaded_release_version": last_downloaded_release_version,
+        "last_downloaded_at": last_downloaded_at,
+    }

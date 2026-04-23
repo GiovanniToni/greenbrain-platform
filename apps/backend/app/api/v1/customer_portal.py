@@ -8,10 +8,14 @@ from jose import JWTError
 from pydantic import BaseModel
 
 from app.core.security import decode_token
-from app.services.customer_delivery_service import resolve_bundle_download
+from app.services.customer_delivery_service import (
+    resolve_bundle_download,
+    record_bundle_download,
+)
 from app.services.customer_portal_service import (
     book_customer_setup_slot,
     build_customer_portal_profile,
+    cancel_customer_portal_subscription,
     confirm_customer_data_ok,
 )
 
@@ -91,11 +95,27 @@ def confirm_data_ok(email: str = Depends(get_portal_email_from_bearer)):
         raise HTTPException(status_code=500, detail=f"confirm_data_ok_failed: {exc}")
 
 
+@router.post("/cancel-subscription")
+def cancel_subscription_route(email: str = Depends(get_portal_email_from_bearer)):
+    try:
+        return cancel_customer_portal_subscription(email)
+    except RuntimeError as exc:
+        msg = str(exc)
+        if "stripe_subscription_id_missing" in msg:
+            raise HTTPException(status_code=409, detail=msg)
+        if "customer_portal_profile_not_found" in msg or "customer_not_found" in msg:
+            raise HTTPException(status_code=404, detail=msg)
+        raise HTTPException(status_code=500, detail=f"cancel_subscription_failed: {exc}")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"cancel_subscription_failed: {exc}")
+
+
 @router.get("/download-bundle")
 def customer_portal_download_bundle(email: str = Depends(get_portal_email_from_bearer)):
     try:
         profile = build_customer_portal_profile(email)
         bundle = resolve_bundle_download(profile)
+        record_bundle_download(profile, bundle)
 
         return FileResponse(
             path=bundle["bundle_path"],
