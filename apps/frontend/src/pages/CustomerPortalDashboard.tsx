@@ -206,6 +206,11 @@ export default function CustomerPortalDashboard() {
   const bundleAvailable = Boolean(
     data?.latest_available_release_version || data?.delivery?.bundle_generated_at
   );
+  const bundleDownloadEnabled = Boolean(
+    data?.payment_method_saved &&
+    (data?.setup_slot_requested_at || data?.setup_slot_confirmed_at || data?.setup_slot_scheduled_for) &&
+    (data?.latest_available_release_version || data?.delivery?.bundle_generated_at || data?.delivery?.bundle_local_path)
+  );
   const planLabel = planDisplayName(data?.subscription_plan);
   const planPrice = planDisplayPrice(data?.subscription_plan);
 
@@ -223,7 +228,7 @@ export default function CustomerPortalDashboard() {
 
   const bundleSubtitle = !data?.payment_method_saved
     ? "Il download si attiverà dopo il salvataggio del metodo di pagamento"
-    : !data?.setup_slot_requested_at
+    : !(data?.setup_slot_requested_at || data?.setup_slot_confirmed_at || data?.setup_slot_scheduled_for)
     ? "Il download si attiverà dopo l'invio della richiesta di setup"
     : hasUpdateAvailable
     ? `Aggiornamento disponibile: ${latestAvailableVersion}`
@@ -233,7 +238,7 @@ export default function CustomerPortalDashboard() {
 
   const bundleButtonLabel = downloading
     ? "Download in corso..."
-    : !bundleReady
+    : !bundleDownloadEnabled
     ? "Bundle non ancora disponibile"
     : hasUpdateAvailable && latestAvailableVersion
     ? `Scarica nuova versione ${latestAvailableVersion}`
@@ -562,24 +567,10 @@ export default function CustomerPortalDashboard() {
           )}
         </div>
         <Separator className="my-4" />
-        {data?.cancellation_requested ? (
-          <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 text-center">
-            <p className="font-semibold">Disdetta richiesta il {fmtDate(data.cancellation_requested_at)}</p>
-            <p className="text-xs text-amber-700 mt-1">Potrai usare il servizio fino al termine del periodo già pagato</p>
-          </div>
-        ) : (
-          <div className="rounded-md border border-border bg-muted/20 px-4 py-3 text-sm text-center text-muted-foreground">
-            La gestione della disdetta è disponibile a fondo pagina.
-          </div>
-        )}
-        {(data?.cancellation_requested || subscriptionCurrentPeriodEnd) && (
+        {subscriptionCurrentPeriodEnd && (
           <div className="mt-3 text-xs text-muted-foreground text-center space-y-1">
-            {subscriptionCurrentPeriodEnd && (
-              <>
-                <p>Attivo fino al {fmtDate(subscriptionCurrentPeriodEnd)}</p>
-                <p>Prossimo addebito: {fmtDate(subscriptionCurrentPeriodEnd)}</p>
-              </>
-            )}
+            <p>Attivo fino al {fmtDate(subscriptionCurrentPeriodEnd)}</p>
+            <p>Prossimo addebito: {fmtDate(subscriptionCurrentPeriodEnd)}</p>
             {subscriptionCancelAtPeriodEnd && (
               <p>Rinnovo automatico disattivato</p>
             )}
@@ -637,16 +628,16 @@ export default function CustomerPortalDashboard() {
             </>
           )}
         </div>
-        {!bundleReady && (
+        {!bundleDownloadEnabled && (
           <p className="text-xs text-muted-foreground mb-3">
             Il download si attiva dopo il salvataggio del metodo di pagamento e l'invio della richiesta di setup.
           </p>
         )}
         <Button
           className="w-full"
-          variant={bundleReady ? (hasUpdateAvailable ? "default" : "outline") : "outline"}
+          variant={bundleDownloadEnabled ? (hasUpdateAvailable ? "default" : "outline") : "outline"}
           onClick={handleDownloadBundle}
-          disabled={!bundleReady || downloading}
+          disabled={!bundleDownloadEnabled || downloading}
         >
           <Download className="w-4 h-4 mr-2" />
           {bundleButtonLabel}
