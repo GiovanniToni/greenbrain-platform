@@ -293,9 +293,9 @@ export default function CustomerPortalDashboard() {
       detail: "L'abbonamento verrà attivato dal team dopo la conferma dei dati.",
     },
     {
-      done: Boolean(bundleAvailable),
+      done: Boolean(bundleDownloadEnabled),
       label: "Bundle GreenBrain disponibile",
-      detail: "L'ultima release disponibile è pronta per il download.",
+      detail: "L'ultima release disponibile è pronta per il download dopo conferma slot.",
     },
     {
       done: Boolean(lastDownloadedAt),
