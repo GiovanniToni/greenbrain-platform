@@ -220,14 +220,20 @@ def cancel_subscription_at_period_end(customer_id: str) -> Dict[str, str]:
     sub_id = (customer.get("stripe_subscription_id") or "").strip()
     now_iso = datetime.now(timezone.utc).isoformat()
     stripe_updated = False
+    cancel_at_period_end = True
+    current_period_end_iso = None
 
     if sub_id:
-        stripe.Subscription.modify(sub_id, cancel_at_period_end=True)
+        sub = stripe.Subscription.modify(sub_id, cancel_at_period_end=True)
         stripe_updated = True
+        cancel_at_period_end = bool(sub.get("cancel_at_period_end"))
+        current_period_end_iso = _iso_from_unix(sub.get("current_period_end"))
 
     update_customer_company_subscription_fields(customer_id, {
         "cancellation_requested": True,
         "cancellation_requested_at": now_iso,
+        "subscription_cancel_at_period_end": cancel_at_period_end,
+        "subscription_current_period_end": current_period_end_iso,
         "updated_at": now_iso,
     })
 
@@ -235,6 +241,8 @@ def cancel_subscription_at_period_end(customer_id: str) -> Dict[str, str]:
         "customer_id": customer_id,
         "cancellation_requested": True,
         "cancellation_requested_at": now_iso,
+        "subscription_cancel_at_period_end": cancel_at_period_end,
+        "subscription_current_period_end": current_period_end_iso,
         "stripe_updated": stripe_updated,
     }
 

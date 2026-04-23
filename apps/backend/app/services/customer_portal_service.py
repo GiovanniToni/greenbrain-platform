@@ -8,7 +8,6 @@ from app.repositories.customer_portal_repository import (
     update_customer_portal_fields,
 )
 from app.services.customer_billing_service import (
-    activate_subscription_for_customer,
     cancel_subscription_at_period_end_for_portal_email,
 )
 from app.services.customer_delivery_service import get_latest_available_release_version
@@ -63,6 +62,8 @@ def build_customer_portal_profile(user_email: str) -> Dict[str, Any]:
         "data_validated_at": row.get("data_validated_at"),
         "cancellation_requested": bool(row.get("cancellation_requested")),
         "cancellation_requested_at": row.get("cancellation_requested_at"),
+        "subscription_cancel_at_period_end": row.get("subscription_cancel_at_period_end"),
+        "subscription_current_period_end": row.get("subscription_current_period_end"),
         "created_at": row.get("created_at"),
         "updated_at": row.get("updated_at"),
         "delivery": {
@@ -148,13 +149,7 @@ def confirm_customer_data_ok(user_email: str) -> Dict[str, Any]:
         "updated_at": now_iso,
     })
 
-    activation_result = "triggered"
-    try:
-        activate_subscription_for_customer(row["customer_id"])
-    except RuntimeError:
-        activation_result = "failed"
-
     return {
         "status": "data_validated",
-        "activation": activation_result,
+        "data_validated_at": now_iso,
     }

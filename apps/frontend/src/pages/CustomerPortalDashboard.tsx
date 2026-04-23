@@ -203,12 +203,17 @@ export default function CustomerPortalDashboard() {
 
   const phase = getLifecyclePhase(data);
   const bundleReady = Boolean(data?.payment_method_saved && data?.setup_slot_requested_at);
+  const bundleAvailable = Boolean(
+    data?.latest_available_release_version || data?.delivery?.bundle_generated_at
+  );
   const planLabel = planDisplayName(data?.subscription_plan);
   const planPrice = planDisplayPrice(data?.subscription_plan);
 
   const latestAvailableVersion = data?.latest_available_release_version || null;
   const lastDownloadedVersion = data?.last_downloaded_release_version || null;
   const lastDownloadedAt = data?.last_downloaded_at || null;
+  const subscriptionCancelAtPeriodEnd = Boolean(data?.subscription_cancel_at_period_end);
+  const subscriptionCurrentPeriodEnd = data?.subscription_current_period_end || null;
 
   const hasUpdateAvailable = Boolean(
     latestAvailableVersion &&
@@ -262,12 +267,12 @@ export default function CustomerPortalDashboard() {
       detail: "L'abbonamento verrà attivato dal team dopo la conferma dei dati.",
     },
     {
-      done: Boolean(data?.payment_method_saved && data?.setup_slot_requested_at),
+      done: Boolean(bundleAvailable),
       label: "Bundle GreenBrain disponibile",
-      detail: "Dopo pagamento e richiesta slot puoi scaricare l'ultima versione disponibile.",
+      detail: "L'ultima release disponibile è pronta per il download.",
     },
     {
-      done: Boolean(data?.setup_slot_confirmed_at && bundleReady),
+      done: Boolean(data?.setup_slot_confirmed_at && bundleAvailable),
       label: "Installa GreenBrain",
       detail: "Segui la guida inclusa nel bundle per completare l'installazione.",
     },
@@ -602,6 +607,16 @@ export default function CustomerPortalDashboard() {
           <p className="text-xs text-muted-foreground mt-2 text-center">
             Potrai usare il servizio fino al termine del periodo già pagato.
           </p>
+        )}
+        {data?.cancellation_requested && (
+          <div className="mt-3 text-xs text-muted-foreground text-center space-y-1">
+            {subscriptionCurrentPeriodEnd && (
+              <p>Abbonamento attivo fino al {fmtDate(subscriptionCurrentPeriodEnd)}</p>
+            )}
+            {subscriptionCancelAtPeriodEnd && (
+              <p>Rinnovo automatico disattivato</p>
+            )}
+          </div>
         )}
       </Card>
 

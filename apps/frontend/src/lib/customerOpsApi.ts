@@ -40,6 +40,8 @@ export type CustomerOpsItem = {
   delivery_status?: string | null;
   cancellation_requested?: boolean;
   cancellation_requested_at?: string | null;
+  subscription_cancel_at_period_end?: boolean | null;
+  subscription_current_period_end?: string | null;
 };
 
 export const DELIVERY_STATUS_LABELS: Record<string, string> = {

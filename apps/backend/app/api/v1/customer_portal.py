@@ -101,8 +101,6 @@ def cancel_subscription_route(email: str = Depends(get_portal_email_from_bearer)
         return cancel_customer_portal_subscription(email)
     except RuntimeError as exc:
         msg = str(exc)
-        if "stripe_subscription_id_missing" in msg:
-            raise HTTPException(status_code=409, detail=msg)
         if "customer_portal_profile_not_found" in msg or "customer_not_found" in msg:
             raise HTTPException(status_code=404, detail=msg)
         raise HTTPException(status_code=500, detail=f"cancel_subscription_failed: {exc}")

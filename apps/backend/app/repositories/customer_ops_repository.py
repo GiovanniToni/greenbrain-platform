@@ -36,6 +36,8 @@ _COMPANY_WITH_DELIVERY_SELECT = """
     data_validated_at,
     cancellation_requested,
     cancellation_requested_at,
+    subscription_cancel_at_period_end,
+    subscription_current_period_end,
     created_at,
     updated_at,
     gb_customer_delivery(
@@ -89,6 +91,8 @@ def _map_row_to_ops_item(row: Dict[str, Any]) -> Dict[str, Any]:
         "data_validated_at": row.get("data_validated_at"),
         "cancellation_requested": row.get("cancellation_requested", False),
         "cancellation_requested_at": row.get("cancellation_requested_at"),
+        "subscription_cancel_at_period_end": row.get("subscription_cancel_at_period_end"),
+        "subscription_current_period_end": row.get("subscription_current_period_end"),
         "created_at": row.get("created_at"),
         "updated_at": row.get("updated_at"),
         "delivery_assigned_release_version": delivery.get("assigned_release_version"),

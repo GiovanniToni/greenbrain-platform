@@ -168,6 +168,7 @@ export default function CustomerDetail() {
   const [slotScheduled, setSlotScheduled] = useState("");
   const [forceModal, setForceModal] = useState(false);
   const [forceConfirmed, setForceConfirmed] = useState(false);
+  const [forceText, setForceText] = useState("");
   const [forceBusy, setForceBusy] = useState(false);
 
   const load = useCallback(() => {
@@ -248,6 +249,8 @@ export default function CustomerDetail() {
           onConfirm={handleForceActivate}
           confirmed={forceConfirmed}
           setConfirmed={setForceConfirmed}
+          forceText={forceText}
+          setForceText={setForceText}
           busy={forceBusy}
         />
       )}
@@ -316,6 +319,12 @@ export default function CustomerDetail() {
             />
             {item.cancellation_requested && (
               <Row label="Disdetta" value={<span style={{ color: "#d97706", fontWeight: 600, fontSize: 11 }}>Richiesta il {fmtDt(item.cancellation_requested_at, "datetime")}</span>} />
+            )}
+            {item.subscription_current_period_end && (
+              <Row label="Attivo fino al" value={fmtDt(item.subscription_current_period_end, "datetime")} />
+            )}
+            {item.subscription_cancel_at_period_end !== null && item.subscription_cancel_at_period_end !== undefined && (
+              <Row label="Rinnovo automatico" value={item.subscription_cancel_at_period_end ? "Disattivato" : "Attivo"} />
             )}
           </Section>
         </div>
@@ -456,7 +465,7 @@ export default function CustomerDetail() {
                   </span>
                 )}
                 <button
-                  onClick={() => { setForceModal(true); setForceConfirmed(false); }}
+                  onClick={() => { setForceModal(true); setForceConfirmed(false); setForceText(""); }}
                   disabled={busy || item.subscription_status === "active"}
                   style={{ ...btn, fontSize: 11, color: "#b45309", borderColor: "#fcd34d", marginTop: 2 }}
                 >
@@ -571,12 +580,16 @@ function ForceActivateModal({
   onConfirm,
   confirmed,
   setConfirmed,
+  forceText,
+  setForceText,
   busy,
 }: {
   onClose: () => void;
   onConfirm: () => void;
   confirmed: boolean;
   setConfirmed: (v: boolean) => void;
+  forceText: string;
+  setForceText: (v: string) => void;
   busy: boolean;
 }) {
   return (
@@ -596,7 +609,7 @@ function ForceActivateModal({
           Stai per attivare l&apos;abbonamento <strong>senza</strong> che il cliente abbia confermato i propri dati.
           Questa azione bypassa il controllo di validazione e crea una sottoscrizione Stripe immediatamente.
         </p>
-        <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: "#1f2937", cursor: "pointer", marginBottom: 20 }}>
+        <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: "#1f2937", cursor: "pointer", marginBottom: 12 }}>
           <input
             type="checkbox"
             checked={confirmed}
@@ -605,11 +618,23 @@ function ForceActivateModal({
           />
           Confermo di voler attivare l&apos;abbonamento senza la conferma dati del cliente
         </label>
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 6 }}>
+            Digita <strong>CONFERMO</strong> per abilitare l&apos;override
+          </div>
+          <input
+            type="text"
+            value={forceText}
+            onChange={(e) => setForceText(e.target.value)}
+            style={{ ...inputStyle, width: "100%" }}
+            placeholder="CONFERMO"
+          />
+        </div>
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <button onClick={onClose} disabled={busy} style={btn}>Annulla</button>
           <button
             onClick={onConfirm}
-            disabled={!confirmed || busy}
+            disabled={!confirmed || forceText.trim() !== "CONFERMO" || busy}
             style={!confirmed || busy ? btnDisabled : {
               ...btnPrimary, background: "#fef3c7", borderColor: "#fcd34d", color: "#92400e",
             }}
