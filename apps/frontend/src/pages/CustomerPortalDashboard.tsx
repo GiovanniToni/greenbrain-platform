@@ -171,6 +171,13 @@ export default function CustomerPortalDashboard() {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
+
+      setData((prev: any) => prev ? {
+        ...prev,
+        last_downloaded_release_version: prev.latest_available_release_version,
+        last_downloaded_at: new Date().toISOString(),
+      } : prev);
+      await doFetch(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Errore download bundle");
     } finally {
