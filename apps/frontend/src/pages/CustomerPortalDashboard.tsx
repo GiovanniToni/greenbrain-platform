@@ -214,6 +214,7 @@ export default function CustomerPortalDashboard() {
   const lastDownloadedAt = data?.last_downloaded_at || null;
   const subscriptionCancelAtPeriodEnd = Boolean(data?.subscription_cancel_at_period_end);
   const subscriptionCurrentPeriodEnd = data?.subscription_current_period_end || null;
+  const isSubscriptionActive = (data?.subscription_status || "").toLowerCase() === "active";
 
   const hasUpdateAvailable = Boolean(
     latestAvailableVersion &&
@@ -252,7 +253,7 @@ export default function CustomerPortalDashboard() {
       detail: "Scegli la tua disponibilità per la sessione di configurazione con il team.",
     },
     {
-      done: Boolean(data?.setup_slot_scheduled_for),
+      done: Boolean(data?.setup_slot_confirmed_at || data?.setup_slot_scheduled_for),
       label: "Sessione di setup confermata",
       detail: "Il team GreenBrain confermerà la data e condurrà la sessione di configurazione.",
     },
@@ -272,7 +273,7 @@ export default function CustomerPortalDashboard() {
       detail: "L'ultima release disponibile è pronta per il download.",
     },
     {
-      done: Boolean(data?.setup_slot_confirmed_at && bundleAvailable),
+      done: Boolean(lastDownloadedAt),
       label: "Installa GreenBrain",
       detail: "Segui la guida inclusa nel bundle per completare l'installazione.",
     },
@@ -566,52 +567,18 @@ export default function CustomerPortalDashboard() {
             <p className="font-semibold">Disdetta richiesta il {fmtDate(data.cancellation_requested_at)}</p>
             <p className="text-xs text-amber-700 mt-1">Potrai usare il servizio fino al termine del periodo già pagato</p>
           </div>
-        ) : showCancelConfirm ? (
-          <div className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-4 text-sm space-y-3">
-            <p className="font-semibold text-destructive">Conferma disdetta abbonamento</p>
-            <p className="text-muted-foreground text-xs">
-              Potrai usare il servizio fino al termine del periodo già pagato. L&apos;accesso non verrà interrotto immediatamente.
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="destructive"
-                size="sm"
-                className="flex-1"
-                onClick={handleCancelSubscription}
-                disabled={cancelBusy}
-              >
-                {cancelBusy ? "Disdetta in corso..." : "Conferma disdetta"}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1"
-                onClick={() => setShowCancelConfirm(false)}
-                disabled={cancelBusy}
-              >
-                Annulla
-              </Button>
-            </div>
-          </div>
         ) : (
-          <Button
-            variant="outline"
-            className="w-full border-destructive/30 text-destructive hover:bg-destructive/5"
-            onClick={() => setShowCancelConfirm(true)}
-            disabled={cancelBusy}
-          >
-            Disdici abbonamento
-          </Button>
+          <div className="rounded-md border border-border bg-muted/20 px-4 py-3 text-sm text-center text-muted-foreground">
+            La gestione della disdetta è disponibile a fondo pagina.
+          </div>
         )}
-        {!data?.cancellation_requested && !showCancelConfirm && (
-          <p className="text-xs text-muted-foreground mt-2 text-center">
-            Potrai usare il servizio fino al termine del periodo già pagato.
-          </p>
-        )}
-        {data?.cancellation_requested && (
+        {(data?.cancellation_requested || subscriptionCurrentPeriodEnd) && (
           <div className="mt-3 text-xs text-muted-foreground text-center space-y-1">
             {subscriptionCurrentPeriodEnd && (
-              <p>Abbonamento attivo fino al {fmtDate(subscriptionCurrentPeriodEnd)}</p>
+              <>
+                <p>Attivo fino al {fmtDate(subscriptionCurrentPeriodEnd)}</p>
+                <p>Prossimo addebito: {fmtDate(subscriptionCurrentPeriodEnd)}</p>
+              </>
             )}
             {subscriptionCancelAtPeriodEnd && (
               <p>Rinnovo automatico disattivato</p>
@@ -702,6 +669,72 @@ export default function CustomerPortalDashboard() {
             </li>
           ))}
         </ol>
+      </Card>
+
+      <Card className="p-6">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h2 className="font-semibold">Disdetta abbonamento</h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              Puoi disattivare il rinnovo automatico solo dopo l&apos;attivazione dell&apos;abbonamento.
+            </p>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {subscriptionCurrentPeriodEnd && (
+              <div>Prossimo addebito: {fmtDate(subscriptionCurrentPeriodEnd)}</div>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4">
+          {data?.cancellation_requested ? (
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 text-center">
+              <p className="font-semibold">Disdetta richiesta il {fmtDate(data.cancellation_requested_at)}</p>
+              <p className="text-xs text-amber-700 mt-1">Potrai usare il servizio fino al termine del periodo già pagato</p>
+            </div>
+          ) : showCancelConfirm ? (
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-4 text-sm space-y-3">
+              <p className="font-semibold text-destructive">Conferma disdetta abbonamento</p>
+              <p className="text-muted-foreground text-xs">
+                Potrai usare il servizio fino al termine del periodo già pagato. L&apos;accesso non verrà interrotto immediatamente.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="flex-1"
+                  onClick={handleCancelSubscription}
+                  disabled={cancelBusy || !isSubscriptionActive}
+                >
+                  {cancelBusy ? "Disdetta in corso..." : "Conferma disdetta"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => setShowCancelConfirm(false)}
+                  disabled={cancelBusy}
+                >
+                  Annulla
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button
+              variant={isSubscriptionActive ? "destructive" : "outline"}
+              className="w-full"
+              onClick={() => setShowCancelConfirm(true)}
+              disabled={cancelBusy || !isSubscriptionActive}
+            >
+              Disdici abbonamento
+            </Button>
+          )}
+          {!isSubscriptionActive && !data?.cancellation_requested && (
+            <p className="text-xs text-muted-foreground mt-2 text-center">
+              Il tasto si attiva quando l&apos;abbonamento passa in stato attivo.
+            </p>
+          )}
+        </div>
       </Card>
 
       {/* Error */}

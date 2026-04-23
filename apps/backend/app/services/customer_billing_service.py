@@ -187,10 +187,22 @@ def activate_subscription_for_customer(customer_id: str, require_data_validated:
         metadata={"customer_id": customer_id, "plan": plan},
     )
 
+    sub_status = (sub.get("status") or "active").strip() or "active"
+    cancel_at_period_end = bool(sub.get("cancel_at_period_end"))
+    current_period_end = sub.get("current_period_end")
+    if not current_period_end:
+        items = sub.get("items") or {}
+        data = items.get("data") or []
+        if data:
+            current_period_end = data[0].get("current_period_end")
+    current_period_end_iso = _iso_from_unix(current_period_end)
+
     now_iso = datetime.now(timezone.utc).isoformat()
     update_customer_company_subscription_fields(customer_id, {
-        "subscription_status": "checkout_started",
+        "subscription_status": sub_status,
         "stripe_subscription_id": sub.id,
+        "subscription_cancel_at_period_end": cancel_at_period_end,
+        "subscription_current_period_end": current_period_end_iso,
         "updated_at": now_iso,
     })
     upsert_customer_subscription({
@@ -199,11 +211,13 @@ def activate_subscription_for_customer(customer_id: str, require_data_validated:
         "plan_code": price_id,
         "stripe_subscription_id": sub.id,
         "stripe_customer_id": stripe_customer_id,
-        "subscription_status": "checkout_started",
+        "subscription_status": sub_status,
+        "current_period_end": current_period_end_iso,
+        "cancel_at_period_end": cancel_at_period_end,
         "updated_at": now_iso,
     })
 
-    return {"stripe_subscription_id": sub.id, "status": "subscription_created"}
+    return {"stripe_subscription_id": sub.id, "status": sub_status}
 
 
 def force_activate_subscription_for_customer(customer_id: str) -> Dict[str, str]:
@@ -344,6 +358,8 @@ def handle_stripe_webhook(payload: bytes, signature: str) -> Dict[str, str]:
                 "subscription_status": status,
                 "stripe_customer_id": obj.get("customer"),
                 "stripe_subscription_id": obj.get("id"),
+                "subscription_cancel_at_period_end": bool(obj.get("cancel_at_period_end")),
+                "subscription_current_period_end": _iso_from_unix(obj.get("current_period_end")),
                 "updated_at": now_iso,
             })
 

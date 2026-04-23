@@ -224,12 +224,27 @@ export default function CustomerDetail() {
   const canConfirmSlot = item.onboarding_status === "slot_requested" && slotScheduled.length > 0;
   const canActivateSub = item.onboarding_status === "data_validated" && item.payment_method_saved === true;
   const releaseAligned = item.assigned_release_version === LATEST_RELEASE;
+  const effectiveDbIntegrationStatus =
+    item.db_integration_status === "not_started" && item.data_validated_at
+      ? "validated"
+      : item.db_integration_status;
+  const effectiveInstallStatus =
+    item.install_status === "not_started" && item.setup_slot_confirmed_at
+      ? "scheduled"
+      : item.install_status;
+  const effectiveInstalledRelease =
+    item.installed_release_version || item.last_downloaded_release_version || null;
 
   async function handleForceActivate() {
     setForceBusy(true);
     setActionMsg(null);
     try {
       await forceActivateCustomerSubscription(item.customer_id);
+      setItem((prev) => prev ? {
+        ...prev,
+        subscription_status: "active",
+        subscription_cancel_at_period_end: false,
+      } : prev);
       setActionMsg({ type: "ok", text: `Abbonamento attivato (override) per ${item.company_name}` });
       setForceModal(false);
       load();
@@ -323,6 +338,9 @@ export default function CustomerDetail() {
             {item.subscription_current_period_end && (
               <Row label="Attivo fino al" value={fmtDt(item.subscription_current_period_end, "datetime")} />
             )}
+            {item.subscription_current_period_end && (
+              <Row label="Prossimo addebito" value={fmtDt(item.subscription_current_period_end, "datetime")} />
+            )}
             {item.subscription_cancel_at_period_end !== null && item.subscription_cancel_at_period_end !== undefined && (
               <Row label="Rinnovo automatico" value={item.subscription_cancel_at_period_end ? "Disattivato" : "Attivo"} />
             )}
@@ -348,14 +366,14 @@ export default function CustomerDetail() {
 
           <Section title="Onboarding e validazione">
             <Row label="Stato" value={badge(item.onboarding_status)} />
-            <Row label="Install status" value={badge(item.install_status)} />
-            <Row label="DB integration" value={badge(item.db_integration_status)} />
+            <Row label="Install status" value={badge(effectiveInstallStatus)} />
+            <Row label="DB integration" value={badge(effectiveDbIntegrationStatus)} />
             <Row label="Dati validati il" value={fmtDt(item.data_validated_at)} />
           </Section>
 
           <Section title="Release e delivery">
             <Row label="Release assegnata" value={item.assigned_release_version || item.delivery_assigned_release_version} />
-            <Row label="Release installata" value={item.installed_release_version} />
+            <Row label="Release installata" value={effectiveInstalledRelease} />
             <Row label="Ultima scaricata" value={item.last_downloaded_release_version} />
             <Row label="Scaricata il" value={fmtDt(item.last_downloaded_at, "datetime")} />
             <Row label="Release target" value={<strong>{LATEST_RELEASE}</strong>} />
@@ -450,10 +468,24 @@ export default function CustomerDetail() {
             ) : (
               <>
                 <button
-                  onClick={() => run(async () => {
-                    await activateCustomerSubscription(item.customer_id);
-                    return `Abbonamento attivato per ${item.company_name}`;
-                  })}
+                  onClick={async () => {
+                    setBusy(true);
+                    setActionMsg(null);
+                    try {
+                      await activateCustomerSubscription(item.customer_id);
+                      setItem((prev) => prev ? {
+                        ...prev,
+                        subscription_status: "active",
+                        subscription_cancel_at_period_end: false,
+                      } : prev);
+                      setActionMsg({ type: "ok", text: `Abbonamento attivato per ${item.company_name}` });
+                      load();
+                    } catch (err) {
+                      setActionMsg({ type: "err", text: err instanceof Error ? err.message : "Errore" });
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
                   disabled={busy || !canActivateSub}
                   style={canActivateSub && !busy ? btnPrimary : btnDisabled}
                 >
