@@ -234,8 +234,6 @@ export default function CustomerDetail() {
       ? "installed"
       : item.install_status === "installed"
       ? "installed"
-      : item.setup_slot_confirmed_at && item.bundle_generated_at
-      ? "ready_for_install"
       : item.setup_slot_confirmed_at
       ? "scheduled"
       : item.install_status;
@@ -243,13 +241,8 @@ export default function CustomerDetail() {
   const effectiveInstalledRelease =
     item.installed_release_version ||
     (item.delivery_install_status === "installed"
-      ? (item.delivery_assigned_release_version || item.assigned_release_version || item.last_downloaded_release_version || null)
+      ? (item.delivery_assigned_release_version || null)
       : null);
-
-  const effectiveOnboardingStatus =
-    item.subscription_status === "active" && item.data_validated_at
-      ? "active"
-      : item.onboarding_status;
 
   async function handleForceActivate() {
     setForceBusy(true);
@@ -298,7 +291,7 @@ export default function CustomerDetail() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap" as const, alignItems: "flex-start" }}>
-          <StatusPill label="Onboarding" value={effectiveOnboardingStatus} />
+          <StatusPill label="Onboarding" value={item.onboarding_status} />
           <StatusPill label="Abbonamento" value={item.subscription_status} />
           {item.subscription_plan && <StatusPill label="Piano" value={item.subscription_plan} raw />}
           {(() => {
@@ -381,7 +374,7 @@ export default function CustomerDetail() {
           </Section>
 
           <Section title="Onboarding e validazione">
-            <Row label="Stato" value={badge(effectiveOnboardingStatus)} />
+            <Row label="Stato" value={badge(item.onboarding_status)} />
             <Row label="Install status" value={badge(effectiveInstallStatus)} />
             <Row label="Delivery install status" value={badge(item.delivery_install_status)} />
             <Row label="DB integration" value={badge(effectiveDbIntegrationStatus)} />

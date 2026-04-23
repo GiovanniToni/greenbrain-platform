@@ -45,8 +45,8 @@ def get_customer_by_portal_email(portal_user_email: str) -> Optional[Dict[str, A
             data_validated_at,
             cancellation_requested,
             cancellation_requested_at,
-            subscription_cancel_at_period_end,
             subscription_current_period_end,
+            subscription_cancel_at_period_end,
             created_at,
             updated_at,
             gb_customer_delivery(

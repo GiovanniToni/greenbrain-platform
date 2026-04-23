@@ -62,8 +62,8 @@ def build_customer_portal_profile(user_email: str) -> Dict[str, Any]:
         "data_validated_at": row.get("data_validated_at"),
         "cancellation_requested": bool(row.get("cancellation_requested")),
         "cancellation_requested_at": row.get("cancellation_requested_at"),
-        "subscription_cancel_at_period_end": row.get("subscription_cancel_at_period_end"),
         "subscription_current_period_end": row.get("subscription_current_period_end"),
+        "subscription_cancel_at_period_end": bool(row.get("subscription_cancel_at_period_end")),
         "created_at": row.get("created_at"),
         "updated_at": row.get("updated_at"),
         "delivery": {
