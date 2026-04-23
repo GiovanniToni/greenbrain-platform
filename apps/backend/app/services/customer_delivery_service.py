@@ -126,8 +126,12 @@ def mark_delivery_sent(customer_id: str) -> Dict[str, Any]:
 def resolve_bundle_download(customer_profile: Dict[str, Any]) -> Dict[str, Any]:
     payment_saved = customer_profile.get("payment_method_saved") is True
     slot_requested = bool(customer_profile.get("setup_slot_requested_at"))
+    slot_confirmed = bool(
+        customer_profile.get("setup_slot_confirmed_at")
+        or customer_profile.get("setup_slot_scheduled_for")
+    )
 
-    if not payment_saved or not slot_requested:
+    if not payment_saved or not slot_requested or not slot_confirmed:
         raise RuntimeError("bundle_not_ready")
 
     # 1) Preferred source: latest release available on host

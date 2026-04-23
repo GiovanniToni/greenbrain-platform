@@ -138,6 +138,9 @@ def confirm_customer_data_ok(user_email: str) -> Dict[str, Any]:
     if current_status != "data_validation_pending":
         raise RuntimeError("data_not_ready_for_validation")
 
+    if not (row.get("setup_slot_confirmed_at") or row.get("setup_slot_scheduled_for")):
+        raise RuntimeError("setup_slot_not_confirmed")
+
     if not (row.get("payment_method_id") or "").strip():
         raise RuntimeError("payment_method_missing")
 
