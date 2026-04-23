@@ -647,7 +647,7 @@ export default function CustomerPortalDashboard() {
           </p>
         )}
         <Button
-          className="w-full"
+          className={bundleButtonIsPrimary ? "w-full bg-primary text-primary-foreground hover:bg-primary/90" : "w-full"}
           variant={bundleButtonIsPrimary ? "default" : "outline"}
           onClick={handleDownloadBundle}
           disabled={!bundleDownloadEnabled || downloading}
