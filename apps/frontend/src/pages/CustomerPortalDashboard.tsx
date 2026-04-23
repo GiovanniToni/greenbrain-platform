@@ -203,12 +203,13 @@ export default function CustomerPortalDashboard() {
 
   const phase = getLifecyclePhase(data);
   const bundleAvailable = Boolean(
-    data?.latest_available_release_version || data?.delivery?.bundle_generated_at
+    data?.latest_available_release_version || data?.delivery?.bundle_generated_at || data?.delivery?.bundle_local_path
   );
   const bundleDownloadEnabled = Boolean(
     data?.payment_method_saved &&
+    data?.setup_slot_requested_at &&
     (data?.setup_slot_confirmed_at || data?.setup_slot_scheduled_for) &&
-    (data?.latest_available_release_version || data?.delivery?.bundle_generated_at || data?.delivery?.bundle_local_path)
+    bundleAvailable
   );
   const planLabel = planDisplayName(data?.subscription_plan);
   const planPrice = planDisplayPrice(data?.subscription_plan);
@@ -216,6 +217,7 @@ export default function CustomerPortalDashboard() {
   const latestAvailableVersion = data?.latest_available_release_version || null;
   const lastDownloadedVersion = data?.last_downloaded_release_version || null;
   const lastDownloadedAt = data?.last_downloaded_at || null;
+  const hasNeverDownloaded = !lastDownloadedAt;
   const subscriptionCancelAtPeriodEnd = Boolean(data?.subscription_cancel_at_period_end);
   const subscriptionCurrentPeriodEnd = data?.subscription_current_period_end || null;
   const isSubscriptionActive = (data?.subscription_status || "").toLowerCase() === "active";
@@ -225,22 +227,32 @@ export default function CustomerPortalDashboard() {
     (!lastDownloadedVersion || latestAvailableVersion !== lastDownloadedVersion)
   );
 
+  const bundleButtonIsPrimary = Boolean(
+    bundleDownloadEnabled && (hasNeverDownloaded || hasUpdateAvailable)
+  );
+
   const bundleSubtitle = !data?.payment_method_saved
     ? "Il download si attiverà dopo il salvataggio del metodo di pagamento"
+    : !data?.setup_slot_requested_at
+    ? "Il download si attiverà dopo la richiesta della sessione di setup"
     : !(data?.setup_slot_confirmed_at || data?.setup_slot_scheduled_for)
     ? "Il download si attiverà dopo la conferma della sessione di setup"
     : !bundleAvailable
     ? "Il bundle sarà disponibile quando la release sarà pronta"
+    : hasNeverDownloaded
+    ? `Pronto per il primo download${latestAvailableVersion ? `: versione ${latestAvailableVersion}` : ""}`
     : hasUpdateAvailable
     ? `Aggiornamento disponibile: ${latestAvailableVersion}`
     : latestAvailableVersion
-    ? `Versione disponibile: ${latestAvailableVersion}`
+    ? `Versione già scaricata: ${latestAvailableVersion}`
     : "Ultima versione disponibile pronta per il download";
 
   const bundleButtonLabel = downloading
     ? "Download in corso..."
     : !bundleDownloadEnabled
     ? "Bundle non ancora disponibile"
+    : hasNeverDownloaded && latestAvailableVersion
+    ? `Scarica versione ${latestAvailableVersion}`
     : hasUpdateAvailable && latestAvailableVersion
     ? `Scarica nuova versione ${latestAvailableVersion}`
     : latestAvailableVersion
@@ -631,12 +643,12 @@ export default function CustomerPortalDashboard() {
         </div>
         {!bundleDownloadEnabled && (
           <p className="text-xs text-muted-foreground mb-3">
-            Il download si attiva solo dopo salvataggio metodo di pagamento, conferma della sessione di setup e disponibilità del bundle.
+            Il download si attiva solo dopo salvataggio del metodo di pagamento, richiesta slot, conferma della sessione di setup e disponibilità del bundle.
           </p>
         )}
         <Button
           className="w-full"
-          variant={bundleDownloadEnabled ? "default" : "outline"}
+          variant={bundleButtonIsPrimary ? "default" : "outline"}
           onClick={handleDownloadBundle}
           disabled={!bundleDownloadEnabled || downloading}
         >
