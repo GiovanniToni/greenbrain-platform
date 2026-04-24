@@ -384,19 +384,16 @@ export default function CustomerDetail() {
           </Section>
 
           <Section title="Release e delivery">
-            <Row label="Release assegnata" value={item.assigned_release_version || item.delivery_assigned_release_version} />
             <Row label="Release delivery" value={item.delivery_assigned_release_version} />
             <Row label="Release installata" value={effectiveInstalledRelease} />
             <Row label="Prima scaricata" value={item.first_downloaded_release_version} />
             <Row label="Primo download il" value={fmtDt(item.first_downloaded_at, "datetime")} />
             <Row label="Ultima scaricata" value={item.last_downloaded_release_version} />
             <Row label="Ultimo download il" value={fmtDt(item.last_downloaded_at, "datetime")} />
-            <Row label="Release target" value={<strong>{LATEST_RELEASE}</strong>} />
             <Row label="Bundle generato il" value={fmtDt(item.bundle_generated_at, "datetime")} />
             <Row label="Bundle inviato il" value={fmtDt(item.bundle_sent_at, "datetime")} />
             <Row label="Bundle path" value={item.bundle_local_path ? <code style={{ fontSize: 10, wordBreak: "break-all" as const }}>{item.bundle_local_path}</code> : null} />
             <Row label="Go-live il" value={fmtDt(item.go_live_at, "datetime")} />
-            <Row label="Delivery stato" value={item.delivery_status ? badge(DELIVERY_STATUS_LABELS[item.delivery_status] ?? item.delivery_status) : badge(item.delivery_install_status)} />
           </Section>
         </div>
       </div>
