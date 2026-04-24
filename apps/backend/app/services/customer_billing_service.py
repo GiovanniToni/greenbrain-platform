@@ -199,14 +199,18 @@ def activate_subscription_for_customer(customer_id: str, require_data_validated:
                 break
     current_period_end_iso = _iso_from_unix(current_period_end)
 
-    now_iso = datetime.now(timezone.utc).isoformat()
-    update_customer_company_subscription_fields(customer_id, {
+    now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    update_payload = {
         "subscription_status": sub_status,
         "stripe_subscription_id": sub.id,
         "subscription_cancel_at_period_end": cancel_at_period_end,
         "subscription_current_period_end": current_period_end_iso,
         "updated_at": now_iso,
-    })
+    }
+    if sub_status == "active" and not customer.get("subscription_activated_at"):
+        update_payload["subscription_activated_at"] = now_iso
+
+    update_customer_company_subscription_fields(customer_id, update_payload)
     upsert_customer_subscription({
         "customer_id": customer_id,
         "provider": "stripe",
