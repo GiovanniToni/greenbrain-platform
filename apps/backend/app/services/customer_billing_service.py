@@ -356,6 +356,7 @@ def handle_stripe_webhook(payload: bytes, signature: str) -> Dict[str, str]:
 
             update_customer_company_subscription_fields(customer_id, {
                 "subscription_status": status,
+                "subscription_activated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat() if status == "active" else None,
                 "stripe_customer_id": obj.get("customer"),
                 "stripe_subscription_id": obj.get("id"),
                 "subscription_cancel_at_period_end": bool(obj.get("cancel_at_period_end")),
@@ -367,6 +368,7 @@ def handle_stripe_webhook(payload: bytes, signature: str) -> Dict[str, str]:
                 "customer_id": customer_id,
                 "provider": "stripe",
                 "subscription_status": status,
+                "subscription_activated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat() if status == "active" else None,
                 "stripe_customer_id": obj.get("customer"),
                 "stripe_subscription_id": obj.get("id"),
                 "current_period_start": _iso_from_unix(obj.get("current_period_start")),

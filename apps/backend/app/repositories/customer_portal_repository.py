@@ -25,6 +25,8 @@ def get_customer_by_portal_email(portal_user_email: str) -> Optional[Dict[str, A
             db_integration_status,
             assigned_release_version,
             installed_release_version,
+            first_downloaded_release_version,
+            first_downloaded_at,
             last_downloaded_release_version,
             last_downloaded_at,
             signup_source,
@@ -46,6 +48,7 @@ def get_customer_by_portal_email(portal_user_email: str) -> Optional[Dict[str, A
             cancellation_requested,
             cancellation_requested_at,
             subscription_current_period_end,
+            subscription_activated_at,
             subscription_cancel_at_period_end,
             created_at,
             updated_at,
@@ -100,20 +103,41 @@ def update_customer_last_download(
     last_downloaded_at: str,
 ):
     client = get_supabase_client()
-    resp = (
-        client.table("gb_customer_companies")
-        .update(
-            {
-                "last_downloaded_release_version": last_downloaded_release_version,
-                "last_downloaded_at": last_downloaded_at,
-            }
+
+    try:
+        current = (
+            client
+            .table("gb_customer_companies")
+            .select("first_downloaded_release_version,first_downloaded_at")
+            .eq("customer_id", customer_id)
+            .limit(1)
+            .execute()
         )
-        .eq("customer_id", customer_id)
-        .execute()
-    )
-    rows = resp.data or []
-    return rows[0] if rows else {
-        "customer_id": customer_id,
-        "last_downloaded_release_version": last_downloaded_release_version,
-        "last_downloaded_at": last_downloaded_at,
-    }
+        existing = (current.data or [{}])[0]
+
+        payload = {
+            "last_downloaded_release_version": last_downloaded_release_version,
+            "last_downloaded_at": last_downloaded_at,
+        }
+
+        if not existing.get("first_downloaded_at"):
+            payload["first_downloaded_release_version"] = last_downloaded_release_version
+            payload["first_downloaded_at"] = last_downloaded_at
+
+        res = (
+            client
+            .table("gb_customer_companies")
+            .update(payload)
+            .eq("customer_id", customer_id)
+            .execute()
+        )
+        rows = res.data or []
+        return rows[0] if rows else payload
+
+    except Exception as e:
+        print("ERROR update_customer_last_download:", e)
+        return {
+            "customer_id": customer_id,
+            "last_downloaded_release_version": last_downloaded_release_version,
+            "last_downloaded_at": last_downloaded_at,
+        }

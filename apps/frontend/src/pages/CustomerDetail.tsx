@@ -346,8 +346,8 @@ export default function CustomerDetail() {
             {item.cancellation_requested && (
               <Row label="Disdetta" value={<span style={{ color: "#d97706", fontWeight: 600, fontSize: 11 }}>Richiesta il {fmtDt(item.cancellation_requested_at, "datetime")}</span>} />
             )}
-            {item.subscription_current_period_end && (
-              <Row label="Attivo fino al" value={fmtDt(item.subscription_current_period_end, "datetime")} />
+            {item.subscription_activated_at && (
+              <Row label="Pagamento attivato il" value={fmtDt(item.subscription_activated_at, "datetime")} />
             )}
             {item.subscription_current_period_end && (
               <Row label="Prossimo addebito" value={fmtDt(item.subscription_current_period_end, "datetime")} />

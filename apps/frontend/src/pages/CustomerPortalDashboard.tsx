@@ -231,6 +231,7 @@ export default function CustomerPortalDashboard() {
   const hasNeverDownloaded = !lastDownloadedAt;
   const subscriptionCancelAtPeriodEnd = Boolean(data?.subscription_cancel_at_period_end);
   const subscriptionCurrentPeriodEnd = data?.subscription_current_period_end || null;
+  const subscriptionActivatedAt = data?.subscription_activated_at || null;
   const isSubscriptionActive = (data?.subscription_status || "").toLowerCase() === "active";
 
   const hasUpdateAvailable = Boolean(
@@ -602,15 +603,17 @@ export default function CustomerPortalDashboard() {
           )}
         </div>
         <Separator className="my-4" />
-        {subscriptionCurrentPeriodEnd && (
-          <div className="mt-3 text-xs text-muted-foreground text-center space-y-1">
-            <p>Attivo fino al {fmtDate(subscriptionCurrentPeriodEnd)}</p>
-            <p>Prossimo addebito: {fmtDate(subscriptionCurrentPeriodEnd)}</p>
-            {subscriptionCancelAtPeriodEnd && (
-              <p>Rinnovo automatico disattivato</p>
-            )}
-          </div>
-        )}
+        <div className="mt-3 text-xs text-muted-foreground text-center space-y-1">
+          {subscriptionActivatedAt && (
+            <p>Pagamento attivato il: {fmtDateTime(subscriptionActivatedAt)}</p>
+          )}
+          {subscriptionCurrentPeriodEnd && (
+            <p>Prossimo addebito: {fmtDateTime(subscriptionCurrentPeriodEnd)}</p>
+          )}
+          {subscriptionCancelAtPeriodEnd && (
+            <p>Rinnovo automatico disattivato</p>
+          )}
+        </div>
       </Card>
 
       {/* Bundle & install */}
