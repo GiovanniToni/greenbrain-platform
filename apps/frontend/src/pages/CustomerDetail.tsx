@@ -387,8 +387,10 @@ export default function CustomerDetail() {
             <Row label="Release assegnata" value={item.assigned_release_version || item.delivery_assigned_release_version} />
             <Row label="Release delivery" value={item.delivery_assigned_release_version} />
             <Row label="Release installata" value={effectiveInstalledRelease} />
+            <Row label="Prima scaricata" value={item.first_downloaded_release_version} />
+            <Row label="Primo download il" value={fmtDt(item.first_downloaded_at, "datetime")} />
             <Row label="Ultima scaricata" value={item.last_downloaded_release_version} />
-            <Row label="Scaricata il" value={fmtDt(item.last_downloaded_at, "datetime")} />
+            <Row label="Ultimo download il" value={fmtDt(item.last_downloaded_at, "datetime")} />
             <Row label="Release target" value={<strong>{LATEST_RELEASE}</strong>} />
             <Row label="Bundle generato il" value={fmtDt(item.bundle_generated_at, "datetime")} />
             <Row label="Bundle inviato il" value={fmtDt(item.bundle_sent_at, "datetime")} />
