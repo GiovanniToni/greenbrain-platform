@@ -64,7 +64,34 @@ def build_customer_portal_profile(user_email: str) -> Dict[str, Any]:
         "data_validated_at": row.get("data_validated_at"),
         "cancellation_requested": bool(row.get("cancellation_requested")),
         "cancellation_requested_at": row.get("cancellation_requested_at"),
-        "subscription_current_period_end": row.get("subscription_current_period_end"),
+        # BULLETPROOF period_end
+        period_end = row.get("subscription_current_period_end")
+
+        if not period_end and row.get("stripe_subscription_id"):
+            try:
+                import os, stripe
+                stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+                sub = stripe.Subscription.retrieve(
+                    row.get("stripe_subscription_id"),
+                    expand=["items.data"]
+                )
+
+                from app.services.customer_billing_service import _subscription_period_end, _iso_from_unix
+                from app.repositories.customer_subscription_repository import update_customer_company_subscription_fields
+
+                ts = _subscription_period_end(sub)
+                period_end = _iso_from_unix(ts)
+
+                if period_end:
+                    update_customer_company_subscription_fields(
+                        row.get("customer_id"),
+                        {"subscription_current_period_end": period_end}
+                    )
+            except Exception:
+                pass
+
+        "subscription_current_period_end": period_end,
         "subscription_activated_at": row.get("subscription_activated_at"),
         "subscription_cancel_at_period_end": bool(row.get("subscription_cancel_at_period_end")),
         "created_at": row.get("created_at"),
