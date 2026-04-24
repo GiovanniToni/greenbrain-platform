@@ -193,8 +193,10 @@ def activate_subscription_for_customer(customer_id: str, require_data_validated:
     if not current_period_end:
         items = sub.get("items") or {}
         data = items.get("data") or []
-        if data:
-            current_period_end = data[0].get("current_period_end")
+        for item in data:
+            current_period_end = item.get("current_period_end")
+            if current_period_end:
+                break
     current_period_end_iso = _iso_from_unix(current_period_end)
 
     now_iso = datetime.now(timezone.utc).isoformat()
