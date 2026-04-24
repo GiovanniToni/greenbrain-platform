@@ -82,6 +82,7 @@ def _map_row_to_ops_item(row: Dict[str, Any]) -> Dict[str, Any]:
         "last_downloaded_release_version": row.get("last_downloaded_release_version"),
         "last_downloaded_at": row.get("last_downloaded_at"),
         "subscription_status": row.get("subscription_status"),
+        "subscription_activated_at": row.get("subscription_activated_at"),
         "subscription_plan": row.get("subscription_plan"),
         "billing_email": row.get("billing_email"),
         "payment_method_saved": bool(row.get("payment_method_id")),
