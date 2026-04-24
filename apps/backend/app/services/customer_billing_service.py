@@ -187,6 +187,9 @@ def activate_subscription_for_customer(customer_id: str, require_data_validated:
         metadata={"customer_id": customer_id, "plan": plan},
     )
 
+    # 🔴 retrieve completo subito (fix definitivo)
+    sub = stripe.Subscription.retrieve(sub.id, expand=["items.data"])
+
     sub_status = (sub.get("status") or "active").strip() or "active"
     cancel_at_period_end = bool(sub.get("cancel_at_period_end"))
     current_period_end = sub.get("current_period_end")
