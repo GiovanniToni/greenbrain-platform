@@ -607,7 +607,10 @@ export default function CustomerPortalDashboard() {
           {subscriptionActivatedAt && (
             <p>Pagamento attivato il: {fmtDateTime(subscriptionActivatedAt)}</p>
           )}
-          {subscriptionCurrentPeriodEnd && (
+          {subscriptionCurrentPeriodEnd && subscriptionCancelAtPeriodEnd && (
+            <p>Servizio disponibile fino al: {fmtDateTime(subscriptionCurrentPeriodEnd)}</p>
+          )}
+          {subscriptionCurrentPeriodEnd && !subscriptionCancelAtPeriodEnd && (
             <p>Prossimo addebito: {fmtDateTime(subscriptionCurrentPeriodEnd)}</p>
           )}
           {subscriptionCancelAtPeriodEnd && (
