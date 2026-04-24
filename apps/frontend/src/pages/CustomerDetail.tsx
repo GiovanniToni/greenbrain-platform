@@ -384,6 +384,42 @@ export default function CustomerDetail() {
           </Section>
 
           <Section title="Release e delivery">
+            <Row
+              label="Ultima release disponibile"
+              value={
+                <span style={{
+                  display: "inline-block",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "#166534",
+                  background: "#dcfce7",
+                  border: "1px solid #86efac",
+                  borderRadius: 5,
+                  padding: "3px 10px",
+                }}>
+                  {item.latest_available_release_version || LATEST_RELEASE}
+                </span>
+              }
+            />
+            {((item.latest_available_release_version || LATEST_RELEASE) !== item.last_downloaded_release_version) && (
+              <Row
+                label="Aggiornamento"
+                value={
+                  <span style={{
+                    display: "inline-block",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: "#92400e",
+                    background: "#fef3c7",
+                    border: "1px solid #fcd34d",
+                    borderRadius: 5,
+                    padding: "3px 10px",
+                  }}>
+                    Da aggiornare
+                  </span>
+                }
+              />
+            )}
             <Row label="Release delivery" value={item.delivery_assigned_release_version} />
             <Row label="Release installata" value={effectiveInstalledRelease} />
             <Row label="Prima scaricata" value={item.first_downloaded_release_version} />
