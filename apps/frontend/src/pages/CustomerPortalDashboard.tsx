@@ -314,7 +314,7 @@ export default function CustomerPortalDashboard() {
     <div className="container mx-auto px-4 py-10 max-w-3xl space-y-5">
 
       {/* Banners */}
-      {setupStatus === "success" && (
+      {setupStatus === "success" && data?.payment_method_saved && !data?.setup_slot_requested_at && (
         <div className="flex items-start gap-3 bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 text-sm">
           <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
           <div>
