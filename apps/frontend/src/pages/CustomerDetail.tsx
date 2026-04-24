@@ -349,7 +349,10 @@ export default function CustomerDetail() {
             {item.subscription_activated_at && (
               <Row label="Pagamento attivato il" value={fmtDt(item.subscription_activated_at, "datetime")} />
             )}
-            {item.subscription_current_period_end && (
+            {item.subscription_current_period_end && item.subscription_cancel_at_period_end && (
+              <Row label="Servizio disponibile fino al" value={fmtDt(item.subscription_current_period_end, "datetime")} />
+            )}
+            {item.subscription_current_period_end && !item.subscription_cancel_at_period_end && (
               <Row label="Prossimo addebito" value={fmtDt(item.subscription_current_period_end, "datetime")} />
             )}
             {item.subscription_cancel_at_period_end !== null && item.subscription_cancel_at_period_end !== undefined && (
