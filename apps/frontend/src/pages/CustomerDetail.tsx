@@ -221,7 +221,9 @@ export default function CustomerDetail() {
   const planName       = planDisplayName(item.subscription_plan);
   const planPrice      = planDisplayPrice(item.subscription_plan);
   const nextStatus     = NEXT_ONBOARDING_STATUS[item.onboarding_status] ?? null;
-  const canConfirmSlot = item.onboarding_status === "slot_requested" && slotScheduled.length > 0;
+  const slotAlreadyConfirmed = Boolean(item.setup_slot_confirmed_at || item.setup_slot_scheduled_for);
+  const canShowConfirmSlot = Boolean(item.setup_slot_requested_at && !slotAlreadyConfirmed);
+  const canConfirmSlot = canShowConfirmSlot && slotScheduled.length > 0;
   const canActivateSub = item.onboarding_status === "data_validated" && item.payment_method_saved === true;
   const releaseAligned = item.assigned_release_version === LATEST_RELEASE;
   const effectiveDbIntegrationStatus =
@@ -397,6 +399,32 @@ export default function CustomerDetail() {
         </div>
       </div>
 
+      {/* ── operator process checklist ── */}
+      <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "14px 20px", marginBottom: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 800, color: "#374151", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 10 }}>
+          Checklist processo
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap" as const, gap: "8px 24px" }}>
+          {([
+            { done: Boolean(item.payment_method_saved),                                               label: "Pagamento salvato" },
+            { done: Boolean(item.setup_slot_requested_at),                                            label: "Slot richiesto" },
+            { done: Boolean(item.setup_slot_confirmed_at || item.setup_slot_scheduled_for),           label: "Slot confermato" },
+            { done: Boolean(item.last_downloaded_at),                                                 label: "Bundle scaricato" },
+            { done: Boolean(item.data_validated_at),                                                  label: "Dati validati" },
+            { done: (item.subscription_status || "").toLowerCase() === "active",                      label: "Abbonamento attivo" },
+          ] as { done: boolean; label: string }[]).map(({ done, label }, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12 }}>
+              <span style={{ color: done ? "#16a34a" : "#d1d5db", fontWeight: 800, fontSize: 13 }}>
+                {done ? "✓" : "○"}
+              </span>
+              <span style={{ color: done ? "#166534" : "#9ca3af", fontWeight: done ? 600 : 400 }}>
+                {label}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* ── operator actions ── */}
       <div style={actionsPanel}>
         <div style={actionsPanelTitle}>Azioni operative</div>
@@ -404,11 +432,11 @@ export default function CustomerDetail() {
 
           {/* Slot */}
           <ActionGroup emoji="📅" title="Slot setup">
-            {item.setup_slot_scheduled_for ? (
+            {slotAlreadyConfirmed ? (
               <span style={{ fontSize: 12, color: "#16a34a" }}>✓ Confermato — {fmtDt(item.setup_slot_scheduled_for, "datetime")}</span>
             ) : item.onboarding_status === "slot_confirmed" ? (
               <span style={{ fontSize: 11, color: "#6b7280" }}>Slot confermato, schedulazione in corso</span>
-            ) : item.onboarding_status === "slot_requested" ? (
+            ) : canShowConfirmSlot ? (
               <>
                 <input
                   type="datetime-local"
