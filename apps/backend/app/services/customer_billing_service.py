@@ -385,29 +385,35 @@ def handle_stripe_webhook(payload: bytes, signature: str) -> Dict[str, str]:
         customer_id = (metadata.get("customer_id") or "").strip()
 
         if customer_id:
-            now_iso = datetime.now(timezone.utc).isoformat()
-            status = obj.get("status")
+            now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+            sub = stripe.Subscription.retrieve(obj.get("id"), expand=["items.data"])
+            status = sub.get("status")
+            period_end = _subscription_period_end(sub)
+            period_end_iso = _iso_from_unix(period_end)
 
-            update_customer_company_subscription_fields(customer_id, {
+            update_payload = {
                 "subscription_status": status,
-                "subscription_activated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat() if status == "active" else None,
-                "stripe_customer_id": obj.get("customer"),
-                "stripe_subscription_id": obj.get("id"),
-                "subscription_cancel_at_period_end": bool(obj.get("cancel_at_period_end")),
-                "subscription_current_period_end": _iso_from_unix(obj.get("current_period_end")),
+                "stripe_customer_id": sub.get("customer"),
+                "stripe_subscription_id": sub.get("id"),
+                "subscription_cancel_at_period_end": bool(sub.get("cancel_at_period_end")),
+                "subscription_current_period_end": period_end_iso,
                 "updated_at": now_iso,
-            })
+            }
+            if status == "active":
+                update_payload["subscription_activated_at"] = now_iso
+
+            update_customer_company_subscription_fields(customer_id, update_payload)
 
             upsert_customer_subscription({
                 "customer_id": customer_id,
                 "provider": "stripe",
                 "subscription_status": status,
-                "subscription_activated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat() if status == "active" else None,
-                "stripe_customer_id": obj.get("customer"),
-                "stripe_subscription_id": obj.get("id"),
-                "current_period_start": _iso_from_unix(obj.get("current_period_start")),
-                "current_period_end": _iso_from_unix(obj.get("current_period_end")),
-                "cancel_at_period_end": bool(obj.get("cancel_at_period_end")),
+                "subscription_activated_at": now_iso if status == "active" else None,
+                "stripe_customer_id": sub.get("customer"),
+                "stripe_subscription_id": sub.get("id"),
+                "current_period_start": _iso_from_unix(sub.get("current_period_start")),
+                "current_period_end": period_end_iso,
+                "cancel_at_period_end": bool(sub.get("cancel_at_period_end")),
                 "updated_at": now_iso,
             })
 
