@@ -1,5 +1,31 @@
 from __future__ import annotations
 
+def _subscription_period_end(sub):
+    period_end = sub.get("current_period_end")
+    if period_end:
+        return period_end
+
+    data = ((sub.get("items") or {}).get("data") or [])
+
+    for item in data:
+        pe = item.get("current_period_end")
+        if pe:
+            return pe
+
+    # fallback STRONG → retrieve item
+    import stripe
+    for item in data:
+        item_id = item.get("id")
+        if not item_id:
+            continue
+        full = stripe.SubscriptionItem.retrieve(item_id)
+        pe = full.get("current_period_end")
+        if pe:
+            return pe
+
+    return None
+
+
 import os
 from datetime import datetime, timezone
 from typing import Dict
@@ -192,14 +218,9 @@ def activate_subscription_for_customer(customer_id: str, require_data_validated:
 
     sub_status = (sub.get("status") or "active").strip() or "active"
     cancel_at_period_end = bool(sub.get("cancel_at_period_end"))
-    current_period_end = sub.get("current_period_end")
+    current_period_end = _subscription_period_end(sub)
     if not current_period_end:
-        items = sub.get("items") or {}
-        data = items.get("data") or []
-        for item in data:
-            current_period_end = item.get("current_period_end")
-            if current_period_end:
-                break
+        raise RuntimeError(f"subscription_current_period_end_missing:{sub.id}")
     current_period_end_iso = _iso_from_unix(current_period_end)
 
     now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
