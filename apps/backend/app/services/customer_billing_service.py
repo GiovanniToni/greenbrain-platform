@@ -251,14 +251,18 @@ def cancel_subscription_at_period_end(customer_id: str) -> Dict[str, str]:
         stripe_updated = True
         cancel_at_period_end = bool(sub.get("cancel_at_period_end"))
 
+        sub = stripe.Subscription.retrieve(sub_id, expand=["items.data"])
+
         current_period_end = sub.get("current_period_end")
         if not current_period_end:
             items = sub.get("items") or {}
             data = items.get("data") or []
-            if data:
-                current_period_end = data[0].get("current_period_end")
+            for item in data:
+                current_period_end = item.get("current_period_end")
+                if current_period_end:
+                    break
 
-        current_period_end_iso = _iso_from_unix(current_period_end)
+        current_period_end_iso = _iso_from_unix(current_period_end) or customer.get("subscription_current_period_end")
 
     update_customer_company_subscription_fields(customer_id, {
         "cancellation_requested": True,
