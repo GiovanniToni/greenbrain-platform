@@ -16,7 +16,7 @@ from app.services.customer_billing_service import (
     cancel_subscription_at_period_end,
     force_activate_subscription_for_customer as _force_activate,
 )
-from app.services.customer_delivery_service import prepare_delivery_plan
+from app.services.customer_delivery_service import prepare_delivery_plan, get_latest_available_release_version
 from app.services.customer_provisioning_service import assign_release as provisioning_assign_release
 
 logger = logging.getLogger(__name__)
@@ -71,6 +71,7 @@ def get_customer_ops_item(customer_id: str) -> Dict[str, Any]:
     if not item:
         raise ValueError(f"customer_not_found:{customer_id}")
     item["delivery_status"] = normalize_delivery_state(item)
+    item["latest_available_release_version"] = get_latest_available_release_version()
     return item
 
 
@@ -130,6 +131,11 @@ def update_customer_onboarding_status(
         allowed = ", ".join(sorted(_ALLOWED_OPS_TRANSITIONS))
         raise ValueError(f"invalid_onboarding_status:{new_status}. Allowed: {allowed}")
 
+    if new_status == "slot_confirmed":
+        customer = get_customer_company_detail(customer_id)
+        if not customer or not customer.get("setup_slot_scheduled_for"):
+            raise ValueError("slot_confirmed_requires_setup_slot_scheduled_for: use confirm-slot endpoint")
+
     now_iso = datetime.now(timezone.utc).isoformat()
     update_customer_company_onboarding(customer_id, {
         "onboarding_status": new_status,
@@ -148,21 +154,26 @@ def confirm_customer_setup_slot(
     if not customer:
         raise RuntimeError(f"customer_not_found:{customer_id}")
 
-    current_status = (customer.get("onboarding_status") or "").strip()
-    if current_status != "slot_requested":
-        raise RuntimeError("cannot_confirm_slot_in_current_state")
+    if not customer.get("setup_slot_requested_at"):
+        raise RuntimeError("cannot_confirm_slot_no_request")
+    if customer.get("setup_slot_confirmed_at") and customer.get("setup_slot_scheduled_for"):
+        raise RuntimeError("slot_already_confirmed")
 
+    current_status = (customer.get("onboarding_status") or "").strip()
     now_iso = datetime.now(timezone.utc).isoformat()
-    update_customer_company_onboarding(customer_id, {
+    fields: Dict[str, Any] = {
         "setup_slot_confirmed_at": now_iso,
         "setup_slot_scheduled_for": scheduled_for,
-        "onboarding_status": "slot_confirmed",
-        "onboarding_step": "slot_confirmed",
         "updated_at": now_iso,
-    })
+    }
+    if current_status == "slot_requested":
+        fields["onboarding_status"] = "slot_confirmed"
+        fields["onboarding_step"] = "slot_confirmed"
+    update_customer_company_onboarding(customer_id, fields)
+    result_status = "slot_confirmed" if current_status == "slot_requested" else current_status
     return {
         "customer_id": customer_id,
-        "onboarding_status": "slot_confirmed",
+        "onboarding_status": result_status,
         "setup_slot_scheduled_for": scheduled_for,
     }
 
