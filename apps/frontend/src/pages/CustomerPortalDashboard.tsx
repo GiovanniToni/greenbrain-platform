@@ -122,7 +122,7 @@ export default function CustomerPortalDashboard() {
         preferred_time: slotTime,
         notes: slotNotes.trim() || undefined,
       });
-      doFetch(true);
+      await doFetch(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Errore prenotazione slot");
     } finally {
@@ -135,7 +135,7 @@ export default function CustomerPortalDashboard() {
       setConfirmDataBusy(true);
       setError(null);
       await confirmDataOk();
-      doFetch(true);
+      await doFetch(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Errore conferma dati");
     } finally {
@@ -149,7 +149,7 @@ export default function CustomerPortalDashboard() {
       setError(null);
       await cancelPortalSubscription();
       setShowCancelConfirm(false);
-      doFetch(true);
+      await doFetch(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Errore disdetta");
       setShowCancelConfirm(false);
@@ -174,6 +174,8 @@ export default function CustomerPortalDashboard() {
 
       setData((prev: any) => prev ? {
         ...prev,
+        first_downloaded_release_version: prev.first_downloaded_release_version || prev.latest_available_release_version,
+        first_downloaded_at: prev.first_downloaded_at || new Date().toISOString(),
         last_downloaded_release_version: prev.latest_available_release_version,
         last_downloaded_at: new Date().toISOString(),
       } : prev);
@@ -222,6 +224,8 @@ export default function CustomerPortalDashboard() {
   const planPrice = planDisplayPrice(data?.subscription_plan);
 
   const latestAvailableVersion = data?.latest_available_release_version || null;
+  const firstDownloadedVersion = data?.first_downloaded_release_version || null;
+  const firstDownloadedAt = data?.first_downloaded_at || null;
   const lastDownloadedVersion = data?.last_downloaded_release_version || null;
   const lastDownloadedAt = data?.last_downloaded_at || null;
   const hasNeverDownloaded = !lastDownloadedAt;
@@ -617,6 +621,18 @@ export default function CustomerPortalDashboard() {
             <span className="flex items-center gap-1.5">
               <Package className="w-3.5 h-3.5" />
               Disponibile: {latestAvailableVersion}
+            </span>
+          )}
+          {firstDownloadedVersion && (
+            <span className="flex items-center gap-1.5">
+              <Download className="w-3.5 h-3.5" />
+              Prima scaricata: {firstDownloadedVersion}
+            </span>
+          )}
+          {firstDownloadedAt && (
+            <span className="flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5" />
+              Primo download: {fmtDateTime(firstDownloadedAt)}
             </span>
           )}
           {lastDownloadedVersion && (
