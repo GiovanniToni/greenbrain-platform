@@ -28,10 +28,13 @@ export async function downloadCustomerPortalBundle(): Promise<{ blob: Blob; file
     throw new Error("Token non trovato. Effettua di nuovo il login.");
   }
 
-  const response = await fetch("/api/v1/customer-portal/download-bundle", {
+  const response = await fetch(`/api/v1/customer-portal/download-bundle?t=${Date.now()}`, {
     method: "GET",
+    cache: "no-store",
     headers: {
       Authorization: `Bearer ${token}`,
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
     },
   });
 
