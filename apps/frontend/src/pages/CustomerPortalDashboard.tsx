@@ -235,7 +235,8 @@ export default function CustomerPortalDashboard() {
 
   const hasUpdateAvailable = Boolean(
     latestAvailableVersion &&
-    (!lastDownloadedVersion || latestAvailableVersion !== lastDownloadedVersion)
+    lastDownloadedVersion &&
+    latestAvailableVersion !== lastDownloadedVersion
   );
 
   const bundleButtonIsPrimary = Boolean(
@@ -341,6 +342,16 @@ export default function CustomerPortalDashboard() {
           <AlertCircle className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5" />
           <div>
             <strong>Pagamento annullato.</strong> Nessun addebito è stato effettuato.
+          </div>
+        </div>
+      )}
+
+      {bundleDownloadEnabled && hasUpdateAvailable && latestAvailableVersion && (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-900">
+          <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <div>
+            <strong>Nuova versione disponibile.</strong>{" "}
+            È disponibile la versione {latestAvailableVersion}. Scarica il nuovo bundle per aggiornare GreenBrain.
           </div>
         </div>
       )}
@@ -620,7 +631,7 @@ export default function CustomerPortalDashboard() {
           {latestAvailableVersion && (
             <span className="flex items-center gap-1.5">
               <Package className="w-3.5 h-3.5" />
-              Disponibile: {latestAvailableVersion}
+              Ultima versione disponibile: {latestAvailableVersion}
             </span>
           )}
           {firstDownloadedVersion && (
@@ -634,6 +645,11 @@ export default function CustomerPortalDashboard() {
               <Clock className="w-3.5 h-3.5" />
               Primo download: {fmtDateTime(firstDownloadedAt)}
             </span>
+          )}
+          {hasUpdateAvailable && (
+            <Badge variant="secondary" className="bg-amber-50 text-amber-800 border border-amber-200">
+              Da aggiornare
+            </Badge>
           )}
           {lastDownloadedVersion && (
             <span className="flex items-center gap-1.5">
