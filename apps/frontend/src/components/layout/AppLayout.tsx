@@ -9,6 +9,7 @@ export function AppLayout() {
   const location = useLocation();
 
   const hideSidebar =
+    location.pathname === "/ops" ||
     location.pathname === "/customers" ||
     /^\/customers\/[^/]+$/.test(location.pathname);
 
