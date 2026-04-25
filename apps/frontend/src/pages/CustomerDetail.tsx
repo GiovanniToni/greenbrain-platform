@@ -225,6 +225,9 @@ export default function CustomerDetail() {
   const canShowConfirmSlot = Boolean(item.setup_slot_requested_at && !slotAlreadyConfirmed);
   const canConfirmSlot = canShowConfirmSlot && slotScheduled.length > 0;
   const canActivateSub = item.onboarding_status === "data_validated" && item.payment_method_saved === true;
+  const canCancel = ["active", "trialing", "past_due", "incomplete"].includes(
+    (item.subscription_status || "").toLowerCase(),
+  );
   const releaseAligned = item.assigned_release_version === LATEST_RELEASE;
   const effectiveDbIntegrationStatus =
     item.db_integration_status === "not_started" && item.data_validated_at
@@ -372,6 +375,87 @@ export default function CustomerDetail() {
         </div>
       </div>
 
+      {/* ── prossima azione consigliata ── */}
+      <div style={nextActionBox}>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 900, color: "#1e3a8a", textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>
+            Prossima azione consigliata
+          </div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#111827", marginTop: 4 }}>
+            {canShowConfirmSlot
+              ? "Confermare la sessione di setup richiesta dal cliente"
+              : nextStatus
+              ? `Avanzare onboarding a ${nextStatus}`
+              : canActivateSub && item.subscription_status !== "active"
+              ? "Attivare l’abbonamento cliente"
+              : !releaseAligned
+              ? "Inviare la release aggiornata"
+              : canCancel && !item.cancellation_requested
+              ? "Monitorare abbonamento e servizio attivo"
+              : "Processo cliente sotto controllo"}
+          </div>
+          <div style={{ fontSize: 12, color: "#6b7280", marginTop: 3 }}>
+            Le azioni principali ora sono integrate direttamente nelle card operative sottostanti.
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, alignItems: "center" }}>
+          {canShowConfirmSlot && (
+            <span style={nextActionBadge}>Vai alla card Slot setup</span>
+          )}
+          {nextStatus && !canShowConfirmSlot && (
+            <button
+              onClick={() => run(async () => {
+                await updateCustomerOnboardingStatus(item.customer_id, nextStatus);
+                return `Stato aggiornato: ${nextStatus}`;
+              })}
+              disabled={busy}
+              style={busy ? btnDisabled : btnPrimary}
+            >
+              Avanza a {nextStatus}
+            </button>
+          )}
+          {canActivateSub && item.subscription_status !== "active" && !nextStatus && (
+            <button
+              onClick={async () => {
+                setBusy(true);
+                setActionMsg(null);
+                try {
+                  await activateCustomerSubscription(item.customer_id);
+                  setItem((prev) => prev ? {
+                    ...prev,
+                    subscription_status: "active",
+                    subscription_cancel_at_period_end: false,
+                  } : prev);
+                  setActionMsg({ type: "ok", text: `Abbonamento attivato per ${item.company_name}` });
+                  load();
+                } catch (err) {
+                  setActionMsg({ type: "err", text: err instanceof Error ? err.message : "Errore" });
+                } finally {
+                  setBusy(false);
+                }
+              }}
+              disabled={busy}
+              style={busy ? btnDisabled : btnPrimary}
+            >
+              Attiva abbonamento
+            </button>
+          )}
+          {!releaseAligned && !canShowConfirmSlot && !nextStatus && (
+            <button
+              onClick={() => run(async () => {
+                const res = await sendRelease(item.customer_id, LATEST_RELEASE);
+                const label = DELIVERY_STATUS_LABELS[res.delivery_status] ?? res.delivery_status;
+                return `Release ${res.assigned_release_version} inviata — delivery: ${label}`;
+              })}
+              disabled={busy}
+              style={busy ? btnDisabled : btnPrimary}
+            >
+              Invia release {LATEST_RELEASE}
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* ── info grid (2 col) ── */}
       <div style={infoGrid}>
 
@@ -412,6 +496,71 @@ export default function CustomerDetail() {
             {item.subscription_cancel_at_period_end !== null && item.subscription_cancel_at_period_end !== undefined && (
               <Row label="Rinnovo automatico" value={item.subscription_cancel_at_period_end ? "Disattivato" : "Attivo"} />
             )}
+
+            <div style={inlineActionBox}>
+              <div style={inlineActionTitle}>Azioni abbonamento</div>
+              {item.subscription_status === "active" ? (
+                <>
+                  <span style={{ fontSize: 12, color: "#16a34a", fontWeight: 700 }}>✓ Abbonamento attivo</span>
+                  {item.cancellation_requested ? (
+                    <div style={{ background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 6, padding: "7px 10px", fontSize: 11, marginTop: 6 }}>
+                      <strong style={{ color: "#92400e" }}>Disdetta richiesta</strong>
+                      <div style={{ color: "#b45309", marginTop: 2 }}>{fmtDt(item.cancellation_requested_at, "datetime") || "—"}</div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => run(async () => {
+                        await requestCustomerCancellation(item.customer_id);
+                        return "Richiesta disdetta registrata";
+                      })}
+                      disabled={busy || !canCancel}
+                      style={{ ...(canCancel && !busy ? btn : btnDisabled), marginTop: 6 }}
+                    >
+                      Richiedi disdetta
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, alignItems: "center" }}>
+                  <button
+                    onClick={async () => {
+                      setBusy(true);
+                      setActionMsg(null);
+                      try {
+                        await activateCustomerSubscription(item.customer_id);
+                        setItem((prev) => prev ? {
+                          ...prev,
+                          subscription_status: "active",
+                          subscription_cancel_at_period_end: false,
+                        } : prev);
+                        setActionMsg({ type: "ok", text: `Abbonamento attivato per ${item.company_name}` });
+                        load();
+                      } catch (err) {
+                        setActionMsg({ type: "err", text: err instanceof Error ? err.message : "Errore" });
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}
+                    disabled={busy || !canActivateSub}
+                    style={canActivateSub && !busy ? btnPrimary : btnDisabled}
+                  >
+                    Attiva abbonamento
+                  </button>
+                  <button
+                    onClick={() => { setForceModal(true); setForceConfirmed(false); setForceText(""); }}
+                    disabled={busy || item.subscription_status === "active"}
+                    style={{ ...btn, fontSize: 11, color: "#b45309", borderColor: "#fcd34d" }}
+                  >
+                    Override
+                  </button>
+                  {!canActivateSub && (
+                    <span style={{ fontSize: 10, color: "#9ca3af" }}>
+                      Richiede dati validati e metodo pagamento
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
           </Section>
         </div>
 
@@ -430,9 +579,39 @@ export default function CustomerDetail() {
             <Row label="Richiesto il" value={fmtDt(item.setup_slot_requested_at, "datetime")} />
             <Row label="Confermato il" value={fmtDt(item.setup_slot_confirmed_at, "datetime")} />
             <Row label="Schedulato per" value={fmtDt(item.setup_slot_scheduled_for, "datetime")} />
+
+            <div style={inlineActionBox}>
+              <div style={inlineActionTitle}>Azione slot</div>
+              {slotAlreadyConfirmed ? (
+                <span style={{ fontSize: 12, color: "#16a34a", fontWeight: 700 }}>✓ Slot confermato</span>
+              ) : canShowConfirmSlot ? (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, alignItems: "center" }}>
+                  <input
+                    type="datetime-local"
+                    value={slotScheduled}
+                    onChange={(e) => setSlotScheduled(e.target.value)}
+                    style={inputStyle}
+                  />
+                  <button
+                    onClick={() => run(async () => {
+                      await confirmCustomerSlot(item.customer_id, slotScheduled);
+                      return `Slot confermato: ${slotScheduled}`;
+                    })}
+                    disabled={busy || !canConfirmSlot}
+                    style={canConfirmSlot && !busy ? btnPrimary : btnDisabled}
+                  >
+                    Conferma slot
+                  </button>
+                </div>
+              ) : item.setup_slot_preferred_date ? (
+                <span style={{ fontSize: 12, color: "#6b7280" }}>Preferenza ricevuta, in attesa conferma operatore</span>
+              ) : (
+                <span style={{ fontSize: 12, color: "#9ca3af" }}>Nessuna azione disponibile</span>
+              )}
+            </div>
           </Section>
 
-          <Section title="Release e delivery">
+          <Section title="Download e release">
             <Row
               label="Ultima release disponibile"
               value={
@@ -474,219 +653,36 @@ export default function CustomerDetail() {
             <Row label="Ultima scaricata" value={item.last_downloaded_release_version} />
             <Row label="Ultimo download il" value={fmtDt(item.last_downloaded_at, "datetime")} />
             <Row label="Bundle generato il" value={fmtDt(item.bundle_generated_at, "datetime")} />
-          </Section>
-        </div>
-      </div>
 
-      {/* ── operator actions ── */}
-      <div style={actionsPanel}>
-        <div style={actionsPanelTitle}>Azioni operative</div>
-        <div style={actionsGrid}>
-
-          {/* Slot */}
-          <ActionGroup emoji="📅" title="Slot setup">
-            {slotAlreadyConfirmed ? (
-              <span style={{ fontSize: 12, color: "#16a34a" }}>✓ Confermato — {fmtDt(item.setup_slot_scheduled_for, "datetime")}</span>
-            ) : item.onboarding_status === "slot_confirmed" ? (
-              <span style={{ fontSize: 11, color: "#6b7280" }}>Slot confermato, schedulazione in corso</span>
-            ) : canShowConfirmSlot ? (
-              <>
-                <input
-                  type="datetime-local"
-                  value={slotScheduled}
-                  onChange={(e) => setSlotScheduled(e.target.value)}
-                  style={inputStyle}
-                />
+            <div style={inlineActionBox}>
+              <div style={inlineActionTitle}>Azioni release</div>
+              {releaseAligned ? (
+                <span style={alignedBadge}>✓ Sistema aggiornato</span>
+              ) : (
                 <button
                   onClick={() => run(async () => {
-                    await confirmCustomerSlot(item.customer_id, slotScheduled);
-                    return `Slot confermato: ${slotScheduled}`;
+                    const res = await sendRelease(item.customer_id, LATEST_RELEASE);
+                    const label = DELIVERY_STATUS_LABELS[res.delivery_status] ?? res.delivery_status;
+                    return `Release ${res.assigned_release_version} inviata — delivery: ${label}`;
                   })}
-                  disabled={busy || !canConfirmSlot}
-                  style={canConfirmSlot && !busy ? btnPrimary : btnDisabled}
+                  disabled={busy}
+                  style={busy ? btnDisabled : btnPrimary}
                 >
-                  Conferma slot
+                  Invia release {LATEST_RELEASE}
                 </button>
-              </>
-            ) : item.setup_slot_preferred_date ? (
-              <span style={{ fontSize: 11, color: "#6b7280" }}>Preferenza: {item.setup_slot_preferred_date}</span>
-            ) : (
-              <span style={{ fontSize: 11, color: "#9ca3af" }}>—</span>
-            )}
-          </ActionGroup>
-
-          {/* Onboarding */}
-          <ActionGroup emoji="🔄" title="Avanzamento onboarding">
-            <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4 }}>
-              Stato attuale: {badge(item.onboarding_status)}
-            </div>
-            {(() => {
-              const waitingCustomerStatuses = ["draft", "signup_started", "checkout_started"];
-
-              if (waitingCustomerStatuses.includes(item.onboarding_status || "")) {
-                return (
-                  <span style={{ fontSize: 11, color: "#9ca3af" }}>
-                    In attesa azione cliente
-                  </span>
-                );
-              }
-
-              if (nextStatus) {
-                return (
-                  <button
-                    onClick={() => run(async () => {
-                      await updateCustomerOnboardingStatus(item.customer_id, nextStatus);
-                      return `Stato aggiornato: ${nextStatus}`;
-                    })}
-                    disabled={busy}
-                    style={busy ? btnDisabled : btn}
-                  >
-                    → {nextStatus}
-                  </button>
-                );
-              }
-
-              if (item.onboarding_status === "data_validated") {
-                return <span style={{ fontSize: 11, color: "#16a34a" }}>✓ Completato</span>;
-              }
-              return <span style={{ fontSize: 11, color: "#9ca3af" }}>Stato: {item.onboarding_status || "—"}</span>;
-            })()}
-          </ActionGroup>
-
-          {/* Subscription */}
-          <ActionGroup emoji="💳" title="Abbonamento">
-            {item.subscription_status === "active" ? (
-              <span style={{ fontSize: 12, color: "#16a34a" }}>✓ Abbonamento attivo</span>
-            ) : (
-              <>
-                <button
-                  onClick={async () => {
-                    setBusy(true);
-                    setActionMsg(null);
-                    try {
-                      await activateCustomerSubscription(item.customer_id);
-                      setItem((prev) => prev ? {
-                        ...prev,
-                        subscription_status: "active",
-                        subscription_cancel_at_period_end: false,
-                      } : prev);
-                      setActionMsg({ type: "ok", text: `Abbonamento attivato per ${item.company_name}` });
-                      load();
-                    } catch (err) {
-                      setActionMsg({ type: "err", text: err instanceof Error ? err.message : "Errore" });
-                    } finally {
-                      setBusy(false);
-                    }
-                  }}
-                  disabled={busy || !canActivateSub}
-                  style={canActivateSub && !busy ? btnPrimary : btnDisabled}
-                >
-                  Attiva abbonamento
-                </button>
-                {!canActivateSub && (
-                  <span style={{ fontSize: 10, color: "#9ca3af" }}>
-                    Richiede validazione dati e metodo di pagamento
-                  </span>
-                )}
-                <button
-                  onClick={() => { setForceModal(true); setForceConfirmed(false); setForceText(""); }}
-                  disabled={busy || item.subscription_status === "active"}
-                  style={{ ...btn, fontSize: 11, color: "#b45309", borderColor: "#fcd34d", marginTop: 2 }}
-                >
-                  Attiva abbonamento (override)
-                </button>
-              </>
-            )}
-          </ActionGroup>
-
-          {/* Delivery */}
-          <ActionGroup emoji="📦" title="Delivery">
-            <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 10, rowGap: 3, fontSize: 11, marginBottom: 6 }}>
-              <span style={{ color: "#9ca3af" }}>Target</span>
-              <strong style={{ color: "#111827" }}>{LATEST_RELEASE}</strong>
-              <span style={{ color: "#9ca3af" }}>Assegnata</span>
-              <strong style={{ color: "#111827" }}>{item.assigned_release_version || "—"}</strong>
-              <span style={{ color: "#9ca3af" }}>Installata</span>
-              <strong style={{ color: "#111827" }}>{item.installed_release_version || "—"}</strong>
-              {item.delivery_status && (
-                <>
-                  <span style={{ color: "#9ca3af" }}>Stato</span>
-                  <span style={{
-                    fontWeight: 700,
-                    color: item.delivery_status === "installed" ? "#166534"
-                         : item.delivery_status === "failed" ? "#991b1b"
-                         : item.delivery_status === "sent" ? "#1e40af"
-                         : "#374151",
-                  }}>
-                    {DELIVERY_STATUS_LABELS[item.delivery_status] ?? item.delivery_status}
-                  </span>
-                </>
               )}
-            </div>
-            {releaseAligned ? (
-              <span style={alignedBadge}>✓ Sistema aggiornato</span>
-            ) : (
               <button
                 onClick={() => run(async () => {
-                  const res = await sendRelease(item.customer_id, LATEST_RELEASE);
-                  const label = DELIVERY_STATUS_LABELS[res.delivery_status] ?? res.delivery_status;
-                  return `Release ${res.assigned_release_version} inviata — delivery: ${label}`;
+                  const res = await markDeliverySent(item.customer_id);
+                  return `Bundle marcato come inviato (${res.bundle_sent_at || "—"})`;
                 })}
-                disabled={busy}
-                style={busy ? btnDisabled : btnPrimary}
+                disabled={busy || !item.bundle_generated_at}
+                style={{ ...(busy || !item.bundle_generated_at ? btnDisabled : btn), marginTop: 6 }}
               >
-                Invia release {LATEST_RELEASE}
+                Segna bundle come inviato
               </button>
-            )}
-            <button
-              onClick={() => run(async () => {
-                const res = await markDeliverySent(item.customer_id);
-                return `Bundle marcato come inviato (${res.bundle_sent_at || "—"})`;
-              })}
-              disabled={busy || !item.bundle_generated_at}
-              style={{ ...(busy || !item.bundle_generated_at ? btnDisabled : btn), marginTop: 6 }}
-            >
-              Segna come inviato
-            </button>
-          </ActionGroup>
-
-          {/* Disdetta */}
-          <ActionGroup emoji="🚫" title="Gestione disdetta">
-            {item.cancellation_requested ? (
-              <>
-                <div style={{ background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 5, padding: "6px 10px", fontSize: 11 }}>
-                  <div style={{ fontWeight: 700, color: "#92400e" }}>Disdetta richiesta</div>
-                  <div style={{ color: "#b45309", marginTop: 2 }}>{fmtDt(item.cancellation_requested_at, "datetime") || "—"}</div>
-                </div>
-                <span style={{ fontSize: 10, color: "#9ca3af" }}>In attesa gestione amministrativa</span>
-                <button disabled style={btnDisabled}>Richiedi disdetta</button>
-              </>
-            ) : (() => {
-              const canCancel = ["active", "trialing", "past_due", "incomplete"].includes(
-                (item.subscription_status || "").toLowerCase(),
-              );
-              return (
-                <>
-                  <button
-                    onClick={() => run(async () => {
-                      await requestCustomerCancellation(item.customer_id);
-                      return "Richiesta registrata — in attesa gestione amministrativa";
-                    })}
-                    disabled={busy || !canCancel}
-                    style={canCancel && !busy ? btn : btnDisabled}
-                  >
-                    Richiedi disdetta
-                  </button>
-                  {!canCancel && (
-                    <span style={{ fontSize: 10, color: "#9ca3af" }}>
-                      Solo per abbonamenti attivi / in scadenza
-                    </span>
-                  )}
-                </>
-              );
-            })()}
-          </ActionGroup>
-
+            </div>
+          </Section>
         </div>
       </div>
 
@@ -782,6 +778,45 @@ function BackLink() {
 }
 
 // ── styles ────────────────────────────────────────────────────────────────────
+
+const nextActionBox: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 16,
+  alignItems: "center",
+  background: "#eff6ff",
+  border: "1px solid #bfdbfe",
+  borderRadius: 12,
+  padding: "14px 18px",
+  marginBottom: 18,
+};
+
+const nextActionBadge: React.CSSProperties = {
+  display: "inline-block",
+  fontSize: 12,
+  fontWeight: 700,
+  color: "#1e40af",
+  background: "#dbeafe",
+  border: "1px solid #93c5fd",
+  borderRadius: 999,
+  padding: "5px 10px",
+};
+
+const inlineActionBox: React.CSSProperties = {
+  gridColumn: "1 / -1",
+  borderTop: "1px solid #e5e7eb",
+  marginTop: 4,
+  paddingTop: 10,
+};
+
+const inlineActionTitle: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 900,
+  color: "#6b7280",
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+  marginBottom: 6,
+};
 
 const processChecklistBox: React.CSSProperties = {
   background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)",
