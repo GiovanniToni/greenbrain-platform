@@ -308,8 +308,7 @@ export default function CustomerDetail() {
         </div>
       </div>
 
-      {/* ── onboarding stepper ── */}
-      <OnboardingStepper item={item} />
+      {/* ── checklist processo in evidenza ── */}
 
       {/* ── action feedback ── */}
       {actionMsg && (
@@ -317,6 +316,61 @@ export default function CustomerDetail() {
           {actionMsg.type === "ok" ? "✓ " : "✗ "}{actionMsg.text}
         </div>
       )}
+
+      {/* ── operator process checklist ── */}
+      <div style={processChecklistBox}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", marginBottom: 14 }}>
+          <div>
+            <div style={processChecklistTitle}>Checklist processo cliente</div>
+            <div style={{ fontSize: 12, color: "#6b7280", marginTop: 3 }}>
+              Stato operativo del percorso: registrazione, pagamento, setup, download, validazione e abbonamento.
+            </div>
+          </div>
+          {badge(item.onboarding_status)}
+        </div>
+
+        <div style={processChecklistGrid}>
+          {([
+            { done: Boolean(item.created_at), label: "Account creato", detail: fmtDt(item.created_at, "datetime") },
+            { done: Boolean(item.payment_method_saved), label: "Pagamento salvato", detail: item.payment_method_saved ? `${item.payment_method_brand?.toUpperCase() || "Carta"} ••••${item.payment_method_last4 || ""}` : null },
+            { done: Boolean(item.setup_slot_requested_at), label: "Slot richiesto", detail: fmtDt(item.setup_slot_requested_at, "datetime") },
+            { done: Boolean(item.setup_slot_confirmed_at || item.setup_slot_scheduled_for), label: "Slot confermato", detail: fmtDt(item.setup_slot_scheduled_for || item.setup_slot_confirmed_at, "datetime") },
+            { done: Boolean(item.last_downloaded_at), label: "Bundle scaricato", detail: item.last_downloaded_at ? `${item.last_downloaded_release_version || "—"} · ${fmtDt(item.last_downloaded_at, "datetime")}` : null },
+            { done: effectiveInstallStatus === "installed", label: "Installazione completata", detail: effectiveInstallStatus || null },
+            { done: Boolean(item.data_validated_at), label: "Dati validati", detail: fmtDt(item.data_validated_at, "datetime") },
+            { done: (item.subscription_status || "").toLowerCase() === "active", label: "Abbonamento attivo", detail: item.subscription_activated_at ? fmtDt(item.subscription_activated_at, "datetime") : item.subscription_status },
+          ] as { done: boolean; label: string; detail: React.ReactNode }[]).map(({ done, label, detail }, i) => (
+            <div key={i} style={processChecklistItem}>
+              <div style={{
+                width: 24,
+                height: 24,
+                borderRadius: "50%",
+                flexShrink: 0,
+                background: done ? "#dcfce7" : "#f9fafb",
+                border: `2px solid ${done ? "#86efac" : "#e5e7eb"}`,
+                color: done ? "#16a34a" : "#9ca3af",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: 900,
+                fontSize: 12,
+              }}>
+                {done ? "✓" : i + 1}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: done ? "#166534" : "#374151" }}>
+                  {label}
+                </div>
+                {detail && (
+                  <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2, wordBreak: "break-word" as const }}>
+                    {detail}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* ── info grid (2 col) ── */}
       <div style={infoGrid}>
@@ -378,14 +432,6 @@ export default function CustomerDetail() {
             <Row label="Schedulato per" value={fmtDt(item.setup_slot_scheduled_for, "datetime")} />
           </Section>
 
-          <Section title="Onboarding e validazione">
-            <Row label="Stato" value={badge(item.onboarding_status)} />
-            <Row label="Install status" value={badge(effectiveInstallStatus)} />
-            <Row label="Delivery install status" value={badge(item.delivery_install_status)} />
-            <Row label="DB integration" value={badge(effectiveDbIntegrationStatus)} />
-            <Row label="Dati validati il" value={fmtDt(item.data_validated_at)} />
-          </Section>
-
           <Section title="Release e delivery">
             <Row
               label="Ultima release disponibile"
@@ -423,43 +469,12 @@ export default function CustomerDetail() {
                 }
               />
             )}
-            <Row label="Release delivery" value={item.delivery_assigned_release_version} />
-            <Row label="Release installata" value={effectiveInstalledRelease} />
             <Row label="Prima scaricata" value={item.first_downloaded_release_version} />
             <Row label="Primo download il" value={fmtDt(item.first_downloaded_at, "datetime")} />
             <Row label="Ultima scaricata" value={item.last_downloaded_release_version} />
             <Row label="Ultimo download il" value={fmtDt(item.last_downloaded_at, "datetime")} />
             <Row label="Bundle generato il" value={fmtDt(item.bundle_generated_at, "datetime")} />
-            <Row label="Bundle inviato il" value={fmtDt(item.bundle_sent_at, "datetime")} />
-            <Row label="Bundle path" value={item.bundle_local_path ? <code style={{ fontSize: 10, wordBreak: "break-all" as const }}>{item.bundle_local_path}</code> : null} />
-            <Row label="Go-live il" value={fmtDt(item.go_live_at, "datetime")} />
           </Section>
-        </div>
-      </div>
-
-      {/* ── operator process checklist ── */}
-      <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "14px 20px", marginBottom: 20 }}>
-        <div style={{ fontSize: 11, fontWeight: 800, color: "#374151", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 10 }}>
-          Checklist processo
-        </div>
-        <div style={{ display: "flex", flexWrap: "wrap" as const, gap: "8px 24px" }}>
-          {([
-            { done: Boolean(item.payment_method_saved),                                               label: "Pagamento salvato" },
-            { done: Boolean(item.setup_slot_requested_at),                                            label: "Slot richiesto" },
-            { done: Boolean(item.setup_slot_confirmed_at || item.setup_slot_scheduled_for),           label: "Slot confermato" },
-            { done: Boolean(item.last_downloaded_at),                                                 label: "Bundle scaricato" },
-            { done: Boolean(item.data_validated_at),                                                  label: "Dati validati" },
-            { done: (item.subscription_status || "").toLowerCase() === "active",                      label: "Abbonamento attivo" },
-          ] as { done: boolean; label: string }[]).map(({ done, label }, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12 }}>
-              <span style={{ color: done ? "#16a34a" : "#d1d5db", fontWeight: 800, fontSize: 13 }}>
-                {done ? "✓" : "○"}
-              </span>
-              <span style={{ color: done ? "#166534" : "#9ca3af", fontWeight: done ? 600 : 400 }}>
-                {label}
-              </span>
-            </div>
-          ))}
         </div>
       </div>
 
@@ -767,6 +782,40 @@ function BackLink() {
 }
 
 // ── styles ────────────────────────────────────────────────────────────────────
+
+const processChecklistBox: React.CSSProperties = {
+  background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)",
+  border: "1px solid #dbeafe",
+  borderRadius: 12,
+  padding: "18px 22px",
+  marginBottom: 20,
+  boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
+};
+
+const processChecklistTitle: React.CSSProperties = {
+  fontSize: 13,
+  fontWeight: 900,
+  color: "#111827",
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+};
+
+const processChecklistGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  gap: 12,
+};
+
+const processChecklistItem: React.CSSProperties = {
+  display: "flex",
+  gap: 9,
+  alignItems: "flex-start",
+  background: "white",
+  border: "1px solid #e5e7eb",
+  borderRadius: 10,
+  padding: "10px 12px",
+  minHeight: 58,
+};
 
 const page: React.CSSProperties = {
   padding: 24,
