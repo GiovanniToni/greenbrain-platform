@@ -243,6 +243,16 @@ export default function CustomerDetail() {
       ? "scheduled"
       : item.install_status;
 
+  const installationProcessStatus = item.data_validated_at
+    ? "completed"
+    : item.onboarding_status === "setup_in_progress"
+    ? "in progress"
+    : slotAlreadyConfirmed
+    ? "scheduled"
+    : null;
+
+  const installationProcessDone = Boolean(installationProcessStatus);
+
   const effectiveInstalledRelease =
     item.installed_release_version ||
     (item.delivery_install_status === "installed"
@@ -339,7 +349,7 @@ export default function CustomerDetail() {
             { done: Boolean(item.setup_slot_requested_at), label: "Slot richiesto", detail: fmtDt(item.setup_slot_requested_at, "datetime") },
             { done: Boolean(item.setup_slot_confirmed_at || item.setup_slot_scheduled_for), label: "Slot confermato", detail: fmtDt(item.setup_slot_scheduled_for || item.setup_slot_confirmed_at, "datetime") },
             { done: Boolean(item.last_downloaded_at), label: "Bundle scaricato", detail: item.last_downloaded_at ? `${item.last_downloaded_release_version || "—"} · ${fmtDt(item.last_downloaded_at, "datetime")}` : null },
-            { done: effectiveInstallStatus === "installed", label: "Installazione completata", detail: effectiveInstallStatus || null },
+            { done: installationProcessDone, label: "Installazione", detail: installationProcessStatus },
             { done: Boolean(item.data_validated_at), label: "Dati validati", detail: fmtDt(item.data_validated_at, "datetime") },
             { done: (item.subscription_status || "").toLowerCase() === "active", label: "Abbonamento attivo", detail: item.subscription_activated_at ? fmtDt(item.subscription_activated_at, "datetime") : item.subscription_status },
           ] as { done: boolean; label: string; detail: React.ReactNode }[]).map(({ done, label, detail }, i) => (
@@ -394,9 +404,7 @@ export default function CustomerDetail() {
               ? "Monitorare abbonamento e servizio attivo"
               : "Processo cliente sotto controllo"}
           </div>
-          <div style={{ fontSize: 12, color: "#6b7280", marginTop: 3 }}>
-            Le azioni principali ora sono integrate direttamente nelle card operative sottostanti.
-          </div>
+
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, alignItems: "center" }}>
           {canShowConfirmSlot && (
@@ -654,34 +662,6 @@ export default function CustomerDetail() {
             <Row label="Ultimo download il" value={fmtDt(item.last_downloaded_at, "datetime")} />
             <Row label="Bundle generato il" value={fmtDt(item.bundle_generated_at, "datetime")} />
 
-            <div style={inlineActionBox}>
-              <div style={inlineActionTitle}>Azioni release</div>
-              {releaseAligned ? (
-                <span style={alignedBadge}>✓ Sistema aggiornato</span>
-              ) : (
-                <button
-                  onClick={() => run(async () => {
-                    const res = await sendRelease(item.customer_id, LATEST_RELEASE);
-                    const label = DELIVERY_STATUS_LABELS[res.delivery_status] ?? res.delivery_status;
-                    return `Release ${res.assigned_release_version} inviata — delivery: ${label}`;
-                  })}
-                  disabled={busy}
-                  style={busy ? btnDisabled : btnPrimary}
-                >
-                  Invia release {LATEST_RELEASE}
-                </button>
-              )}
-              <button
-                onClick={() => run(async () => {
-                  const res = await markDeliverySent(item.customer_id);
-                  return `Bundle marcato come inviato (${res.bundle_sent_at || "—"})`;
-                })}
-                disabled={busy || !item.bundle_generated_at}
-                style={{ ...(busy || !item.bundle_generated_at ? btnDisabled : btn), marginTop: 6 }}
-              >
-                Segna bundle come inviato
-              </button>
-            </div>
           </Section>
         </div>
       </div>
