@@ -45,41 +45,49 @@ export default function CustomerOpsConsolePage() {
     : [];
 
   return (
-    <div className="max-w-4xl">
-      <div className="mb-6">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-            <Terminal className="w-5 h-5 text-primary" />
+    <div className="max-w-6xl mx-auto">
+      <div className="mb-8 rounded-2xl border bg-white p-6 shadow-sm">
+        <div className="flex items-start justify-between gap-6 flex-wrap">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center shrink-0">
+              <Terminal className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold leading-tight">Console operativa GreenBrain</h1>
+              <p className="text-muted-foreground text-sm mt-2 max-w-2xl">
+                Centro di controllo interno per clienti, onboarding, pagamenti, slot setup, delivery e accesso alla piattaforma.
+              </p>
+            </div>
           </div>
-          <h1 className="text-2xl font-bold">Console operativa GreenBrain</h1>
+
+          <div className="text-xs text-muted-foreground bg-muted/40 border rounded-full px-3 py-1">
+            Area team interno
+          </div>
         </div>
-        <p className="text-muted-foreground text-sm">
-          Area riservata al team GreenBrain. Gestisci clienti, provisioning, delivery e la piattaforma interna.
-        </p>
       </div>
 
       {/* live KPI strip */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">KPI in tempo reale</span>
-          {loadingKpis && <RefreshCw className="w-3 h-3 animate-spin text-muted-foreground" />}
+      <div className="mb-8 rounded-2xl border bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">KPI operativi in tempo reale</span>
+          {loadingKpis && <RefreshCw className="w-4 h-4 animate-spin text-muted-foreground" />}
         </div>
         {loadingKpis && !kpis ? (
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="bg-muted/30 border border-dashed rounded-lg p-2.5 h-14 animate-pulse" />
+              <div key={i} className="bg-muted/30 border border-dashed rounded-xl p-4 h-20 animate-pulse" />
             ))}
           </div>
         ) : kpis ? (
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
             {kpiItems.map(({ label, value, color, alert }) => (
               <div
                 key={label}
-                className="border rounded-lg p-2.5 text-center"
+                className="border rounded-xl p-4 text-center"
                 style={{ background: alert && value > 0 ? `${color}10` : "#fafafa", borderColor: alert && value > 0 ? `${color}40` : undefined }}
               >
-                <div style={{ fontSize: 26, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
-                <div className="text-xs text-muted-foreground mt-1 leading-tight" style={{ fontSize: 10 }}>{label}</div>
+                <div style={{ fontSize: 30, fontWeight: 850, color, lineHeight: 1 }}>{value}</div>
+                <div className="text-xs text-muted-foreground mt-2 leading-tight">{label}</div>
               </div>
             ))}
           </div>
@@ -89,49 +97,59 @@ export default function CustomerOpsConsolePage() {
       </div>
 
       {/* main entry cards */}
-      <div className="grid sm:grid-cols-2 gap-4">
+      <div className="grid lg:grid-cols-2 gap-5">
         <Link to="/customers">
-          <Card className="p-6 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer h-full group border-primary/20">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                <Users className="w-5 h-5 text-primary" />
+          <Card className="p-7 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer h-full group border-primary/20">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                  <Users className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h2 className="font-semibold text-xl leading-tight">Gestisci clienti</h2>
+                  {kpis && <p className="text-xs text-muted-foreground mt-1">{kpis.total} clienti · {kpis.active} attivi</p>}
+                </div>
               </div>
-              <div>
-                <h2 className="font-semibold text-lg leading-tight">Gestisci clienti</h2>
-                {kpis && <p className="text-xs text-muted-foreground">{kpis.total} clienti · {kpis.active} attivi</p>}
-              </div>
+              <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">Ops</span>
             </div>
-            <p className="text-sm text-muted-foreground">
-              Onboarding, slot setup, delivery, abbonamenti e disdette.
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Vista operativa per onboarding, slot setup, pagamento, abbonamento, delivery, download e disdette.
             </p>
-            {kpis && (kpis.slotPending > 0 || kpis.dataValidation > 0 || kpis.deliveryPending > 0) && (
-              <div className="flex gap-2 mt-3 flex-wrap">
+            {kpis && (kpis.slotPending > 0 || kpis.dataValidation > 0 || kpis.deliveryPending > 0 || kpis.noPayment > 0) && (
+              <div className="flex gap-2 mt-4 flex-wrap">
                 {kpis.slotPending > 0 && <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">{kpis.slotPending} slot</span>}
                 {kpis.dataValidation > 0 && <span className="text-xs px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200">{kpis.dataValidation} validazioni</span>}
                 {kpis.deliveryPending > 0 && <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">{kpis.deliveryPending} delivery</span>}
+                {kpis.noPayment > 0 && <span className="text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200">{kpis.noPayment} senza pagamento</span>}
               </div>
             )}
           </Card>
         </Link>
 
         <Link to="/dashboard">
-          <Card className="p-6 hover:border-primary/50 hover:shadow-sm transition-all cursor-pointer h-full">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-                <LayoutDashboard className="w-5 h-5 text-primary" />
+          <Card className="p-7 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer h-full">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center">
+                  <LayoutDashboard className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h2 className="font-semibold text-xl leading-tight">Piattaforma</h2>
+                  <p className="text-xs text-muted-foreground mt-1">Dashboard cliente / operativa</p>
+                </div>
               </div>
-              <h2 className="font-semibold text-lg">Piattaforma</h2>
+              <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground border">App</span>
             </div>
-            <p className="text-sm text-muted-foreground">
-              Accedi alla dashboard GreenBrain: forecast, analytics, pianificazione e fornitori.
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Accedi alla dashboard GreenBrain: forecast, analytics, pianificazione, riordino e fornitori.
             </p>
           </Card>
         </Link>
       </div>
 
-      <p className="text-xs text-muted-foreground mt-8">
+      <div className="mt-8 rounded-xl border bg-muted/30 p-4 text-xs text-muted-foreground">
         Quest&apos;area è riservata al team interno GreenBrain. Non condividere l&apos;accesso con i clienti.
-      </p>
+      </div>
     </div>
   );
 }
