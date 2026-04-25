@@ -767,8 +767,9 @@ const nextActionBox: React.CSSProperties = {
   background: "#eff6ff",
   border: "1px solid #bfdbfe",
   borderRadius: 12,
-  padding: "14px 18px",
+  padding: "16px 20px",
   marginBottom: 18,
+  boxShadow: "0 1px 2px rgba(30, 64, 175, 0.06)",
 };
 
 const nextActionBadge: React.CSSProperties = {
@@ -818,7 +819,7 @@ const processChecklistTitle: React.CSSProperties = {
 const processChecklistGrid: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-  gap: 12,
+  gap: 14,
 };
 
 const processChecklistItem: React.CSSProperties = {
@@ -833,8 +834,9 @@ const processChecklistItem: React.CSSProperties = {
 };
 
 const page: React.CSSProperties = {
-  padding: 24,
-  maxWidth: 920,
+  padding: "20px 28px 32px",
+  maxWidth: 1180,
+  margin: "0 auto",
   textAlign: "left",
 };
 
@@ -862,15 +864,16 @@ const tenantTag: React.CSSProperties = {
 const infoGrid: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
-  gap: 12,
+  gap: 16,
   marginBottom: 20,
 };
 
 const sectionBox: React.CSSProperties = {
-  background: "#f9fafb",
+  background: "#ffffff",
   border: "1px solid #e5e7eb",
-  borderRadius: 8,
-  padding: "14px 18px",
+  borderRadius: 12,
+  padding: "16px 20px",
+  boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
 };
 
 const sectionTitle: React.CSSProperties = {
