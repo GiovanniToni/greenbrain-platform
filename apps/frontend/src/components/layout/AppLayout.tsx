@@ -8,7 +8,9 @@ export function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
 
-  const hideSidebar = /^\/customers\/[^/]+$/.test(location.pathname);
+  const hideSidebar =
+    location.pathname === "/customers" ||
+    /^\/customers\/[^/]+$/.test(location.pathname);
 
   return (
     <div className="min-h-screen bg-background">
