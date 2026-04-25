@@ -345,18 +345,23 @@ export default function Customers() {
   const busy = (id: string) => busyCustomerId === id;
 
   return (
-    <div style={{ padding: 24, textAlign: "left" }}>
+    <div style={page}>
 
       {/* header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-        <h1 style={{ margin: 0 }}>Gestione clienti</h1>
-        <button onClick={load} disabled={loading} style={{ fontSize: 13 }}>
+      <div style={headerBox}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 850 }}>Gestione clienti</h1>
+          <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>
+            Monitoraggio operativo clienti, onboarding, pagamenti, slot e release.
+          </div>
+        </div>
+        <button onClick={load} disabled={loading} style={btn}>
           {loading ? "Caricamento..." : "↺ Ricarica"}
         </button>
       </div>
 
       {/* summary strip */}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+      <div style={summaryGrid}>
         {[
           { label: "Totale",            value: stats.total,                color: "#374151", alert: false },
           { label: "Attivi",            value: stats.active,               color: "#16a34a", alert: false },
@@ -380,8 +385,8 @@ export default function Customers() {
         ))}
       </div>
 
-      {/* search */}
-      <div style={{ marginBottom: 8 }}>
+      {/* search + quick filters */}
+      <div style={toolbarBox}>
         <input
           type="search"
           placeholder="Cerca per azienda, tenant, email..."
@@ -389,10 +394,8 @@ export default function Customers() {
           onChange={(e) => setSearch(e.target.value)}
           style={searchInput}
         />
-      </div>
 
-      {/* quick filters */}
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         {([
           { key: "tutti", label: "Tutti" },
           { key: "awaiting_payment", label: "In attesa pagamento" },
@@ -413,6 +416,7 @@ export default function Customers() {
             {f.label}
           </button>
         ))}
+        </div>
       </div>
 
       {/* error */}
@@ -430,7 +434,7 @@ export default function Customers() {
       )}
 
       {/* table */}
-      <div style={{ overflowX: "auto" }}>
+      <div style={tableCard}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
@@ -704,37 +708,84 @@ export default function Customers() {
   );
 }
 
-const statBox: React.CSSProperties = {
-  background: "#f9fafb",
+const page: React.CSSProperties = {
+  padding: "20px 28px 32px",
+  maxWidth: 1280,
+  margin: "0 auto",
+  textAlign: "left",
+};
+
+const headerBox: React.CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 16,
+  marginBottom: 18,
+  paddingBottom: 18,
+  borderBottom: "1px solid #e5e7eb",
+};
+
+const summaryGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(135px, 1fr))",
+  gap: 10,
+  marginBottom: 16,
+};
+
+const toolbarBox: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  flexWrap: "wrap",
+  background: "#ffffff",
   border: "1px solid #e5e7eb",
-  borderRadius: 8,
-  padding: "10px 16px",
+  borderRadius: 12,
+  padding: "12px 14px",
+  marginBottom: 16,
+  boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
+};
+
+const tableCard: React.CSSProperties = {
+  overflowX: "auto",
+  background: "#ffffff",
+  border: "1px solid #e5e7eb",
+  borderRadius: 12,
+  boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
+};
+
+const statBox: React.CSSProperties = {
+  background: "#ffffff",
+  border: "1px solid #e5e7eb",
+  borderRadius: 12,
+  padding: "12px 16px",
   textAlign: "center",
   minWidth: 105,
+  boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
 };
 
 const searchInput: React.CSSProperties = {
   width: "100%",
-  maxWidth: 420,
-  padding: "7px 12px",
+  maxWidth: 460,
+  padding: "8px 12px",
   border: "1px solid #e5e7eb",
   borderRadius: 8,
   fontSize: 14,
 };
 
 const th: React.CSSProperties = {
-  borderBottom: "2px solid #e5e7eb",
-  padding: "10px 12px",
+  borderBottom: "1px solid #e5e7eb",
+  padding: "12px 14px",
   textAlign: "left",
   fontSize: 12,
-  fontWeight: 700,
+  fontWeight: 800,
   color: "#374151",
-  background: "#f9fafb",
+  background: "#f8fafc",
 };
 
 const td: React.CSSProperties = {
   borderBottom: "1px solid #f3f4f6",
-  padding: "10px 12px",
+  padding: "12px 14px",
   verticalAlign: "top",
 };
 
