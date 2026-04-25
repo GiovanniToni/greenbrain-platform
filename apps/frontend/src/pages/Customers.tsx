@@ -473,17 +473,20 @@ export default function Customers() {
       {/* header */}
       <div style={headerBox}>
         <div>
-          <button onClick={() => navigate("/ops")} style={{ ...btn, marginBottom: 8 }}>
-            ← Torna alla console
-          </button>
           <h1 style={{ margin: 0, fontSize: 26, fontWeight: 850 }}>Gestione clienti</h1>
           <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>
             Monitoraggio operativo clienti, onboarding, pagamenti, slot e release.
           </div>
         </div>
-        <button onClick={load} disabled={loading} style={btn}>
-          {loading ? "Caricamento..." : "↺ Ricarica"}
-        </button>
+
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <button onClick={() => navigate("/ops")} style={btn}>
+            ← Torna alla console
+          </button>
+          <button onClick={load} disabled={loading} style={btn}>
+            {loading ? "Caricamento..." : "↺ Ricarica"}
+          </button>
+        </div>
       </div>
 
       {/* summary strip */}
