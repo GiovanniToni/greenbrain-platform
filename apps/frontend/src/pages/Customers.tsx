@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { LATEST_RELEASE, customerHealth } from "@/lib/opsConfig";
 import {
   assignRelease,
@@ -198,7 +198,55 @@ function deliveryStatusBadge(ds: string | null | undefined) {
   );
 }
 
+function customerPriorityScore(item: CustomerOpsItem): number {
+  const action = nextCustomerAction(item);
+
+  if (action.kind === "slot") return 1;
+  if (item.onboarding_status === "data_validation_pending") return 2;
+  if (!item.payment_method_saved) return 3;
+  if (action.kind === "subscription") return 4;
+  if ((item.last_downloaded_release_version || "") !== LATEST_RELEASE) return 5;
+  if (item.cancellation_requested) return 6;
+
+  return 20;
+}
+
+function releaseStatusBadge(item: CustomerOpsItem) {
+  if (!item.last_downloaded_release_version) {
+    return (
+      <span style={{ fontSize: 10, fontWeight: 700, color: "#6b7280", background: "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: 4, padding: "2px 7px" }}>
+        Mai scaricato
+      </span>
+    );
+  }
+
+  if (item.last_downloaded_release_version !== LATEST_RELEASE) {
+    return (
+      <span style={{ fontSize: 10, fontWeight: 700, color: "#92400e", background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 4, padding: "2px 7px" }}>
+        Da aggiornare
+      </span>
+    );
+  }
+
+  return (
+    <span style={{ fontSize: 10, fontWeight: 700, color: "#166534", background: "#dcfce7", border: "1px solid #86efac", borderRadius: 4, padding: "2px 7px" }}>
+      Aggiornato
+    </span>
+  );
+}
+
+function rowStyleForCustomer(item: CustomerOpsItem): React.CSSProperties {
+  const priority = customerPriorityScore(item);
+
+  if (priority === 1) return { background: "#fffbeb" };
+  if (priority === 2) return { background: "#faf5ff" };
+  if (priority === 3 || priority === 4) return { background: "#fef2f2" };
+
+  return {};
+}
+
 export default function Customers() {
+  const navigate = useNavigate();
   const [items, setItems] = useState<CustomerOpsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -244,9 +292,14 @@ export default function Customers() {
 
   const sortedItems = useMemo(
     () =>
-      [...items].sort((a, b) =>
-        (a.company_name || "").localeCompare(b.company_name || "", "it"),
-      ),
+      [...items].sort((a, b) => {
+        const pa = customerPriorityScore(a);
+        const pb = customerPriorityScore(b);
+
+        if (pa !== pb) return pa - pb;
+
+        return (a.company_name || "").localeCompare(b.company_name || "", "it");
+      }),
     [items],
   );
 
@@ -420,6 +473,9 @@ export default function Customers() {
       {/* header */}
       <div style={headerBox}>
         <div>
+          <button onClick={() => navigate("/ops")} style={{ ...btn, marginBottom: 8 }}>
+            ← Torna alla console
+          </button>
           <h1 style={{ margin: 0, fontSize: 26, fontWeight: 850 }}>Gestione clienti</h1>
           <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>
             Monitoraggio operativo clienti, onboarding, pagamenti, slot e release.
@@ -506,7 +562,7 @@ export default function Customers() {
       {/* table */}
       <div style={tableCard}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
+          <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
             <tr>
               <th style={th}>Cliente</th>
               <th style={th}>Processo</th>
@@ -518,7 +574,7 @@ export default function Customers() {
           </thead>
           <tbody>
             {filteredItems.map((item) => (
-              <tr key={item.customer_id}>
+              <tr key={item.customer_id} style={rowStyleForCustomer(item)}>
 
                 {/* Cliente */}
                 <td style={td}>
@@ -621,19 +677,9 @@ export default function Customers() {
                     <span style={{ color: "#6b7280" }}>Scaricata: </span>
                     <strong>{item.last_downloaded_release_version || "—"}</strong>
                   </div>
-                  {(item.last_downloaded_release_version || "") !== LATEST_RELEASE ? (
-                    <div style={{ marginTop: 5 }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: "#92400e", background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 4, padding: "2px 7px" }}>
-                        Da aggiornare
-                      </span>
-                    </div>
-                  ) : (
-                    <div style={{ marginTop: 5 }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: "#166534", background: "#dcfce7", border: "1px solid #86efac", borderRadius: 4, padding: "2px 7px" }}>
-                        Aggiornato
-                      </span>
-                    </div>
-                  )}
+                  <div style={{ marginTop: 5 }}>
+                    {releaseStatusBadge(item)}
+                  </div>
                   {item.last_downloaded_at && (
                     <div style={{ fontSize: 10, color: "#6b7280", marginTop: 4 }}>
                       Ultimo download: {fmtDt(item.last_downloaded_at)}
