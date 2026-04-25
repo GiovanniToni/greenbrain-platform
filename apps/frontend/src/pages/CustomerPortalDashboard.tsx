@@ -310,6 +310,15 @@ export default function CustomerPortalDashboard() {
     },
   ];
 
+  const compactSteps = [
+    { key: "payment", label: "Pagamento", done: Boolean(data?.payment_method_saved) },
+    { key: "slot", label: "Slot", done: Boolean(data?.setup_slot_requested_at) },
+    { key: "setup", label: "Setup", done: Boolean(data?.setup_slot_confirmed_at || data?.setup_slot_scheduled_for) },
+    { key: "data", label: "Dati", done: Boolean(data?.data_validated_at) },
+    { key: "subscription", label: "Abbonamento", done: data?.subscription_status === "active" },
+    { key: "download", label: "Download", done: Boolean(lastDownloadedAt) },
+  ];
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl space-y-5">
 
@@ -405,20 +414,20 @@ export default function CustomerPortalDashboard() {
 
             <div className="text-sm font-medium">
               {phase === "no_payment"
-                ? "Prossimo passo: salva il metodo di pagamento."
+                ? "Devi ancora iniziare: salva il metodo di pagamento."
                 : phase === "payment_saved"
-                ? "Prossimo passo: prenota la sessione di setup remoto."
+                ? "Quasi fatto: prenota la sessione di setup."
                 : phase === "slot_requested"
-                ? "Richiesta ricevuta: attendi la conferma del team GreenBrain."
+                ? "Perfetto: attendi la conferma del team."
                 : phase === "slot_confirmed"
-                ? "Setup confermato: preparati alla sessione con il team."
+                ? "Setup confermato: ti contatteremo all’orario previsto."
                 : phase === "setup_in_progress"
-                ? "Setup in corso: il team sta configurando il tuo ambiente."
+                ? "Stiamo configurando il tuo ambiente."
                 : phase === "data_validation_pending"
-                ? "Prossimo passo: verifica e conferma i dati importati."
+                ? "Ultimo passo: verifica e conferma i dati."
                 : phase === "active"
-                ? "Il servizio è attivo. Puoi scaricare o aggiornare il bundle quando disponibile."
-                : "Attivazione in corso: riceverai conferma a breve."}
+                ? "Tutto attivo. Puoi usare e aggiornare GreenBrain."
+                : "Attivazione in corso."}
             </div>
           </div>
 
@@ -449,6 +458,31 @@ export default function CustomerPortalDashboard() {
               {bundleSubtitle}
             </p>
           </div>
+        </div>
+      </Card>
+
+      {/* Progress compatto */}
+      <Card className="p-4">
+        <div className="flex items-center justify-between gap-3 overflow-x-auto">
+          {compactSteps.map((step, i) => (
+            <div key={step.key} className="flex items-center gap-2 min-w-fit">
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                step.done ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground"
+              }`}>
+                {step.done ? "✓" : i + 1}
+              </div>
+
+              <span className={`text-xs font-medium whitespace-nowrap ${
+                step.done ? "text-muted-foreground line-through" : ""
+              }`}>
+                {step.label}
+              </span>
+
+              {i < compactSteps.length - 1 && (
+                <div className="w-6 h-px bg-border" />
+              )}
+            </div>
+          ))}
         </div>
       </Card>
 
