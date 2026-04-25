@@ -311,7 +311,7 @@ export default function CustomerPortalDashboard() {
   ];
 
   return (
-    <div className="container mx-auto px-4 py-10 max-w-3xl space-y-5">
+    <div className="container mx-auto px-4 py-8 max-w-5xl space-y-5">
 
       {/* Banners */}
       {setupStatus === "success" && data?.payment_method_saved && !data?.setup_slot_requested_at && (
@@ -356,6 +356,98 @@ export default function CustomerPortalDashboard() {
           </div>
         </div>
       )}
+
+      {/* Hero / prossima azione */}
+      <Card className="p-6 border-primary/20 bg-gradient-to-br from-primary/5 to-background">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant={phase === "active" ? "default" : "secondary"}>
+                {phase === "active"
+                  ? "Servizio attivo"
+                  : phase === "no_payment"
+                  ? "Pagamento da salvare"
+                  : phase === "payment_saved"
+                  ? "Setup da prenotare"
+                  : phase === "slot_requested"
+                  ? "Slot richiesto"
+                  : phase === "slot_confirmed"
+                  ? "Setup confermato"
+                  : phase === "setup_in_progress"
+                  ? "Setup in corso"
+                  : phase === "data_validation_pending"
+                  ? "Dati da confermare"
+                  : "Attivazione in corso"}
+              </Badge>
+              {hasUpdateAvailable && (
+                <Badge variant="secondary" className="bg-amber-50 text-amber-800 border border-amber-200">
+                  Aggiornamento disponibile
+                </Badge>
+              )}
+              {data?.cancellation_requested && (
+                <Badge variant="secondary" className="bg-amber-50 text-amber-800 border border-amber-200">
+                  Rinnovo disattivato
+                </Badge>
+              )}
+            </div>
+
+            <div>
+              <h1 className="text-2xl font-bold leading-tight">
+                Ciao{data?.company_name ? `, ${data.company_name}` : ""}
+              </h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                Da qui puoi completare l’attivazione, prenotare il setup, scaricare GreenBrain e gestire il tuo abbonamento.
+              </p>
+            </div>
+
+            <div className="text-sm font-medium">
+              {phase === "no_payment"
+                ? "Prossimo passo: salva il metodo di pagamento."
+                : phase === "payment_saved"
+                ? "Prossimo passo: prenota la sessione di setup remoto."
+                : phase === "slot_requested"
+                ? "Richiesta ricevuta: attendi la conferma del team GreenBrain."
+                : phase === "slot_confirmed"
+                ? "Setup confermato: preparati alla sessione con il team."
+                : phase === "setup_in_progress"
+                ? "Setup in corso: il team sta configurando il tuo ambiente."
+                : phase === "data_validation_pending"
+                ? "Prossimo passo: verifica e conferma i dati importati."
+                : phase === "active"
+                ? "Il servizio è attivo. Puoi scaricare o aggiornare il bundle quando disponibile."
+                : "Attivazione in corso: riceverai conferma a breve."}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 min-w-full sm:min-w-[260px] lg:min-w-[280px]">
+            {phase === "no_payment" && (
+              <Button onClick={handleSavePaymentMethod}>
+                <CreditCard className="w-4 h-4 mr-2" />
+                Salva metodo di pagamento
+              </Button>
+            )}
+            {phase === "data_validation_pending" && (
+              <Button onClick={handleConfirmData} disabled={confirmDataBusy}>
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                {confirmDataBusy ? "Conferma in corso..." : "Conferma dati corretti"}
+              </Button>
+            )}
+            {(phase === "active" || bundleDownloadEnabled) && (
+              <Button
+                variant={bundleButtonIsPrimary ? "default" : "outline"}
+                onClick={handleDownloadBundle}
+                disabled={!bundleDownloadEnabled || downloading}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                {bundleButtonLabel}
+              </Button>
+            )}
+            <p className="text-xs text-muted-foreground text-center">
+              {bundleSubtitle}
+            </p>
+          </div>
+        </div>
+      </Card>
 
       {/* Account overview */}
       <Card className="p-6">
@@ -404,7 +496,7 @@ export default function CustomerPortalDashboard() {
               <CreditCard className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h2 className="font-semibold">Attivazione &amp; Onboarding</h2>
+              <h2 className="font-semibold">Percorso di attivazione</h2>
               <p className="text-xs text-muted-foreground">
                 {data?.onboarding_step ? `Step: ${data.onboarding_step}` : "Processo di attivazione guidato"}
               </p>
@@ -704,11 +796,16 @@ export default function CustomerPortalDashboard() {
 
       {/* Next steps */}
       <Card className="p-6">
-        <h2 className="font-semibold mb-5">Prossimi passi</h2>
+        <h2 className="font-semibold mb-1">Checklist di attivazione</h2>
+        <p className="text-xs text-muted-foreground mb-5">
+          Segui questi passaggi per completare l’avvio di GreenBrain.
+        </p>
         <ol className="space-y-4">
           {nextSteps.map(({ done, label, detail }, i) => (
             <li key={i} className="flex items-start gap-3">
-              <div className={`w-5 h-5 rounded-full flex-shrink-0 mt-0.5 border-2 ${done ? "bg-primary border-primary" : "border-border"}`} />
+              <div className={`w-6 h-6 rounded-full flex-shrink-0 mt-0.5 border-2 flex items-center justify-center text-[10px] font-bold ${done ? "bg-primary border-primary text-primary-foreground" : "border-border text-muted-foreground"}`}>
+                {done ? "✓" : i + 1}
+              </div>
               <div>
                 <p className={`text-sm font-medium leading-snug ${done ? "line-through text-muted-foreground" : ""}`}>
                   {label}
