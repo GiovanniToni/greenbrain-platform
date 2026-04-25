@@ -95,6 +95,76 @@ function PipelineBar({ item }: { item: CustomerOpsItem }) {
   );
 }
 
+function ProcessMiniChecklist({ item }: { item: CustomerOpsItem }) {
+  const slotDone = Boolean(item.setup_slot_confirmed_at || item.setup_slot_scheduled_for);
+  const installationStatus = item.data_validated_at
+    ? "completed"
+    : item.onboarding_status === "setup_in_progress"
+    ? "in progress"
+    : slotDone
+    ? "scheduled"
+    : null;
+
+  const steps = [
+    { label: "Pagamento", done: Boolean(item.payment_method_saved), detail: item.payment_method_saved ? "salvato" : null },
+    { label: "Slot", done: slotDone, detail: slotDone ? "confermato" : item.setup_slot_requested_at ? "richiesto" : null },
+    { label: "Download", done: Boolean(item.last_downloaded_at), detail: item.last_downloaded_release_version || null },
+    { label: "Installazione", done: Boolean(installationStatus), detail: installationStatus },
+    { label: "Validazione", done: Boolean(item.data_validated_at), detail: item.data_validated_at ? "ok" : null },
+    { label: "Abbonamento", done: (item.subscription_status || "").toLowerCase() === "active", detail: item.subscription_status || null },
+  ];
+
+  return (
+    <div style={miniChecklistGrid}>
+      {steps.map((step) => (
+        <div key={step.label} style={miniChecklistItem}>
+          <span style={{
+            color: step.done ? "#16a34a" : "#d1d5db",
+            fontWeight: 900,
+            fontSize: 12,
+            lineHeight: 1,
+          }}>
+            {step.done ? "✓" : "○"}
+          </span>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: step.done ? "#166534" : "#6b7280" }}>
+              {step.label}
+            </div>
+            {step.detail && (
+              <div style={{ fontSize: 9, color: "#9ca3af", marginTop: 1 }}>
+                {step.detail}
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function nextCustomerAction(item: CustomerOpsItem): { label: string; tone: "primary" | "neutral"; kind: "slot" | "status" | "subscription" | "detail"; nextStatus?: string } {
+  const slotConfirmed = Boolean(item.setup_slot_confirmed_at || item.setup_slot_scheduled_for);
+  const nextStatus = NEXT_ONBOARDING_STATUS[item.onboarding_status];
+
+  if (item.onboarding_status === "slot_requested" && !slotConfirmed) {
+    return { label: "Conferma slot", tone: "primary", kind: "slot" };
+  }
+
+  if (nextStatus) {
+    return { label: `Avanza a ${nextStatus}`, tone: "primary", kind: "status", nextStatus };
+  }
+
+  if (
+    item.onboarding_status === "data_validated" &&
+    item.payment_method_saved === true &&
+    (item.subscription_status || "").toLowerCase() !== "active"
+  ) {
+    return { label: "Attiva abbonamento", tone: "primary", kind: "subscription" };
+  }
+
+  return { label: "Apri dettaglio", tone: "neutral", kind: "detail" };
+}
+
 function fmtDt(iso: string | null | undefined, mode: "date" | "datetime" = "date") {
   if (!iso) return null;
   try {
@@ -439,11 +509,11 @@ export default function Customers() {
           <thead>
             <tr>
               <th style={th}>Cliente</th>
-              <th style={th}>Onboarding</th>
+              <th style={th}>Processo</th>
               <th style={th}>Slot</th>
               <th style={th}>Abbonamento</th>
-              <th style={th}>Release / Bundle</th>
-              <th style={th}>Azioni</th>
+              <th style={th}>Download / Release</th>
+              <th style={th}>Prossima azione</th>
             </tr>
           </thead>
           <tbody>
@@ -472,15 +542,9 @@ export default function Customers() {
                   })()}
                 </td>
 
-                {/* Onboarding */}
+                {/* Processo */}
                 <td style={td}>
-                  {statusBadge(item.onboarding_status)}
-                  <PipelineBar item={item} />
-                  {item.data_validated_at && (
-                    <div style={{ fontSize: 10, color: "#16a34a", marginTop: 4 }}>
-                      ✓ Validato: {fmtDt(item.data_validated_at)}
-                    </div>
-                  )}
+                  <ProcessMiniChecklist item={item} />
                 </td>
 
                 {/* Slot */}
@@ -530,6 +594,16 @@ export default function Customers() {
                   ) : (
                     <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 4 }}>Carta non salvata</div>
                   )}
+                  {item.subscription_current_period_end && item.subscription_cancel_at_period_end && (
+                    <div style={{ fontSize: 10, color: "#d97706", marginTop: 4 }}>
+                      Fino al: {fmtDt(item.subscription_current_period_end)}
+                    </div>
+                  )}
+                  {item.subscription_current_period_end && !item.subscription_cancel_at_period_end && (
+                    <div style={{ fontSize: 10, color: "#6b7280", marginTop: 4 }}>
+                      Prossimo addebito: {fmtDt(item.subscription_current_period_end)}
+                    </div>
+                  )}
                   {item.cancellation_requested && (
                     <div style={{ fontSize: 9, color: "#d97706", fontWeight: 700, marginTop: 4 }}>
                       ⚑ Disdetta richiesta
@@ -537,159 +611,90 @@ export default function Customers() {
                   )}
                 </td>
 
-                {/* Release / Bundle */}
+                {/* Download / Release */}
                 <td style={td}>
                   <div style={{ fontSize: 11, marginBottom: 2 }}>
-                    <span style={{ color: "#6b7280" }}>Assegnata: </span>
-                    <strong>{item.assigned_release_version || item.delivery_assigned_release_version || "—"}</strong>
+                    <span style={{ color: "#6b7280" }}>Disponibile: </span>
+                    <strong>{LATEST_RELEASE}</strong>
                   </div>
-                  {item.installed_release_version && (
-                    <div style={{ fontSize: 11 }}>
-                      <span style={{ color: "#6b7280" }}>Installata: </span>
-                      <strong>{item.installed_release_version}</strong>
+                  <div style={{ fontSize: 11 }}>
+                    <span style={{ color: "#6b7280" }}>Scaricata: </span>
+                    <strong>{item.last_downloaded_release_version || "—"}</strong>
+                  </div>
+                  {(item.last_downloaded_release_version || "") !== LATEST_RELEASE ? (
+                    <div style={{ marginTop: 5 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#92400e", background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 4, padding: "2px 7px" }}>
+                        Da aggiornare
+                      </span>
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: 5 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#166534", background: "#dcfce7", border: "1px solid #86efac", borderRadius: 4, padding: "2px 7px" }}>
+                        Aggiornato
+                      </span>
                     </div>
                   )}
-                  <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 2 }}>
-                    Target: {LATEST_RELEASE}
-                  </div>
-                  {item.bundle_generated_at && (
+                  {item.last_downloaded_at && (
                     <div style={{ fontSize: 10, color: "#6b7280", marginTop: 4 }}>
-                      Generato: {fmtDt(item.bundle_generated_at)}
-                    </div>
-                  )}
-                  {item.bundle_sent_at && (
-                    <div style={{ fontSize: 10, color: "#16a34a" }}>
-                      ✓ Inviato: {fmtDt(item.bundle_sent_at)}
-                    </div>
-                  )}
-                  {item.delivery_status && (
-                    <div style={{ marginTop: 4 }}>
-                      {deliveryStatusBadge(item.delivery_status)}
+                      Ultimo download: {fmtDt(item.last_downloaded_at)}
                     </div>
                   )}
                 </td>
 
-                {/* Azioni */}
+                {/* Prossima azione */}
                 <td style={td}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 230 }}>
-
-                    {/* Slot: confirm — only when slot_requested */}
-                    {item.onboarding_status === "slot_requested" && (
-                      <div style={actionGroup}>
-                        <div style={actionGroupLabel}>📅 Slot</div>
-                        <input
-                          type="datetime-local"
-                          value={slotScheduledByCustomer[item.customer_id] || ""}
-                          onChange={(e) =>
-                            setSlotScheduledByCustomer((prev) => ({ ...prev, [item.customer_id]: e.target.value }))
-                          }
-                          style={{ fontSize: 11 }}
-                        />
+                  {(() => {
+                    const action = nextCustomerAction(item);
+                    return (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 7, minWidth: 160 }}>
                         <button
-                          onClick={() => handleConfirmSlot(item.customer_id)}
-                          disabled={busy(item.customer_id) || !slotScheduledByCustomer[item.customer_id]}
-                          style={btnPrimary}
+                          onClick={() => {
+                            if (action.kind === "slot") return;
+                            if (action.kind === "status" && action.nextStatus) {
+                              handleUpdateStatus(item.customer_id, action.nextStatus);
+                              return;
+                            }
+                            if (action.kind === "subscription") {
+                              handleActivateSub(item.customer_id);
+                              return;
+                            }
+                            window.location.href = `/customers/${item.customer_id}`;
+                          }}
+                          disabled={busy(item.customer_id) || action.kind === "slot"}
+                          style={action.tone === "primary" && action.kind !== "slot" ? btnPrimary : btn}
                         >
-                          Conferma slot
+                          {action.label}
                         </button>
-                      </div>
-                    )}
 
-                    {/* Onboarding status — guided next step only */}
-                    <div style={actionGroup}>
-                      <div style={actionGroupLabel}>🔄 Onboarding</div>
-                      {(() => {
-                        const nextStatus = NEXT_ONBOARDING_STATUS[item.onboarding_status];
-                        const waitingCustomerStatuses = ["draft", "signup_started", "checkout_started"];
-
-                        if (waitingCustomerStatuses.includes(item.onboarding_status || "")) {
-                          return (
-                            <span style={{ fontSize: 11, color: "#9ca3af" }}>
-                              In attesa azione cliente
-                            </span>
-                          );
-                        }
-
-                        if (!nextStatus) {
-                          if (item.onboarding_status === "data_validated") {
-                            return <span style={{ fontSize: 11, color: "#16a34a" }}>✓ Completato</span>;
-                          }
-                          return <span style={{ fontSize: 11, color: "#9ca3af" }}>Stato: {item.onboarding_status || "—"}</span>;
-                        }
-
-                        return (
-                          <button
-                            onClick={() => handleUpdateStatus(item.customer_id, nextStatus)}
-                            disabled={busy(item.customer_id)}
-                            style={btn}
-                          >
-                            → {nextStatus}
-                          </button>
-                        );
-                      })()}
-                    </div>
-
-                    {/* Subscription */}
-                    <div style={actionGroup}>
-                      <div style={actionGroupLabel}>💳 Abbonamento</div>
-                      {item.subscription_status === "active" ? (
-                        <span style={{ fontSize: 11, color: "#16a34a" }}>✓ Attivo</span>
-                      ) : (() => {
-                        const canActivate =
-                          item.onboarding_status === "data_validated" &&
-                          item.payment_method_saved === true;
-                        return (
-                          <>
+                        {action.kind === "slot" && (
+                          <div style={actionGroup}>
+                            <input
+                              type="datetime-local"
+                              value={slotScheduledByCustomer[item.customer_id] || ""}
+                              onChange={(e) =>
+                                setSlotScheduledByCustomer((prev) => ({ ...prev, [item.customer_id]: e.target.value }))
+                              }
+                              style={{ fontSize: 11 }}
+                            />
                             <button
-                              onClick={() => handleActivateSub(item.customer_id)}
-                              disabled={busy(item.customer_id) || !canActivate}
-                              style={canActivate ? btnPrimary : btn}
-                            >
-                              Attiva abbonamento
-                            </button>
-                            {!canActivate && (
-                              <span style={{ fontSize: 10, color: "#9ca3af" }}>
-                                Richiede validazione dati e metodo di pagamento
-                              </span>
-                            )}
-                          </>
-                        );
-                      })()}
-                    </div>
-
-                    {/* Delivery */}
-                    {(() => {
-                      const isAligned = item.assigned_release_version === LATEST_RELEASE;
-                      return (
-                        <div style={actionGroup}>
-                          <div style={actionGroupLabel}>📦 Delivery</div>
-                          {isAligned ? (
-                            <span style={{ fontSize: 11, color: "#16a34a", fontWeight: 600 }}>✓ Sistema aggiornato</span>
-                          ) : (
-                            <button
-                              onClick={() => handleSendRelease(item.customer_id)}
-                              disabled={busy(item.customer_id)}
+                              onClick={() => handleConfirmSlot(item.customer_id)}
+                              disabled={busy(item.customer_id) || !slotScheduledByCustomer[item.customer_id]}
                               style={btnPrimary}
                             >
-                              Invia release {LATEST_RELEASE}
-                            </button>
-                          )}
-                          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 2 }}>
-                            <button onClick={() => handleAssignRelease(item.customer_id)} disabled={busy(item.customer_id)} style={btn}>
-                              Assign
-                            </button>
-                            <button onClick={() => handlePrepareDelivery(item.customer_id)} disabled={busy(item.customer_id)} style={btn}>
-                              Prepare
-                            </button>
-                            <button onClick={() => handleMarkSent(item.customer_id)} disabled={busy(item.customer_id)} style={btn}>
-                              Mark sent
+                              Conferma
                             </button>
                           </div>
-                        </div>
-                      );
-                    })()}
+                        )}
 
-                  </div>
+                        <Link
+                          to={`/customers/${item.customer_id}`}
+                          style={{ fontSize: 11, color: "#6b7280", textDecoration: "none" }}
+                        >
+                          Apri scheda →
+                        </Link>
+                      </div>
+                    );
+                  })()}
                 </td>
               </tr>
             ))}
@@ -707,6 +712,20 @@ export default function Customers() {
     </div>
   );
 }
+
+const miniChecklistGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: "5px 10px",
+  minWidth: 190,
+};
+
+const miniChecklistItem: React.CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: 5,
+  minWidth: 0,
+};
 
 const page: React.CSSProperties = {
   padding: "20px 28px 32px",
