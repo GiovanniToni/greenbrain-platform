@@ -393,10 +393,13 @@ export default function CustomerPortalDashboard() {
 
             <div>
               <h1 className="text-2xl font-bold leading-tight">
-                Ciao{data?.company_name ? `, ${data.company_name}` : ""}
+                Area cliente GreenBrain
               </h1>
               <p className="text-sm text-muted-foreground mt-1">
-                Da qui puoi completare l’attivazione, prenotare il setup, scaricare GreenBrain e gestire il tuo abbonamento.
+                {data?.company_name || "La tua azienda"}
+                {planLabel && planLabel !== "—" ? ` · ${planLabel}` : ""}
+                {planPrice ? ` ${planPrice}` : ""}
+                {data?.subscription_status ? ` · Abbonamento ${data.subscription_status}` : ""}
               </p>
             </div>
 
