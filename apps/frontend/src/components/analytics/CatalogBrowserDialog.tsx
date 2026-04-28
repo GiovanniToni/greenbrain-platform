@@ -251,14 +251,39 @@ export function CatalogBrowserDialog({ triggerLabel = "Sfoglia", onSelect }: Pro
 
   const rootFasce = childrenByPath["root:fasce"] ?? [];
 
-  const selectNode = (nodeType: CatalogNodeType, nodeKey: string, label: string) => {
+  const selectNode = (
+    nodeType: CatalogNodeType,
+    nodeKey: string,
+    label: string,
+    ctx?: { fascia?: string | null; categoria?: string | null; famiglia?: string | null; fascia_prezzo?: string | null },
+  ) => {
     if (nodeType === "articolo") return;
+
+    // Fascia prezzo NON è globale: in Analytics va sempre letta come filtro della famiglia.
+    if (nodeType === "fascia_prezzo" && ctx?.famiglia) {
+      onSelect({
+        entity_type: "famiglia",
+        entity_key: ctx.famiglia,
+        label: ctx.famiglia,
+        fascia: ctx.fascia ?? null,
+        categoria: ctx.categoria ?? null,
+        famiglia: ctx.famiglia ?? null,
+        fascia_prezzo: nodeKey,
+        fascia_prezzo_label: label,
+      } as any);
+
+      setOpen(false);
+      return;
+    }
 
     onSelect({
       entity_type: nodeType,
       entity_key: nodeKey,
       label,
-    });
+      fascia: ctx?.fascia ?? null,
+      categoria: ctx?.categoria ?? null,
+      famiglia: ctx?.famiglia ?? null,
+    } as any);
 
     setOpen(false);
   };
@@ -722,6 +747,7 @@ export function CatalogBrowserDialog({ triggerLabel = "Sfoglia", onSelect }: Pro
                                                                       "fascia_prezzo",
                                                                       fpNode.node_key,
                                                                       fpNode.label,
+                                                                      { fascia, categoria, famiglia, fascia_prezzo: fpNode.node_key },
                                                                     );
                                                                   }}
                                                                 >
