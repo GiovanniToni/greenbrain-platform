@@ -190,21 +190,56 @@ def get_range_totals(
     db: Session = Depends(get_db),
     _: dict = Depends(require_admin),
 ):
-    _resolve_entity(entity_type)
     try:
-        result = db.execute(
-            text("""
-                SELECT * FROM core_analytics__range_totals_v2(
-                    :p_entity_type, :p_entity_key, :p_date_from, :p_date_to
-                )
-            """),
-            {
-                "p_entity_type": entity_type,
-                "p_entity_key": entity_key,
-                "p_date_from": date_from,
-                "p_date_to": date_to,
-            },
-        )
+        if entity_type == "articolo":
+            result = db.execute(
+                text("""
+                    WITH days AS (
+                        SELECT generate_series(CAST(:p_date_from AS date), CAST(:p_date_to AS date), interval '1 day')::date AS data
+                    ),
+                    daily AS (
+                        SELECT
+                            d.data,
+                            COALESCE(a.qty, 0)::numeric AS qty,
+                            COALESCE(a.imponibile_netto, 0)::numeric AS imp
+                        FROM days d
+                        LEFT JOIN public.core_analytics__article_sales_daily a
+                          ON a.data = d.data
+                         AND a.codart = :p_entity_key
+                    )
+                    SELECT
+                        SUM(qty) AS qty_tot,
+                        SUM(imp) AS imp_tot,
+                        COUNT(*)::int AS days,
+                        COUNT(*) FILTER (WHERE qty > 0)::int AS active_days,
+                        COUNT(*) FILTER (WHERE qty = 0)::int AS zero_days,
+                        (SELECT data FROM daily ORDER BY qty ASC, data ASC LIMIT 1) AS min_day,
+                        MIN(qty) AS min_qty,
+                        (SELECT data FROM daily ORDER BY qty DESC, data ASC LIMIT 1) AS max_day,
+                        MAX(qty) AS max_qty
+                    FROM daily
+                """),
+                {
+                    "p_entity_key": entity_key.strip(),
+                    "p_date_from": date_from,
+                    "p_date_to": date_to,
+                },
+            )
+        else:
+            _resolve_entity(entity_type)
+            result = db.execute(
+                text("""
+                    SELECT * FROM core_analytics__range_totals_v2(
+                        :p_entity_type, :p_entity_key, :p_date_from, :p_date_to
+                    )
+                """),
+                {
+                    "p_entity_type": entity_type,
+                    "p_entity_key": entity_key,
+                    "p_date_from": date_from,
+                    "p_date_to": date_to,
+                },
+            )
         row = result.mappings().first()
         return dict(row) if row else {}
     except Exception as e:
@@ -223,6 +258,29 @@ def get_series_bounds(
     _: dict = Depends(require_admin),
 ):
     gran = _resolve_gran(granularity)
+
+    if entity_type == "articolo":
+        view_name = "public.core_analytics__article_sales_daily"
+        try:
+            result = db.execute(
+                text("""
+                    SELECT
+                        MIN(data) AS min_date,
+                        MAX(data) AS max_date,
+                        COUNT(*) AS total_rows
+                    FROM public.core_analytics__article_sales_daily
+                    WHERE codart = :entity_key
+                """),
+                {"entity_key": entity_key.strip() if entity_key else None},
+            )
+            row = result.mappings().first()
+            return {"view": view_name, **(dict(row) if row else {})}
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"series-bounds failed on '{view_name}': {str(e)}",
+            )
+
     _resolve_entity(entity_type)
     view_name = _series_view(gran, entity_type)
 
