@@ -3,12 +3,14 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from app.db.session import get_db
+from app.api.v1.auth import require_admin
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
 
 
 @router.get("/kpis")
-def get_dashboard_kpis(db: Session = Depends(get_db)):
+def get_dashboard_kpis(db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),):
     try:
         result = db.execute(text("SELECT * FROM dashboard__kpis_v2()"))
         row = result.mappings().first()
@@ -18,7 +20,8 @@ def get_dashboard_kpis(db: Session = Depends(get_db)):
 
 
 @router.get("/sales-weekly")
-def get_sales_weekly(db: Session = Depends(get_db)):
+def get_sales_weekly(db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),):
     try:
         result = db.execute(
             text("SELECT data, imp_tot FROM dashboard__sales_weekly ORDER BY data ASC")
@@ -30,7 +33,8 @@ def get_sales_weekly(db: Session = Depends(get_db)):
 
 
 @router.get("/sales-monthly")
-def get_sales_monthly(db: Session = Depends(get_db)):
+def get_sales_monthly(db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),):
     try:
         result = db.execute(
             text("SELECT data, imp_tot FROM dashboard__sales_monthly ORDER BY data ASC")
@@ -42,7 +46,8 @@ def get_sales_monthly(db: Session = Depends(get_db)):
 
 
 @router.get("/sales-yearly")
-def get_sales_yearly(db: Session = Depends(get_db)):
+def get_sales_yearly(db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),):
     try:
         result = db.execute(
             text("SELECT data, imp_tot FROM dashboard__sales_yearly ORDER BY data ASC")
@@ -57,6 +62,7 @@ def get_sales_yearly(db: Session = Depends(get_db)):
 def get_reorder_suggestions(
     limit: int = Query(default=12, ge=1, le=200),
     db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),
 ):
     try:
         result = db.execute(

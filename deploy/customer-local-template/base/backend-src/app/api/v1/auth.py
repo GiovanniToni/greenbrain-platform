@@ -18,6 +18,7 @@ from app.core.security import (
 from app.db.session import get_db
 from app.db.users import (
     count_users,
+    create_admin_user,
     create_user,
     get_user_by_email,
     update_last_login,
@@ -35,6 +36,12 @@ class LoginRequest(BaseModel):
 
 
 class SetupRequest(BaseModel):
+    email: str
+    password: str
+    full_name: str | None = None
+
+
+class AdminUserCreateRequest(BaseModel):
     email: str
     password: str
     full_name: str | None = None
@@ -111,6 +118,15 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
             headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user
+
+
+def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    if not user.get("is_admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
         )
     return user
 
@@ -245,6 +261,44 @@ def setup(body: SetupRequest, db: Session = Depends(get_db)):
         hashed_password=hash_password(body.password),
         full_name=body.full_name,
         is_admin=True,
+    )
+
+    return UserResponse(
+        id=str(user["id"]),
+        email=user["email"],
+        full_name=user.get("full_name"),
+        is_admin=bool(user["is_admin"]),
+        tenant_code=user.get("tenant_code"),
+        home_host=user.get("home_host"),
+        home_path=user.get("home_path"),
+        user_role=user.get("user_role"),
+    )
+
+
+@router.post("/admin-users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+def create_admin_user_route(
+    body: AdminUserCreateRequest,
+    _: dict = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    email = body.email.lower().strip()
+    if get_user_by_email(db, email):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="User already exists",
+        )
+
+    if len(body.password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters",
+        )
+
+    user = create_admin_user(
+        db,
+        email=email,
+        hashed_password=hash_password(body.password),
+        full_name=body.full_name,
     )
 
     return UserResponse(

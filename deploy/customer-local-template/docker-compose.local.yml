@@ -13,12 +13,14 @@ services:
       - "55450:5432"
     volumes:
       - greenbrain_local_postgres_data:/var/lib/postgresql/data
-      - ../../../client-runtime/sql/init:/docker-entrypoint-initdb.d:ro
+      - ./base/client-runtime/sql/init:/docker-entrypoint-initdb.d:ro
 
   backend:
     build:
       context: ./base/backend-src
       dockerfile: Dockerfile
+    volumes:
+      - ../../releases/customer-local:/opt/greenbrain-platform/releases/customer-local:ro
     container_name: greenbrain_local_backend
     restart: unless-stopped
     env_file:

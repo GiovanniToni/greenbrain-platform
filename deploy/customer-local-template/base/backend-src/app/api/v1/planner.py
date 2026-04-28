@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from app.db.session import get_db
+from app.api.v1.auth import require_admin
 
 router = APIRouter(prefix="/api/v1/planner", tags=["planner"])
 
@@ -43,6 +44,7 @@ def get_order_suggestions(
     only_to_order: bool = Query(default=False, description="Return only rows with qty_da_ordinare > 0"),
     limit: int = Query(default=200, ge=1, le=1000),
     db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),
 ):
     try:
         base = "SELECT * FROM public.greenhouse_order_suggestions_enriched_v2"
@@ -70,6 +72,7 @@ def get_space_budget(
     mode: str = Query(..., description="week | roll4"),
     level: str = Query(..., description="famiglia | categoria | fascia"),
     db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),
 ):
     try:
         result = _rpc_jsonb(
@@ -84,7 +87,8 @@ def get_space_budget(
 
 
 @router.get("/current-week")
-def get_current_week(db: Session = Depends(get_db)):
+def get_current_week(db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),):
     try:
         result = _rpc_jsonb(db, "SELECT core_planner__get_current_week52() AS r", {})
         return result  # {"today": ..., "week_52": 12, "iso_year": ..., "week_start": ...}
@@ -97,6 +101,7 @@ def get_assortment_calendar(
     mode: str = Query(..., description="week | roll4"),
     level: str = Query(..., description="famiglia | categoria | fascia"),
     db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),
 ):
     try:
         result = _rpc_jsonb(
@@ -114,6 +119,7 @@ def get_assortment_calendar(
 def get_heatmap_nodes(
     mode: str = Query(..., description="week | roll4"),
     db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),
 ):
     try:
         result = _rpc_jsonb(
@@ -128,7 +134,8 @@ def get_heatmap_nodes(
 
 
 @router.post("/heatmap-week-ranges")
-def get_heatmap_week_ranges(body: NodeIdsBody, db: Session = Depends(get_db)):
+def get_heatmap_week_ranges(body: NodeIdsBody, db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),):
     if not body.node_ids:
         return {"count": 0, "items": []}
     try:
@@ -145,7 +152,8 @@ def get_heatmap_week_ranges(body: NodeIdsBody, db: Session = Depends(get_db)):
 
 
 @router.post("/heatmap-roll4-ranges")
-def get_heatmap_roll4_ranges(body: NodeIdsBody, db: Session = Depends(get_db)):
+def get_heatmap_roll4_ranges(body: NodeIdsBody, db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),):
     if not body.node_ids:
         return {"count": 0, "items": []}
     try:
@@ -162,7 +170,8 @@ def get_heatmap_roll4_ranges(body: NodeIdsBody, db: Session = Depends(get_db)):
 
 
 @router.post("/heatmap-cells")
-def get_heatmap_cells(body: HeatmapCellsBody, db: Session = Depends(get_db)):
+def get_heatmap_cells(body: HeatmapCellsBody, db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),):
     if not body.node_ids:
         return {"count": 0, "items": []}
     try:
@@ -185,6 +194,7 @@ def get_assortment_calendar_export(
     page: int = Query(default=0, ge=0),
     page_size: int = Query(default=8000, ge=1, le=20000),
     db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),
 ):
     try:
         offset = page * page_size
@@ -211,6 +221,7 @@ def get_heatmap_week_pivot(
     page: int = Query(default=0, ge=0),
     page_size: int = Query(default=1000, ge=1, le=5000),
     db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),
 ):
     allowed = {"avg_qty", "avg_rev", "share_rev", "stock_target", "space_m2"}
     if metric not in allowed:
@@ -232,6 +243,7 @@ def get_calendar_events(
     date_from: str = Query(..., description="YYYY-MM-DD start of range"),
     date_to: str = Query(..., description="YYYY-MM-DD end of range"),
     db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),
 ):
     logger = logging.getLogger(__name__)
     try:
@@ -262,6 +274,7 @@ def get_calendar_events(
 @router.get("/assortment")
 def get_assortment(
     db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),
 ):
     try:
         result = db.execute(

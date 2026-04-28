@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from app.db.session import get_db
+from app.api.v1.auth import require_admin
 
 router = APIRouter(prefix="/api/v1/analytics", tags=["analytics"])
 
@@ -85,6 +86,7 @@ def get_series(
     date_to: str = Query(...),
     fascia_prezzo: Optional[str] = Query(default=None, description="FP filter: routes to breakdown view with ILIKE"),
     db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),
 ):
     # ---- ARTICOLO: view dedicata, chiave = codart (non lowercased) ----
     if entity_type == "articolo":
@@ -152,6 +154,7 @@ def get_series_breakdown(
     date_from: str = Query(...),
     date_to: str = Query(...),
     db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),
 ):
     if entity_type not in BREAKDOWN_ENTITIES:
         raise HTTPException(
@@ -185,6 +188,7 @@ def get_range_totals(
     date_from: str = Query(...),
     date_to: str = Query(...),
     db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),
 ):
     _resolve_entity(entity_type)
     try:
@@ -216,6 +220,7 @@ def get_series_bounds(
     granularity: str = Query(default="day", description="day, week, month, year"),
     entity_key: str = Query(default=None, description="Optional: filter to a specific entity"),
     db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),
 ):
     gran = _resolve_gran(granularity)
     _resolve_entity(entity_type)
@@ -257,6 +262,7 @@ def get_series_bounds(
 def get_future_windows(
     famiglia: str = Query(default=None, description="Optional: filter by famiglia"),
     db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),
 ):
     try:
         if famiglia:
@@ -300,6 +306,7 @@ def get_compare_series(
     date_from: str = Query(...),
     date_to: str = Query(...),
     db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),
 ):
     col_map = {
         "famiglia": "famiglia",
@@ -342,6 +349,7 @@ def get_entity_summary(
     p_famiglia: Optional[str] = Query(default=None),
     p_fascia_prezzo: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),
 ):
     try:
         result = db.execute(
@@ -387,6 +395,7 @@ def get_components(
     entity_key: str = Query(...),
     limit: int = Query(default=5000, ge=1, le=10000),
     db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),
 ):
     col_map = {
         "famiglia": "famiglia",
@@ -421,6 +430,7 @@ def get_seasonality(
     entity_type: str = Query(..., description="famiglia, categoria, fascia, fascia_prezzo"),
     entity_key: str = Query(...),
     db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),
 ):
     _resolve_entity(entity_type)
     try:
@@ -447,6 +457,7 @@ def get_stock_and_reorder(
     entity_key: str = Query(...),
     fascia_prezzo: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),
 ):
     _resolve_entity(entity_type)
     try:
@@ -475,6 +486,7 @@ def get_future_windows_stats(
     anchor_to: str = Query(..., description="YYYY-MM-DD anchor date"),
     windows: List[int] = Query(default=[7, 14, 30, 60], description="Window sizes in days"),
     db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),
 ):
     _resolve_entity(entity_type)
     windows_pg = "{" + ",".join(str(w) for w in windows) + "}"
