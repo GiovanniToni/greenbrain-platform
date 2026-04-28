@@ -21,8 +21,10 @@ export function useAnalyticsStockAndReorder() {
     async (params: { entityType: string; entityKey: string; fasciaPrezzo?: string | null }) => {
       const { entityType, entityKey, fasciaPrezzo } = params;
 
-      if (!entityType || !entityKey) {
+      if (!entityType || !entityKey || entityType === "articolo") {
         setData(null);
+        setError(null);
+        setLoading(false);
         return;
       }
 

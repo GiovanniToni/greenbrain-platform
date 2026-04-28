@@ -22,8 +22,10 @@ export function useAnalyticsComponents() {
   const refetch = useCallback(async (params: ComponentsParams) => {
     const { entityType, entityKey } = params;
 
-    if (!entityType || !entityKey) {
+    if (!entityType || !entityKey || entityType === "articolo") {
       setRows([]);
+      setError(null);
+      setLoading(false);
       return;
     }
 
