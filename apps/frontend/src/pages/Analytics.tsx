@@ -532,8 +532,8 @@ export default function Analytics() {
           selectedRange={selectedRangeTotals}
           stockQty={stockAndReorder?.stockQty ?? null}
           reorderQty={selectedEntity.entity_type === "articolo" ? null : (stockAndReorder?.reorderQty ?? null)}
-          futureRows={futureRows || []}
-          futureLoading={futureLoading}
+          futureRows={selectedEntity.entity_type === "articolo" ? [] : (futureRows || [])}
+          futureLoading={selectedEntity.entity_type === "articolo" ? false : futureLoading}
           dateFrom={dateRange.from}
           dateTo={dateRange.to}
           loading={rollingLoading || stockLoading || futureLoading}
