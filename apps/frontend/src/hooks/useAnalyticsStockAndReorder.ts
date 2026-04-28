@@ -12,6 +12,12 @@ function n(v: any): number {
   return Number.isFinite(x) ? x : 0;
 }
 
+function normKey(v: any): string {
+  return String(v ?? "")
+    .trim()
+    .toLowerCase();
+}
+
 export function useAnalyticsStockAndReorder() {
   const [data, setData] = useState<StockAndReorder | null>(null);
   const [loading, setLoading] = useState(false);
@@ -34,7 +40,7 @@ export function useAnalyticsStockAndReorder() {
       try {
         const row = await apiGet("/api/v1/analytics/stock-and-reorder", {
           entity_type: entityType,
-          entity_key: entityKey,
+          entity_key: normKey(entityKey),
           ...(fasciaPrezzo != null && { fascia_prezzo: fasciaPrezzo }),
         });
 

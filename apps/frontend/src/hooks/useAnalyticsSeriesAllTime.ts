@@ -15,6 +15,12 @@ function isoDay(v: any) {
   return String(v ?? "").slice(0, 10);
 }
 
+function normKey(v: any): string {
+  return String(v ?? "")
+    .trim()
+    .toLowerCase();
+}
+
 export function useAnalyticsSeriesAllTime() {
   const [bounds, setBounds] = useState<SeriesBounds>({ min: null, max: null });
   const [loadingAll, setLoadingAll] = useState(false);
@@ -35,7 +41,7 @@ export function useAnalyticsSeriesAllTime() {
       const row = await apiGet("/api/v1/analytics/series-bounds", {
         entity_type: entityType,
         granularity: "day",
-        entity_key: entityKey,
+        entity_key: entityType === "articolo" ? String(entityKey).trim() : normKey(entityKey),
       });
 
       setBounds({
