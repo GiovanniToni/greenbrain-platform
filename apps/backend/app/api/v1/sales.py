@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from app.db.session import get_db
+from app.api.v1.auth import require_admin
 
 router = APIRouter(prefix="/api/v1/sales", tags=["sales"])
 
@@ -13,6 +14,7 @@ def sales_summary(
     date_to: str = Query(..., description="YYYY-MM-DD"),
     limit: int = Query(default=50, ge=1, le=500),
     db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),
 ):
     try:
         result = db.execute(
@@ -42,6 +44,7 @@ def sales_timeseries(
     date_from: str = Query(..., description="YYYY-MM-DD"),
     date_to: str = Query(..., description="YYYY-MM-DD"),
     db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),
 ):
     try:
         result = db.execute(

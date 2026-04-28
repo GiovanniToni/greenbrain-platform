@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import { AuthProvider } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { ProtectedRoute, AdminRoute } from "@/components/auth/ProtectedRoute";
 
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
@@ -42,17 +42,20 @@ const App = () => (
 
             <Route element={<ProtectedRoute />}>
               <Route element={<AppLayout />}>
-                <Route path="/ops" element={<CustomerOpsConsolePage />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/dashboard/reorders" element={<Reorders />} />
-                <Route path="/analytics" element={<Analytics />} />
-                <Route path="/assortment-planner" element={<AssortmentPlanner />} />
-                <Route path="/suppliers" element={<Suppliers />} />
                 <Route path="/account" element={<CustomerPortalDashboard />} />
-                <Route path="/ops/customers" element={<Navigate to="/customers" replace />} />
-                <Route path="/customers" element={<Customers />} />
-                <Route path="/customers/:customerId" element={<CustomerDetail />} />
                 <Route path="/portal" element={<Navigate to="/account" replace />} />
+
+                <Route element={<AdminRoute />}>
+                  <Route path="/ops" element={<CustomerOpsConsolePage />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/dashboard/reorders" element={<Reorders />} />
+                  <Route path="/analytics" element={<Analytics />} />
+                  <Route path="/assortment-planner" element={<AssortmentPlanner />} />
+                  <Route path="/suppliers" element={<Suppliers />} />
+                  <Route path="/ops/customers" element={<Navigate to="/customers" replace />} />
+                  <Route path="/customers" element={<Customers />} />
+                  <Route path="/customers/:customerId" element={<CustomerDetail />} />
+                </Route>
               </Route>
             </Route>
 

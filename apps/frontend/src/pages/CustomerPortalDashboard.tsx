@@ -20,6 +20,63 @@ import {
 import { planDisplayName, planDisplayPrice } from "@/lib/planConfig";
 import { createSetupSession } from "@/lib/customerBillingApi";
 
+type LifecyclePhase =
+  | "loading"
+  | "active"
+  | "activating"
+  | "data_validation_pending"
+  | "setup_in_progress"
+  | "slot_confirmed"
+  | "slot_requested"
+  | "payment_saved"
+  | "no_payment";
+
+interface CustomerDeliveryProfile {
+  assigned_release_version?: string | null;
+  bundle_generated_at?: string | null;
+  bundle_sent_at?: string | null;
+  bundle_local_path?: string | null;
+  install_status?: string | null;
+  onboarding_status?: string | null;
+  go_live_at?: string | null;
+  updated_at?: string | null;
+}
+
+interface CustomerPortalProfile {
+  customer_id?: string | null;
+  tenant_code?: string | null;
+  company_name?: string | null;
+  portal_user_email?: string | null;
+  onboarding_status?: string | null;
+  onboarding_step?: string | null;
+  assigned_release_version?: string | null;
+  installed_release_version?: string | null;
+  first_downloaded_release_version?: string | null;
+  first_downloaded_at?: string | null;
+  last_downloaded_release_version?: string | null;
+  last_downloaded_at?: string | null;
+  latest_available_release_version?: string | null;
+  subscription_status?: string | null;
+  subscription_plan?: string | null;
+  payment_method_saved?: boolean;
+  payment_method_last4?: string | null;
+  payment_method_brand?: string | null;
+  setup_slot_preferred_date?: string | null;
+  setup_slot_preferred_time?: string | null;
+  setup_slot_requested_at?: string | null;
+  setup_slot_confirmed_at?: string | null;
+  setup_slot_scheduled_for?: string | null;
+  data_validated_at?: string | null;
+  cancellation_requested?: boolean;
+  cancellation_requested_at?: string | null;
+  subscription_current_period_end?: string | null;
+  subscription_activated_at?: string | null;
+  subscription_cancel_at_period_end?: boolean;
+  created_at?: string | null;
+  updated_at?: string | null;
+  delivery?: CustomerDeliveryProfile | null;
+}
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function fmtDate(iso: string | undefined | null) {
@@ -46,7 +103,7 @@ function slotTimeFmt(t: string | null | undefined) {
   return t || "—";
 }
 
-function getLifecyclePhase(data: any): string {
+function getLifecyclePhase(data: CustomerPortalProfile | null): LifecyclePhase {
   if (!data) return "loading";
   if ((data.subscription_status || "").toLowerCase() === "active") return "active";
   const s = (data.onboarding_status || "").toLowerCase();
@@ -66,7 +123,7 @@ export default function CustomerPortalDashboard() {
   const setupStatus = searchParams.get("setup");
   const billingStatus = searchParams.get("billing");
 
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<CustomerPortalProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -81,14 +138,20 @@ export default function CustomerPortalDashboard() {
   const [cancelBusy, setCancelBusy] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
-  const doFetch = useCallback((silent = false) => {
+  const doFetch = useCallback(async (silent = false) => {
     if (silent) setRefreshing(true);
     else setLoading(true);
     setError(null);
-    getCustomerPortalMe()
-      .then(setData)
-      .catch((err) => setError(err instanceof Error ? err.message : "Errore caricamento"))
-      .finally(() => { setLoading(false); setRefreshing(false); });
+
+    try {
+      const profile = await getCustomerPortalMe();
+      setData(profile);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Errore caricamento");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
 
   useEffect(() => { doFetch(); }, [doFetch]);
@@ -172,7 +235,7 @@ export default function CustomerPortalDashboard() {
       a.remove();
       window.URL.revokeObjectURL(url);
 
-      setData((prev: any) => prev ? {
+      setData((prev) => prev ? {
         ...prev,
         first_downloaded_release_version: prev.first_downloaded_release_version || prev.latest_available_release_version,
         first_downloaded_at: prev.first_downloaded_at || new Date().toISOString(),
@@ -276,48 +339,108 @@ export default function CustomerPortalDashboard() {
     {
       done: Boolean(data?.payment_method_saved),
       label: "Salva metodo di pagamento",
-      detail: "Salva la tua carta per avviare il processo di attivazione.",
+      detail: "Salva la carta in modo sicuro. Nessun abbonamento viene attivato in questa fase.",
     },
     {
       done: Boolean(data?.setup_slot_requested_at),
-      label: "Prenota la sessione di setup remoto",
-      detail: "Scegli la tua disponibilità per la sessione di configurazione con il team.",
+      label: "Richiedi la sessione di setup",
+      detail: "Indica la tua disponibilità per la configurazione remota con il team GreenBrain.",
     },
     {
       done: Boolean(data?.setup_slot_confirmed_at || data?.setup_slot_scheduled_for),
-      label: "Sessione di setup confermata",
-      detail: "Il team GreenBrain confermerà la data e condurrà la sessione di configurazione.",
+      label: "Slot di setup confermato",
+      detail: "Il team GreenBrain confermerà data e orario della sessione.",
+    },
+    {
+      done: Boolean(lastDownloadedAt),
+      label: "Scarica il bundle GreenBrain",
+      detail: "Il bundle si scarica dopo la conferma dello slot e serve per procedere al setup.",
+    },
+    {
+      done: Boolean(
+        data?.installed_release_version ||
+        data?.delivery?.install_status === "installed" ||
+        data?.data_validated_at ||
+        isSubscriptionActive
+      ),
+      label: "Setup e installazione",
+      detail: "Durante la sessione remota viene configurato l'ambiente cliente.",
     },
     {
       done: Boolean(data?.data_validated_at),
       label: "Verifica e conferma i dati",
-      detail: "Controlla i dati importati e confermali per sbloccare l'attivazione.",
+      detail: "Controlla i dati importati e confermali per autorizzare l'attivazione.",
     },
     {
-      done: data?.subscription_status === "active",
+      done: isSubscriptionActive,
       label: "Abbonamento attivato",
-      detail: "L'abbonamento verrà attivato dal team dopo la conferma dei dati.",
-    },
-    {
-      done: Boolean(bundleDownloadEnabled),
-      label: "Bundle GreenBrain disponibile",
-      detail: "L'ultima release disponibile è pronta per il download dopo conferma slot.",
-    },
-    {
-      done: Boolean(lastDownloadedAt),
-      label: "Installa GreenBrain",
-      detail: "Segui la guida inclusa nel bundle per completare l'installazione.",
+      detail: "L'abbonamento viene attivato solo dopo setup e conferma dei dati.",
     },
   ];
 
   const compactSteps = [
-    { key: "payment", label: "Pagamento", done: Boolean(data?.payment_method_saved) },
-    { key: "slot", label: "Slot", done: Boolean(data?.setup_slot_requested_at) },
-    { key: "setup", label: "Setup", done: Boolean(data?.setup_slot_confirmed_at || data?.setup_slot_scheduled_for) },
-    { key: "data", label: "Dati", done: Boolean(data?.data_validated_at) },
-    { key: "subscription", label: "Abbonamento", done: data?.subscription_status === "active" },
+    { key: "payment", label: "Metodo pagamento", done: Boolean(data?.payment_method_saved) },
+    { key: "slot", label: "Slot confermato", done: Boolean(data?.setup_slot_confirmed_at || data?.setup_slot_scheduled_for) },
     { key: "download", label: "Download", done: Boolean(lastDownloadedAt) },
+    {
+      key: "setup",
+      label: "Setup",
+      done: Boolean(
+        data?.installed_release_version ||
+        data?.delivery?.install_status === "installed" ||
+        data?.data_validated_at ||
+        isSubscriptionActive
+      ),
+    },
+    { key: "data", label: "Dati confermati", done: Boolean(data?.data_validated_at) },
+    { key: "subscription", label: "Abbonamento", done: isSubscriptionActive },
   ];
+
+  const completedStepCount = compactSteps.filter((step) => step.done).length;
+  const firstIncompleteStepIndex = compactSteps.findIndex((step) => !step.done);
+  const activeStepIndex = firstIncompleteStepIndex === -1 ? compactSteps.length - 1 : firstIncompleteStepIndex;
+
+  const nextActionTitle =
+    phase === "no_payment"
+      ? "Salva il metodo di pagamento"
+      : phase === "payment_saved"
+      ? "Prenota la sessione di setup"
+      : phase === "slot_requested"
+      ? "Attendi la conferma dello slot"
+      : phase === "slot_confirmed"
+      ? bundleDownloadEnabled
+        ? "Scarica il bundle GreenBrain"
+        : "Bundle in preparazione"
+      : phase === "setup_in_progress"
+      ? "Completa il setup remoto"
+      : phase === "data_validation_pending"
+      ? "Conferma i dati importati"
+      : phase === "active"
+      ? hasUpdateAvailable
+        ? "Scarica il nuovo aggiornamento"
+        : "GreenBrain è attivo"
+      : "Attendi l'attivazione";
+
+  const nextActionDescription =
+    phase === "no_payment"
+      ? "La carta viene salvata in modo sicuro. L'abbonamento non viene ancora attivato."
+      : phase === "payment_saved"
+      ? "Indica data e fascia oraria preferite per la configurazione remota."
+      : phase === "slot_requested"
+      ? "Abbiamo ricevuto la tua richiesta. Il team GreenBrain ti contatterà per confermare la sessione."
+      : phase === "slot_confirmed"
+      ? bundleDownloadEnabled
+        ? "Scarica il file da usare durante la sessione remota di setup."
+        : "Il download sarà disponibile appena la release sarà pronta."
+      : phase === "setup_in_progress"
+      ? "Il team GreenBrain sta configurando l'ambiente cliente."
+      : phase === "data_validation_pending"
+      ? "Controlla i dati importati e confermali per autorizzare l'attivazione."
+      : phase === "active"
+      ? hasUpdateAvailable
+        ? "È disponibile una nuova versione del bundle GreenBrain."
+        : "Il servizio è attivo. Puoi usare GreenBrain e scaricare nuovamente il bundle se necessario."
+      : "I dati sono stati confermati. L'abbonamento sarà attivato dal team.";
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl space-y-5">
@@ -343,7 +466,7 @@ export default function CustomerPortalDashboard() {
         <div className="flex items-start gap-3 bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 text-sm">
           <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
           <div>
-            <strong>Pagamento completato.</strong> Il tuo abbonamento è ora attivo.
+            <strong>Operazione completata.</strong> Stiamo aggiornando lo stato del tuo account.
           </div>
         </div>
       )}
@@ -366,10 +489,20 @@ export default function CustomerPortalDashboard() {
         </div>
       )}
 
+      {error && data && (
+        <div className="flex items-center gap-3 bg-destructive/10 border border-destructive/30 rounded-xl px-4 py-3 text-sm text-destructive">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          {error}
+        </div>
+      )}
+
       {/* Hero / prossima azione */}
       <Card className="p-6 border-primary/20 bg-gradient-to-br from-primary/5 to-background">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
           <div className="space-y-2">
+            {refreshing && (
+              <div className="text-xs text-muted-foreground animate-pulse">Aggiornamento dati...</div>
+            )}
             <div className="flex items-center gap-2 flex-wrap">
               <Badge variant={phase === "active" ? "default" : "secondary"}>
                 {phase === "active"
@@ -412,130 +545,118 @@ export default function CustomerPortalDashboard() {
               </p>
             </div>
 
-            <div className="text-sm font-medium">
-              {phase === "no_payment"
-                ? "Devi ancora iniziare: salva il metodo di pagamento."
-                : phase === "payment_saved"
-                ? "Quasi fatto: prenota la sessione di setup."
-                : phase === "slot_requested"
-                ? "Perfetto: attendi la conferma del team."
-                : phase === "slot_confirmed"
-                ? "Setup confermato: ti contatteremo all’orario previsto."
-                : phase === "setup_in_progress"
-                ? "Stiamo configurando il tuo ambiente."
-                : phase === "data_validation_pending"
-                ? "Ultimo passo: verifica e conferma i dati."
-                : phase === "active"
-                ? "Tutto attivo. Puoi usare e aggiornare GreenBrain."
-                : "Attivazione in corso."}
-            </div>
+            <p className="text-sm text-muted-foreground max-w-2xl">
+              Gestisci onboarding, bundle, setup remoto e abbonamento da un’unica area riservata.
+            </p>
           </div>
 
-          <div className="flex flex-col gap-2 min-w-full sm:min-w-[260px] lg:min-w-[280px]">
+          <div className="flex flex-col gap-3 min-w-full sm:min-w-[260px] lg:min-w-[320px] rounded-2xl border border-primary/15 bg-background/80 p-4 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Prossima azione
+            </p>
+
+            <div>
+              <h2 className="text-base font-semibold leading-tight">{nextActionTitle}</h2>
+              <p className="text-xs text-muted-foreground mt-1">{nextActionDescription}</p>
+            </div>
+
             {phase === "no_payment" && (
               <Button onClick={handleSavePaymentMethod}>
                 <CreditCard className="w-4 h-4 mr-2" />
                 Salva metodo di pagamento
               </Button>
             )}
+
+            {phase === "payment_saved" && (
+              <Button
+                variant="outline"
+                onClick={() => document.getElementById("slotDate")?.focus()}
+              >
+                <Calendar className="w-4 h-4 mr-2" />
+                Vai alla prenotazione
+              </Button>
+            )}
+
             {phase === "data_validation_pending" && (
               <Button onClick={handleConfirmData} disabled={confirmDataBusy}>
                 <CheckCircle2 className="w-4 h-4 mr-2" />
                 {confirmDataBusy ? "Conferma in corso..." : "Conferma dati corretti"}
               </Button>
             )}
-            {(phase === "active" || bundleDownloadEnabled) && (
+
+            {bundleDownloadEnabled && (phase === "slot_confirmed" || phase === "active") && (
               <Button
                 variant={bundleButtonIsPrimary ? "default" : "outline"}
                 onClick={handleDownloadBundle}
-                disabled={!bundleDownloadEnabled || downloading}
+                disabled={downloading}
               >
                 <Download className="w-4 h-4 mr-2" />
                 {bundleButtonLabel}
               </Button>
             )}
-            <p className="text-xs text-muted-foreground text-center">
-              {bundleSubtitle}
+          </div>
+        </div>
+      </Card>
+
+      {/* Progress attivazione */}
+      <Card className="p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+          <div>
+            <h2 className="font-semibold text-sm">Avanzamento attivazione</h2>
+            <p className="text-xs text-muted-foreground">
+              {completedStepCount} di {compactSteps.length} passaggi completati
             </p>
           </div>
+          <Badge variant={phase === "active" ? "default" : "secondary"}>
+            {phase === "active" ? "Completato" : "In corso"}
+          </Badge>
         </div>
-      </Card>
 
-      {/* Progress compatto */}
-      <Card className="p-4">
-        <div className="flex items-center justify-between gap-3 overflow-x-auto">
-          {compactSteps.map((step, i) => (
-            <div key={step.key} className="flex items-center gap-2 min-w-fit">
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                step.done ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground"
-              }`}>
-                {step.done ? "✓" : i + 1}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {compactSteps.map((step, i) => {
+            const isCurrent = i === activeStepIndex && !step.done;
+            return (
+              <div
+                key={step.key}
+                className={`rounded-xl border px-3 py-3 text-center ${
+                  step.done
+                    ? "bg-primary/5 border-primary/20"
+                    : isCurrent
+                    ? "bg-background border-primary/40 shadow-sm"
+                    : "bg-muted/30 border-border"
+                }`}
+              >
+                <div className={`w-7 h-7 rounded-full mx-auto mb-2 flex items-center justify-center text-xs font-bold ${
+                  step.done
+                    ? "bg-primary text-primary-foreground"
+                    : isCurrent
+                    ? "border border-primary text-primary"
+                    : "border border-border text-muted-foreground"
+                }`}>
+                  {step.done ? "✓" : i + 1}
+                </div>
+                <p className={`text-xs font-medium ${
+                  step.done ? "text-foreground" : isCurrent ? "text-primary" : "text-muted-foreground"
+                }`}>
+                  {step.label}
+                </p>
               </div>
-
-              <span className={`text-xs font-medium whitespace-nowrap ${
-                step.done ? "text-muted-foreground line-through" : ""
-              }`}>
-                {step.label}
-              </span>
-
-              {i < compactSteps.length - 1 && (
-                <div className="w-6 h-px bg-border" />
-              )}
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      {/* Account overview */}
-      <Card className="p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-            <Building2 className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <h1 className="font-bold text-lg leading-tight">{data?.company_name || "—"}</h1>
-            <p className="text-sm text-muted-foreground">{data?.portal_user_email || "—"}</p>
-          </div>
-        </div>
-        <Separator className="my-4" />
-        <div className="grid sm:grid-cols-2 gap-y-3 gap-x-6 text-sm">
-          <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">Tenant</span>
-            <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">{data?.tenant_code || "—"}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">Piano</span>
-            <div className="text-right">
-              <span>{planLabel}</span>
-              {planPrice && <span className="text-xs text-muted-foreground ml-1.5">{planPrice}</span>}
-            </div>
-          </div>
-          {data?.assigned_release_version && (
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Versione assegnata</span>
-              <span>{data.assigned_release_version}</span>
-            </div>
-          )}
-          {data?.installed_release_version && (
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Versione installata</span>
-              <span>{data.installed_release_version}</span>
-            </div>
-          )}
+            );
+          })}
         </div>
       </Card>
 
       {/* Lifecycle / activation card */}
-      <Card className="p-6">
+      <Card className="p-6 border-primary/20 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
               <CreditCard className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h2 className="font-semibold">Percorso di attivazione</h2>
+              <h2 className="font-semibold">Percorso guidato di attivazione</h2>
               <p className="text-xs text-muted-foreground">
-                {data?.onboarding_step ? `Step: ${data.onboarding_step}` : "Processo di attivazione guidato"}
+                {data?.onboarding_step ? `Step: ${data.onboarding_step}` : "Completa i passaggi richiesti per iniziare a usare GreenBrain"}
               </p>
             </div>
           </div>
@@ -625,7 +746,7 @@ export default function CustomerPortalDashboard() {
         {phase === "slot_requested" && (
           <div className="space-y-3 text-sm">
             <p className="text-muted-foreground">
-              La tua richiesta è stata ricevuta. Il team GreenBrain ti contatterà per confermare la data.
+              La tua richiesta è stata ricevuta. Il team GreenBrain ti contatterà per confermare la data e preparare la sessione di configurazione.
             </p>
             <div className="flex flex-wrap gap-4 text-muted-foreground">
               {data?.setup_slot_preferred_date && (
@@ -697,6 +818,47 @@ export default function CustomerPortalDashboard() {
         )}
       </Card>
 
+
+      <div className="grid lg:grid-cols-2 gap-5">
+      {/* Account overview */}
+      <Card className="p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+            <Building2 className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h2 className="font-bold text-lg leading-tight">{data?.company_name || "—"}</h2>
+            <p className="text-sm text-muted-foreground">{data?.portal_user_email || "—"}</p>
+          </div>
+        </div>
+        <Separator className="my-4" />
+        <div className="grid sm:grid-cols-2 gap-y-3 gap-x-6 text-sm">
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">Tenant</span>
+            <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">{data?.tenant_code || "—"}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">Piano</span>
+            <div className="text-right">
+              <span>{planLabel}</span>
+              {planPrice && <span className="text-xs text-muted-foreground ml-1.5">{planPrice}</span>}
+            </div>
+          </div>
+          {data?.assigned_release_version && (
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Versione assegnata</span>
+              <span>{data.assigned_release_version}</span>
+            </div>
+          )}
+          {data?.installed_release_version && (
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Versione installata</span>
+              <span>{data.installed_release_version}</span>
+            </div>
+          )}
+        </div>
+      </Card>
+
       {/* Gestione abbonamento */}
       <Card className="p-6">
         <div className="flex items-center gap-3 mb-4">
@@ -734,7 +896,7 @@ export default function CustomerPortalDashboard() {
         <Separator className="my-4" />
         <div className="mt-3 text-xs text-muted-foreground text-center space-y-1">
           {subscriptionActivatedAt && (
-            <p>Pagamento attivato il: {fmtDateTime(subscriptionActivatedAt)}</p>
+            <p>Abbonamento attivato il: {fmtDateTime(subscriptionActivatedAt)}</p>
           )}
           {subscriptionCurrentPeriodEnd && subscriptionCancelAtPeriodEnd && (
             <p>Servizio disponibile fino al: {fmtDateTime(subscriptionCurrentPeriodEnd)}</p>
@@ -748,78 +910,64 @@ export default function CustomerPortalDashboard() {
         </div>
       </Card>
 
+      </div>
+
       {/* Bundle & install */}
-      <Card className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+      <Card className="p-6 border-primary/10">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5 mb-5">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
               <Package className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h2 className="font-semibold">Bundle &amp; installazione</h2>
-              <p className="text-xs text-muted-foreground">{bundleSubtitle}</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="font-semibold">Bundle &amp; installazione</h2>
+                {hasUpdateAvailable && (
+                  <Badge variant="secondary" className="bg-amber-50 text-amber-800 border border-amber-200">
+                    Nuova versione
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">{bundleSubtitle}</p>
             </div>
           </div>
-          {installBadge(data?.delivery?.install_status)}
         </div>
-        <div className="flex flex-wrap gap-4 text-xs text-muted-foreground mb-4">
-          {latestAvailableVersion && (
-            <span className="flex items-center gap-1.5">
-              <Package className="w-3.5 h-3.5" />
-              Ultima versione disponibile: {latestAvailableVersion}
-            </span>
-          )}
-          {firstDownloadedVersion && (
-            <span className="flex items-center gap-1.5">
-              <Download className="w-3.5 h-3.5" />
-              Prima scaricata: {firstDownloadedVersion}
-            </span>
-          )}
-          {firstDownloadedAt && (
-            <span className="flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5" />
-              Primo download: {fmtDateTime(firstDownloadedAt)}
-            </span>
-          )}
-          {hasUpdateAvailable && (
-            <Badge variant="secondary" className="bg-amber-50 text-amber-800 border border-amber-200">
-              Da aggiornare
-            </Badge>
-          )}
-          {lastDownloadedVersion && (
-            <span className="flex items-center gap-1.5">
-              <Download className="w-3.5 h-3.5" />
-              Ultima scaricata: {lastDownloadedVersion}
-            </span>
-          )}
-          {lastDownloadedAt && (
-            <span className="flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5" />
-              Scaricata il: {fmtDateTime(lastDownloadedAt)}
-            </span>
-          )}
-          {(data?.delivery?.bundle_generated_at || data?.delivery?.go_live_at) && (
-            <>
-              {data.delivery.bundle_generated_at && (
-                <span className="flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5" />
-                  Generato: {fmtDate(data.delivery.bundle_generated_at)}
-                </span>
-              )}
-              {data.delivery.go_live_at && (
-                <span className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  Go-live: {fmtDate(data.delivery.go_live_at)}
-                </span>
-              )}
-            </>
-          )}
+
+        <div className="grid sm:grid-cols-2 gap-3 mb-5">
+          <div className="rounded-xl border bg-muted/20 p-4">
+            <p className="text-xs text-muted-foreground mb-1">Versione disponibile</p>
+            <p className="font-semibold text-sm">{latestAvailableVersion || "In preparazione"}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Release GreenBrain pronta per il setup o per l’aggiornamento.
+            </p>
+          </div>
+
+          <div className="rounded-xl border bg-muted/20 p-4">
+            <p className="text-xs text-muted-foreground mb-1">Ultimo download</p>
+            <p className="font-semibold text-sm">{lastDownloadedVersion || "Non ancora scaricato"}</p>
+            {lastDownloadedAt ? (
+              <p className="text-xs text-muted-foreground mt-1">{fmtDateTime(lastDownloadedAt)}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground mt-1">
+                Verrà registrato automaticamente dopo il primo download.
+              </p>
+            )}
+          </div>
         </div>
-        {!bundleDownloadEnabled && (
-          <p className="text-xs text-muted-foreground mb-3">
-            Il download si attiva solo dopo salvataggio del metodo di pagamento, richiesta slot, conferma della sessione di setup e disponibilità del bundle.
-          </p>
+
+        {firstDownloadedAt && (
+          <div className="rounded-xl border border-primary/10 bg-primary/5 px-4 py-3 text-xs text-muted-foreground mb-4">
+            Primo download effettuato il {fmtDateTime(firstDownloadedAt)}
+            {firstDownloadedVersion ? ` · versione ${firstDownloadedVersion}` : ""}
+          </div>
         )}
+
+        {!bundleDownloadEnabled && (
+          <div className="rounded-xl border bg-muted/30 px-4 py-3 text-xs text-muted-foreground mb-4">
+            Il download verrà sbloccato automaticamente quando metodo di pagamento, slot di setup e disponibilità del bundle saranno confermati.
+          </div>
+        )}
+
         <Button
           className={bundleButtonIsPrimary ? "w-full bg-primary text-primary-foreground hover:bg-primary/90" : "w-full"}
           variant={bundleButtonIsPrimary ? "default" : "outline"}
@@ -829,9 +977,15 @@ export default function CustomerPortalDashboard() {
           <Download className="w-4 h-4 mr-2" />
           {bundleButtonLabel}
         </Button>
+
+        {bundleDownloadEnabled && (
+          <p className="text-xs text-muted-foreground text-center mt-3">
+            Usa questo file durante la sessione remota di setup o per aggiornare GreenBrain.
+          </p>
+        )}
       </Card>
 
-      {/* Next steps */}
+      {nextSteps.some((step) => !step.done) && (
       <Card className="p-6">
         <h2 className="font-semibold mb-1">Checklist di attivazione</h2>
         <p className="text-xs text-muted-foreground mb-5">
@@ -853,7 +1007,9 @@ export default function CustomerPortalDashboard() {
           ))}
         </ol>
       </Card>
+      )}
 
+      {(isSubscriptionActive || data?.cancellation_requested) && (
       <Card className="p-6">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
@@ -919,6 +1075,7 @@ export default function CustomerPortalDashboard() {
           )}
         </div>
       </Card>
+      )}
 
       {/* Error */}
       {error && (
@@ -936,7 +1093,7 @@ export default function CustomerPortalDashboard() {
         >
           {showRaw ? "Nascondi" : "Mostra"} dati tecnici
         </button>
-        {showRaw && (
+        {showRaw && import.meta.env.DEV && (
           <pre className="mt-3 text-xs bg-muted rounded-xl p-4 overflow-auto max-h-64 text-muted-foreground">
             {JSON.stringify(data, null, 2)}
           </pre>

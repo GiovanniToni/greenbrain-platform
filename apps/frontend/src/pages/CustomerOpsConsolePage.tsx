@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Users, LayoutDashboard, Terminal, RefreshCw } from "lucide-react";
+import { Users, LayoutDashboard, Terminal, RefreshCw, UserPlus } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { listCustomers, type CustomerOpsItem } from "@/lib/customerOpsApi";
+import { createAdminUser, listCustomers, type CustomerOpsItem } from "@/lib/customerOpsApi";
 
 function computeKpis(items: CustomerOpsItem[]) {
   return {
@@ -24,6 +24,31 @@ type Kpis = ReturnType<typeof computeKpis>;
 export default function CustomerOpsConsolePage() {
   const [kpis, setKpis] = useState<Kpis | null>(null);
   const [loadingKpis, setLoadingKpis] = useState(true);
+  const [adminForm, setAdminForm] = useState({ email: "", full_name: "", password: "" });
+  const [adminCreating, setAdminCreating] = useState(false);
+  const [adminMessage, setAdminMessage] = useState<string | null>(null);
+  const [adminError, setAdminError] = useState<string | null>(null);
+
+  async function submitAdminUser(e: React.FormEvent) {
+    e.preventDefault();
+    setAdminCreating(true);
+    setAdminMessage(null);
+    setAdminError(null);
+
+    try {
+      const user = await createAdminUser({
+        email: adminForm.email,
+        full_name: adminForm.full_name || undefined,
+        password: adminForm.password,
+      });
+      setAdminMessage(`Admin creato: ${user.email}`);
+      setAdminForm({ email: "", full_name: "", password: "" });
+    } catch (err) {
+      setAdminError(err instanceof Error ? err.message : "Errore creazione admin");
+    } finally {
+      setAdminCreating(false);
+    }
+  }
 
   useEffect(() => {
     setLoadingKpis(true);
@@ -145,6 +170,64 @@ export default function CustomerOpsConsolePage() {
             </p>
           </Card>
         </Link>
+      </div>
+
+      <div className="mt-8 rounded-2xl border bg-white p-6 shadow-sm">
+        <div className="flex items-start gap-4 mb-5">
+          <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center shrink-0">
+            <UserPlus className="w-6 h-6 text-primary" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-xl leading-tight">Crea admin GreenBrain</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Crea un nuovo utente interno con accesso alla console Ops e alla piattaforma dev.
+            </p>
+          </div>
+        </div>
+
+        <form onSubmit={submitAdminUser} className="grid md:grid-cols-4 gap-3 items-end">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Nome</label>
+            <input
+              className="w-full mt-1 border rounded-lg px-3 py-2 text-sm"
+              value={adminForm.full_name}
+              onChange={(e) => setAdminForm((f) => ({ ...f, full_name: e.target.value }))}
+              placeholder="Irene"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Email</label>
+            <input
+              className="w-full mt-1 border rounded-lg px-3 py-2 text-sm"
+              type="email"
+              value={adminForm.email}
+              onChange={(e) => setAdminForm((f) => ({ ...f, email: e.target.value }))}
+              placeholder="nome@greenbrain.it"
+              required
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Password temporanea</label>
+            <input
+              className="w-full mt-1 border rounded-lg px-3 py-2 text-sm"
+              type="password"
+              value={adminForm.password}
+              onChange={(e) => setAdminForm((f) => ({ ...f, password: e.target.value }))}
+              placeholder="Minimo 8 caratteri"
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={adminCreating}
+            className="rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold disabled:opacity-50"
+          >
+            {adminCreating ? "Creazione..." : "Crea admin"}
+          </button>
+        </form>
+
+        {adminMessage && <p className="text-sm text-green-700 mt-3">{adminMessage}</p>}
+        {adminError && <p className="text-sm text-red-700 mt-3">{adminError}</p>}
       </div>
 
       <div className="mt-8 rounded-xl border bg-muted/30 p-4 text-xs text-muted-foreground">

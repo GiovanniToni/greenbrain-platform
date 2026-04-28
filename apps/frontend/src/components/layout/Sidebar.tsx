@@ -14,13 +14,16 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 
-const navItems = [
+const adminNavItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/dashboard/reorders", label: "Riordino", icon: ShoppingCart },
   { path: "/analytics", label: "Analytics", icon: BarChart3 },
   { path: "/assortment-planner", label: "Assortment Planner", icon: CalendarRange },
   { path: "/suppliers", label: "Fornitori", icon: Truck },
-  { path: "/account", label: "Account", icon: User },
+];
+
+const customerNavItems = [
+  { path: "/account", label: "Il mio account", icon: User },
 ];
 
 type SidebarProps = {
@@ -31,6 +34,8 @@ type SidebarProps = {
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const location = useLocation();
   const { user } = useAuth();
+  const visibleItems = user?.is_admin ? adminNavItems : customerNavItems;
+  const logoTarget = user?.is_admin ? "/dashboard" : "/account";
 
   return (
     <aside
@@ -43,7 +48,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* Logo */}
       <div className="p-4 border-b border-sidebar-border">
         <div className="flex items-center justify-between">
-          <Link to="/dashboard" className="flex items-center gap-3">
+          <Link to={logoTarget} className="flex items-center gap-3">
             <div className="w-10 h-10 bg-sidebar-primary rounded-lg flex items-center justify-center">
               <Leaf className="w-6 h-6 text-sidebar-primary-foreground" />
             </div>
@@ -68,7 +73,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 p-2">
         <ul className="space-y-1">
-          {navItems.map((item) => {
+          {visibleItems.map((item) => {
             const isActive =
               location.pathname === item.path ||
               (item.path !== "/dashboard" && location.pathname.startsWith(item.path));

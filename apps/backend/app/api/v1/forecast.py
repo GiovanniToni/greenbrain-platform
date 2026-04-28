@@ -5,12 +5,14 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.api.v1.auth import require_admin
 
 router = APIRouter(prefix="/api/v1/forecast", tags=["forecast"])
 
 
 @router.get("/summary")
-def forecast_summary(db: Session = Depends(get_db)):
+def forecast_summary(db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),):
     query = text("""
         SELECT
             COUNT(*) AS total_rows,
@@ -31,6 +33,7 @@ def forecast_series(
     date_to: str = Query(..., description="YYYY-MM-DD"),
     fascia_prezzo: Optional[str] = Query(default=None, description="Optional fascia_prezzo_iva_inc filter (case-insensitive)"),
     db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),
 ):
     try:
         if fascia_prezzo and fascia_prezzo.strip():
@@ -68,6 +71,7 @@ def forecast_series(
 def forecast_sample(
     limit: int = Query(default=10, ge=1, le=100),
     db: Session = Depends(get_db),
+    _: dict = Depends(require_admin),
 ):
     query = text("""
         SELECT famiglia, fascia_prezzo_iva_inc, data, qty_forecast

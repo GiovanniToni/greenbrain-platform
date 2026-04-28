@@ -132,7 +132,7 @@ def confirm_slot_route(
         )
     except RuntimeError as exc:
         msg = str(exc)
-        if "cannot_confirm_slot" in msg or "customer_not_found" in msg:
+        if "cannot_confirm_slot" in msg or "slot_already_confirmed" in msg or "customer_not_found" in msg:
             raise HTTPException(status_code=409, detail=msg)
         raise HTTPException(status_code=500, detail=f"confirm_slot_failed: {exc}")
     except Exception as exc:

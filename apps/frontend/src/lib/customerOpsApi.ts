@@ -156,3 +156,14 @@ export async function activateCustomerSubscription(customer_id: string) {
 export async function forceActivateCustomerSubscription(customer_id: string) {
   return apiPost(`/api/v1/customer-ops/customers/${customer_id}/force-activate-subscription`, {});
 }
+
+
+export type AdminUserCreatePayload = {
+  email: string;
+  password: string;
+  full_name?: string;
+};
+
+export async function createAdminUser(payload: AdminUserCreatePayload) {
+  return apiPost("/api/v1/auth/admin-users", payload);
+}
