@@ -427,6 +427,7 @@ export default function Analytics() {
         entityKey: selectedEntity.entity_key,
         anchorTo,
         windows: [7, 14, 30, 60, 90],
+        fasciaPrezzo: ctx.fascia_prezzo ?? null,
       });
     }
 

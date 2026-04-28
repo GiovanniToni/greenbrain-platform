@@ -30,6 +30,7 @@ type RefetchParams = {
   anchorTo: string; // ✅ fondamentale: userai l'anchorTo calcolato in Analytics.tsx
   windows?: number[]; // opzionale: default [7,14,30,60]
   famiglia?: string | null; // compat (ignorato in v2)
+  fasciaPrezzo?: string | null;
 };
 
 export function useAnalyticsFutureWindowsKpi() {
@@ -46,6 +47,8 @@ export function useAnalyticsFutureWindowsKpi() {
     const entityType = params?.entityType;
     const entityKey = params?.entityKey;
     const anchorTo = isoDay(params?.anchorTo);
+    const fasciaPrezzo = String(params?.fasciaPrezzo ?? "").trim();
+
     const windows = (params?.windows && params.windows.length > 0 ? params.windows : [7, 14, 30, 60])
       .map((x) => Number(x))
       .filter((x) => Number.isFinite(x) && x > 0);
@@ -67,6 +70,7 @@ export function useAnalyticsFutureWindowsKpi() {
         entity_key: normKey(entityKey),
         anchor_to: anchorTo,
         windows,
+        ...(fasciaPrezzo && { fascia_prezzo: fasciaPrezzo }),
       });
 
       if (reqId !== reqIdRef.current) return;

@@ -543,25 +543,70 @@ def get_future_windows_stats(
     entity_key: str = Query(...),
     anchor_to: str = Query(..., description="YYYY-MM-DD anchor date"),
     windows: List[int] = Query(default=[7, 14, 30, 60], description="Window sizes in days"),
+    fascia_prezzo: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
     _: dict = Depends(require_admin),
 ):
     _resolve_entity(entity_type)
     windows_pg = "{" + ",".join(str(w) for w in windows) + "}"
     try:
-        result = db.execute(
-            text("""
-                SELECT * FROM core_analytics__future_window_stats_v2(
-                    :p_entity_type, :p_entity_key, :p_anchor_to, CAST(:p_windows AS int[])
-                )
-            """),
-            {
-                "p_entity_type": entity_type,
-                "p_entity_key": entity_key,
-                "p_anchor_to": anchor_to,
-                "p_windows": windows_pg,
-            },
-        )
+        if entity_type == "famiglia" and fascia_prezzo:
+            result = db.execute(
+                text("""
+                    WITH w AS (
+                        SELECT unnest(CAST(:p_windows AS int[])) AS window_days
+                    ),
+                    years AS (
+                        SELECT generate_series(
+                            EXTRACT(YEAR FROM CAST(:p_anchor_to AS date))::int - 10,
+                            EXTRACT(YEAR FROM CAST(:p_anchor_to AS date))::int
+                        ) AS y
+                    ),
+                    samples AS (
+                        SELECT
+                            w.window_days,
+                            y.y,
+                            COALESCE(SUM(f.qty_forecast), 0)::numeric AS qty
+                        FROM w
+                        CROSS JOIN years y
+                        LEFT JOIN public.greenhouse_forecast_results_v2 f
+                          ON f.famiglia = :p_entity_key
+                         AND f.fascia_prezzo_iva_inc = :p_fascia_prezzo
+                         AND f.data BETWEEN make_date(y.y, EXTRACT(MONTH FROM CAST(:p_anchor_to AS date))::int, EXTRACT(DAY FROM CAST(:p_anchor_to AS date))::int)
+                                        AND make_date(y.y, EXTRACT(MONTH FROM CAST(:p_anchor_to AS date))::int, EXTRACT(DAY FROM CAST(:p_anchor_to AS date))::int)
+                                            + (w.window_days - 1) * interval '1 day'
+                        GROUP BY w.window_days, y.y
+                    )
+                    SELECT
+                        window_days,
+                        MIN(qty) AS min_qty,
+                        MAX(qty) AS max_qty,
+                        AVG(qty) AS avg_qty
+                    FROM samples
+                    GROUP BY window_days
+                    ORDER BY window_days
+                """),
+                {
+                    "p_entity_key": entity_key.strip().lower(),
+                    "p_fascia_prezzo": fascia_prezzo,
+                    "p_anchor_to": anchor_to,
+                    "p_windows": windows_pg,
+                },
+            )
+        else:
+            result = db.execute(
+                text("""
+                    SELECT * FROM core_analytics__future_window_stats_v2(
+                        :p_entity_type, :p_entity_key, :p_anchor_to, CAST(:p_windows AS int[])
+                    )
+                """),
+                {
+                    "p_entity_type": entity_type,
+                    "p_entity_key": entity_key,
+                    "p_anchor_to": anchor_to,
+                    "p_windows": windows_pg,
+                },
+            )
         rows = [dict(r._mapping) for r in result]
         return {"count": len(rows), "items": rows}
     except Exception as e:
