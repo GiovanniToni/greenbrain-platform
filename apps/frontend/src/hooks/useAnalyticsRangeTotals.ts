@@ -71,7 +71,7 @@ export function useAnalyticsRangeTotals() {
     const dateFrom = isoDay(params?.dateFrom);
     const dateTo = isoDay(params?.dateTo);
 
-    if (!entityType || !entityKey || !dateFrom || !dateTo || entityType === "articolo") {
+    if (!entityType || !entityKey || !dateFrom || !dateTo) {
       if (reqId !== reqIdRef.current) return;
       setData(null);
       setError(null);

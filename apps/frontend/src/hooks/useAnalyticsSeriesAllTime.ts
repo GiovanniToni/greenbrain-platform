@@ -21,7 +21,7 @@ export function useAnalyticsSeriesAllTime() {
   const [errorAll, setErrorAll] = useState<string | null>(null);
 
   const refetchAll = useCallback(async ({ entityType, entityKey }: Params) => {
-    if (!entityType || !entityKey || entityType === "articolo") {
+    if (!entityType || !entityKey) {
       setBounds({ min: null, max: null });
       setErrorAll(null);
       setLoadingAll(false);
