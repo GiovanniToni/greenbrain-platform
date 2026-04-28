@@ -855,6 +855,7 @@ export function SalesHistoryChart({
                 {fasce.map((fascia, idx) => (
                   <Bar
                     key={fascia}
+                    xAxisId="main"
                     dataKey={`fascia_${fascia}`}
                     name={fascia}
                     stackId="a"
