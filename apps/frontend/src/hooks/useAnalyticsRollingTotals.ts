@@ -55,8 +55,8 @@ export function useAnalyticsRollingTotals() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refetch = useCallback(async (params: { entityType: string; entityKey: string; anchorTo: string }) => {
-    const { entityType, entityKey, anchorTo } = params;
+  const refetch = useCallback(async (params: { entityType: string; entityKey: string; anchorTo: string; fasciaPrezzo?: string | null }) => {
+    const { entityType, entityKey, anchorTo, fasciaPrezzo } = params;
 
     if (!entityType || !entityKey || !anchorTo) {
       setData(null);
@@ -120,13 +120,16 @@ export function useAnalyticsRollingTotals() {
         entity_key: normKey(entityKey),
         date_from: from,
         date_to: to,
+        ...(fasciaPrezzo ? { fascia_prezzo: fasciaPrezzo } : {}),
       });
 
       const r = ((resp?.items) || []) as any[];
       const dayMap = new Map<string, { qty: number; imp: number }>();
 
       for (const x of r) {
-        dayMap.set(isoDay(x.data), { qty: n(x.qty_venduta_tot), imp: n(x.imponibile_netto_tot) });
+        const qty = fasciaPrezzo ? n(x.qty_venduta ?? x.qty_venduta_tot) : n(x.qty_venduta_tot ?? x.qty_venduta);
+        const imp = n(x.imponibile_netto_tot ?? x.imponibile_netto);
+        dayMap.set(isoDay(x.data), { qty, imp });
       }
 
       const sumLastN = (days: number) => {

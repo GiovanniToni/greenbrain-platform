@@ -116,7 +116,10 @@ def get_series(
             view_name = _breakdown_view(gran, entity_type)
             result = db.execute(
                 text(f"""
-                    SELECT *
+                    SELECT
+                        *,
+                        qty_venduta AS qty_venduta_tot,
+                        qty_forecast AS qty_forecast_tot
                     FROM {view_name}
                     WHERE entity_key_lc = :entity_key
                       AND fascia_prezzo_iva_inc ILIKE :fp

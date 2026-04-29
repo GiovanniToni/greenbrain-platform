@@ -197,7 +197,7 @@ function SkeletonTile({ label }: { label: string }) {
 
 function computeLastN(rows: SeriesDataPoint[], nDays: number): { qty: number; imp: number; count: number } {
   const slice = rows.slice(Math.max(0, rows.length - nDays));
-  const qty = slice.reduce((s, r) => s + Number(r.qty_venduta_tot ?? 0), 0);
+  const qty = slice.reduce((s, r) => s + Number(r.qty_venduta_tot ?? r.qty_venduta ?? 0), 0);
   const imp = slice.reduce((s, r) => s + Number((r as any).imponibile_netto_tot ?? 0), 0);
   return { qty, imp, count: slice.length };
 }
@@ -518,7 +518,7 @@ export function EntitySummaryCard(props: EntitySummaryCardProps) {
     const rows = seriesData ?? [];
     const numDays = rows.length;
 
-    const totalQty = rows.reduce((s, r) => s + (r.qty_venduta_tot || 0), 0);
+    const totalQty = rows.reduce((s, r) => s + (r.qty_venduta_tot ?? r.qty_venduta ?? 0), 0);
     const totalImp = rows.reduce((s, r) => s + ((r as any).imponibile_netto_tot || 0), 0);
 
     let activeDays = 0;
@@ -527,7 +527,7 @@ export function EntitySummaryCard(props: EntitySummaryCardProps) {
     let maxDay: { date: string; qty: number } | null = null;
 
     for (const r of rows) {
-      const q = r.qty_venduta_tot || 0;
+      const q = r.qty_venduta_tot ?? r.qty_venduta ?? 0;
       if (q > 0) activeDays++;
       if (q === 0) zeroDays++;
 

@@ -14,13 +14,13 @@ function safePct(n: number) {
 }
 
 export function AnalyticsKpiCards({ data }: AnalyticsKpiCardsProps) {
-  const totalQty = data.reduce((sum, d) => sum + (d.qty_venduta_tot || 0), 0);
+  const totalQty = data.reduce((sum, d) => sum + (d.qty_venduta_tot ?? d.qty_venduta ?? 0), 0);
   const numDays = data.length;
   const avgQtyPerDay = numDays > 0 ? totalQty / numDays : 0;
 
   // Weekend
   const weekendData = data.filter((d) => d.dow === 0 || d.dow === 6);
-  const weekendQty = weekendData.reduce((sum, d) => sum + (d.qty_venduta_tot || 0), 0);
+  const weekendQty = weekendData.reduce((sum, d) => sum + (d.qty_venduta_tot ?? d.qty_venduta ?? 0), 0);
   const weekendPct = totalQty > 0 ? (weekendQty / totalQty) * 100 : 0;
 
   // Forecast coverage + error metrics
@@ -28,12 +28,12 @@ export function AnalyticsKpiCards({ data }: AnalyticsKpiCardsProps) {
   const forecastCoverage = numDays > 0 ? (withFc.length / numDays) * 100 : 0;
 
   // consideriamo solo giorni con vendite > 0 e forecast presente
-  const validErr = data.filter((d) => (d.qty_venduta_tot || 0) > 0 && d.qty_forecast_tot != null);
+  const validErr = data.filter((d) => (d.qty_venduta_tot ?? d.qty_venduta ?? 0) > 0 && d.qty_forecast_tot != null);
 
   const mape =
     validErr.length > 0
       ? validErr.reduce((acc, d) => {
-          const actual = d.qty_venduta_tot;
+          const actual = d.qty_venduta_tot ?? d.qty_venduta;
           const fc = d.qty_forecast_tot as number;
           return acc + Math.abs(fc - actual) / actual;
         }, 0) / validErr.length
@@ -42,7 +42,7 @@ export function AnalyticsKpiCards({ data }: AnalyticsKpiCardsProps) {
   const bias =
     validErr.length > 0
       ? validErr.reduce((acc, d) => {
-          const actual = d.qty_venduta_tot;
+          const actual = d.qty_venduta_tot ?? d.qty_venduta;
           const fc = d.qty_forecast_tot as number;
           return acc + (fc - actual) / actual;
         }, 0) / validErr.length

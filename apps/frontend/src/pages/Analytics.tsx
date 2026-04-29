@@ -334,11 +334,11 @@ export default function Analytics() {
   // ✅ effectiveRangeTotals DEVE venire PRIMA di chi lo usa
   const effectiveRangeTotals = useMemo(() => {
     if (hasFpFilter) {
-      const qty = filteredTotalSeries.reduce((s, r) => s + Number(r.qty_venduta_tot ?? 0), 0);
+      const qty = filteredTotalSeries.reduce((s, r) => s + Number(r.qty_venduta_tot ?? r.qty_venduta ?? 0), 0);
       const imp = filteredTotalSeries.reduce((s, r) => s + Number((r as any).imponibile_netto_tot ?? 0), 0);
 
-      const active_days = filteredTotalSeries.filter((r) => (r.qty_venduta_tot ?? 0) > 0).length;
-      const zero_days = filteredTotalSeries.filter((r) => (r.qty_venduta_tot ?? 0) === 0).length;
+      const active_days = filteredTotalSeries.filter((r) => (r.qty_venduta_tot ?? r.qty_venduta ?? 0) > 0).length;
+      const zero_days = filteredTotalSeries.filter((r) => (r.qty_venduta_tot ?? r.qty_venduta ?? 0) === 0).length;
 
       const minRow =
         filteredTotalSeries.length > 0
@@ -435,6 +435,7 @@ export default function Analytics() {
       entityType: selectedEntity.entity_type,
       entityKey: selectedEntity.entity_key,
       anchorTo,
+      fasciaPrezzo: ctx.fascia_prezzo ?? null,
     });
 
     refetchStockAndReorder({

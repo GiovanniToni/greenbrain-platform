@@ -18,7 +18,7 @@ export function WeeklySeasonalityChart({ data }: WeeklySeasonalityChartProps) {
     for (const r of data) {
       const d = r.dow;
       if (d == null) continue;
-      sums[d] += r.qty_venduta_tot || 0;
+      sums[d] += r.qty_venduta_tot ?? r.qty_venduta ?? 0;
       counts[d] += 1;
     }
 
