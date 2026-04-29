@@ -93,14 +93,59 @@ def get_series(
         try:
             result = db.execute(
                 text("""
-                    SELECT *
-                    FROM core_analytics__article_sales_daily
-                    WHERE codart = :codart
-                      AND data >= :date_from
-                      AND data <= :date_to
-                    ORDER BY data
+                    WITH days AS (
+                        SELECT
+                            gs::date AS data,
+                            extract(dow from gs)::int AS dow
+                        FROM generate_series(
+                            CAST(:date_from AS date),
+                            CAST(:date_to AS date),
+                            interval '1 day'
+                        ) gs
+                    ),
+                    sales AS (
+                        SELECT
+                            data,
+                            SUM(qty_venduta)::numeric AS qty_venduta,
+                            SUM(imponibile_netto)::numeric AS imponibile_netto,
+                            SUM(qty_forecast)::numeric AS qty_forecast,
+                            BOOL_OR(COALESCE(is_holiday, false)) AS is_holiday,
+                            MAX(holiday_name) AS holiday_name,
+                            MAX(famiglia) AS famiglia,
+                            MAX(categoria_corretta) AS categoria_corretta,
+                            MAX(fascia_corretta) AS fascia_corretta,
+                            MAX(fascia_prezzo_iva_inc) AS fascia_prezzo_iva_inc,
+                            MAX(articolo_nome) AS articolo_nome,
+                            MAX(pot_size) AS pot_size
+                        FROM public.core_analytics__article_sales_daily
+                        WHERE codart = :codart
+                          AND data >= CAST(:date_from AS date)
+                          AND data <= CAST(:date_to AS date)
+                        GROUP BY data
+                    )
+                    SELECT
+                        d.data,
+                        :codart AS codart,
+                        s.articolo_nome,
+                        s.famiglia,
+                        s.categoria_corretta,
+                        s.fascia_corretta,
+                        s.fascia_prezzo_iva_inc,
+                        s.pot_size,
+                        COALESCE(s.qty_venduta, 0)::numeric AS qty_venduta,
+                        COALESCE(s.qty_venduta, 0)::numeric AS qty_venduta_tot,
+                        COALESCE(s.imponibile_netto, 0)::numeric AS imponibile_netto,
+                        COALESCE(s.imponibile_netto, 0)::numeric AS imponibile_netto_tot,
+                        s.qty_forecast,
+                        s.qty_forecast AS qty_forecast_tot,
+                        d.dow,
+                        COALESCE(s.is_holiday, false) AS is_holiday,
+                        s.holiday_name
+                    FROM days d
+                    LEFT JOIN sales s USING(data)
+                    ORDER BY d.data
                 """),
-                {"codart": entity_key, "date_from": date_from, "date_to": date_to},
+                {"codart": entity_key.strip(), "date_from": date_from, "date_to": date_to},
             )
             rows = [dict(row._mapping) for row in result]
             return {"count": len(rows), "items": rows}
