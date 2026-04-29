@@ -56,7 +56,7 @@ function makeCacheKey(p: RefetchParams) {
     norm(p.p_entity_key),
     norm(p.p_date_from),
     norm(p.p_date_to),
-    String(p.p_top_n ?? 10),
+    String(p.p_top_n ?? 100),
     norm(p.p_fascia ?? ""),
     norm(p.p_categoria ?? ""),
     norm(p.p_famiglia ?? ""),
@@ -93,7 +93,7 @@ export function useAnalyticsEntitySummary() {
     setError(null);
 
     try {
-      const { p_top_n = 10, p_fascia = null, p_categoria = null, p_famiglia = null, p_fascia_prezzo = null } = params;
+      const { p_top_n = 100, p_fascia = null, p_categoria = null, p_famiglia = null, p_fascia_prezzo = null } = params;
 
       const rpcData = await apiGet("/api/v1/analytics/entity-summary", {
         p_entity_type,

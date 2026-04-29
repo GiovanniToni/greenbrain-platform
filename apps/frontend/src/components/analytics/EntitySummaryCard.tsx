@@ -828,7 +828,7 @@ export function EntitySummaryCard(props: EntitySummaryCardProps) {
 
       {/* DETTAGLI (tree lazy) */}
       {openDetails && (
-        <div className="border-t pt-3 max-h-80 overflow-y-auto">
+        <div className="border-t pt-3 max-h-[70vh] overflow-y-auto pr-2">
           {treeLoading ? (
             <p className="text-sm text-muted-foreground">Caricamento dettagli...</p>
           ) : treeError ? (
