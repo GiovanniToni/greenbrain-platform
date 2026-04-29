@@ -607,7 +607,7 @@ export function SalesHistoryChart({
       const isFuture = k > anchorISO;
       const isFutureWithinHorizon = isFuture && k <= fcEnd;
 
-      const vendite = isPastOrToday ? Number(baseWithForecast.qty_venduta_tot || 0) : 0;
+      const vendite = isPastOrToday ? Number(baseWithForecast.qty_venduta_tot ?? baseWithForecast.qty_venduta ?? 0) : 0;
       const fc = baseWithForecast.qty_forecast_tot != null ? Number(baseWithForecast.qty_forecast_tot) : null;
 
       return {
@@ -927,7 +927,7 @@ export function SalesHistoryChart({
                   key={idx}
                   xAxisId="main"
                   x={h.data}
-                  y={h.qty_venduta_tot}
+                  y={h.qty_venduta_tot ?? h.qty_venduta ?? 0}
                   r={6}
                   fill="hsl(0, 80%, 50%)"
                   stroke="white"
