@@ -18,6 +18,7 @@ import { useAnalyticsStockAndReorder } from "@/hooks/useAnalyticsStockAndReorder
 import { CatalogItem } from "@/hooks/useAnalyticsCatalog";
 import { useAnalyticsSeries, GranularityMode } from "@/hooks/useAnalyticsSeries";
 import { useAnalyticsSeasonality } from "@/hooks/useAnalyticsSeasonality";
+import { useAnalyticsWeeklySeasonality } from "@/hooks/useAnalyticsWeeklySeasonality";
 import { useAnalyticsComponents } from "@/hooks/useAnalyticsComponents";
 import { useAnalyticsCompareSeries, CompareItem } from "@/hooks/useAnalyticsCompareSeries";
 import { useAnalyticsFutureWindowsKpi } from "@/hooks/useAnalyticsFutureWindowsKpi";
@@ -162,6 +163,12 @@ export default function Analytics() {
     refetch: refetchSeasonality,
   } = useAnalyticsSeasonality();
 
+  const {
+    data: weeklySeasonalityData,
+    error: weeklySeasonalityError,
+    refetch: refetchWeeklySeasonality,
+  } = useAnalyticsWeeklySeasonality();
+
   const { error: componentsError, refetch: refetchComponents } = useAnalyticsComponents();
 
   const {
@@ -228,8 +235,40 @@ export default function Analytics() {
     }
   }, [selectedEntity, showBreakdown, granularity]);
 
+  // Refresh stagionalità separato: necessario anche per articolo.
+  useEffect(() => {
+    if (viewMode !== "single" || !selectedEntity) return;
+
+    const entityType = selectedEntity.entity_type;
+    const entityKey = selectedEntity.entity_key;
+
+    console.log("[Analytics] refetchSeasonality STRICT", {
+      entityType,
+      entityKey,
+      selectedEntity,
+    });
+
+    refetchSeasonality({
+      entityType,
+      entityKey,
+    });
+
+    refetchWeeklySeasonality({
+      entityType,
+      entityKey,
+      fasciaPrezzo: selectedEntity?.fascia_prezzo ?? null,
+    });
+  }, [
+    viewMode,
+    selectedEntity?.entity_type,
+    selectedEntity?.entity_key,
+    refetchSeasonality,
+    refetchWeeklySeasonality,
+  ]);
+
   const handleEntitySelect = useCallback(
     (item: CatalogItem) => {
+      console.log("[Analytics] selectedEntity", item);
       setSelectedEntity(item);
 
       rangeTouchedRef.current = false;
@@ -411,11 +450,6 @@ export default function Analytics() {
       fasciaPrezzo: ctx.fascia_prezzo ?? null,
     });
 
-    refetchSeasonality({
-      entityType: selectedEntity.entity_type,
-      entityKey: selectedEntity.entity_key,
-    });
-
     refetchComponents({
       entityType: selectedEntity.entity_type,
       entityKey: selectedEntity.entity_key,
@@ -533,8 +567,8 @@ export default function Analytics() {
           selectedRange={selectedRangeTotals}
           stockQty={stockAndReorder?.stockQty ?? null}
           reorderQty={selectedEntity.entity_type === "articolo" ? null : (stockAndReorder?.reorderQty ?? null)}
-          futureRows={selectedEntity.entity_type === "articolo" ? [] : (futureRows || [])}
-          futureLoading={selectedEntity.entity_type === "articolo" ? false : futureLoading}
+          futureRows={futureRows || []}
+          futureLoading={futureLoading}
           dateFrom={dateRange.from}
           dateTo={dateRange.to}
           loading={rollingLoading || stockLoading || futureLoading}
@@ -584,7 +618,7 @@ export default function Analytics() {
 
       {viewMode === "single" && selectedEntity && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <WeeklySeasonalityChart data={filteredTotalSeries} />
+          <WeeklySeasonalityChart data={weeklySeasonalityData} />
           <SeasonalityChart data={seasonalityData} />
         </div>
       )}
@@ -592,6 +626,7 @@ export default function Analytics() {
       {(seriesError ||
         errorAll ||
         seasonalityError ||
+        weeklySeasonalityError ||
         componentsError ||
         compareError ||
         futureError ||
@@ -603,6 +638,7 @@ export default function Analytics() {
           {seriesError && <p className="text-sm text-destructive">• Series: {seriesError}</p>}
           {errorAll && <p className="text-sm text-destructive">• Bounds: {errorAll}</p>}
           {seasonalityError && <p className="text-sm text-destructive">• Seasonality: {seasonalityError}</p>}
+          {weeklySeasonalityError && <p className="text-sm text-destructive">• Weekly Seasonality: {weeklySeasonalityError}</p>}
           {componentsError && <p className="text-sm text-destructive">• Components: {componentsError}</p>}
           {compareError && <p className="text-sm text-destructive">• Compare: {compareError}</p>}
           {futureError && <p className="text-sm text-destructive">• Future windows: {futureError}</p>}

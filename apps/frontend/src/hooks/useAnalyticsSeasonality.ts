@@ -32,8 +32,7 @@ export function useAnalyticsSeasonality() {
   const refetch = useCallback(async (params: SeasonalityParams) => {
     const { entityType, entityKey } = params;
 
-    // niente seasonality per articolo (se vuoi aggiungerla dopo, togli questa guard)
-    if (!entityType || !entityKey || entityType === "articolo") {
+    if (!entityType || !entityKey) {
       setData([]);
       return;
     }

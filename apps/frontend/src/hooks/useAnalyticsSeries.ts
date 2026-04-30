@@ -131,24 +131,28 @@ function pickTotalSource(entityType: string, g: Granularity) {
     if (entityType === "categoria") return "core_analytics__series_daily_categoria_lc";
     if (entityType === "fascia") return "core_analytics__series_daily_fascia_lc";
     if (entityType === "fascia_prezzo") return "core_analytics__series_daily_fascia_prezzo_lc";
+    if (entityType === "articolo") return "core_analytics__series_daily_articolo_lc";
   }
   if (g === "week") {
     if (entityType === "famiglia") return "core_analytics__series_weekly_famiglia_lc";
     if (entityType === "categoria") return "core_analytics__series_weekly_categoria_lc";
     if (entityType === "fascia") return "core_analytics__series_weekly_fascia_lc";
     if (entityType === "fascia_prezzo") return "core_analytics__series_weekly_fascia_prezzo_lc";
+    if (entityType === "articolo") return "core_analytics__series_weekly_articolo_lc";
   }
   if (g === "month") {
     if (entityType === "famiglia") return "core_analytics__series_monthly_famiglia_lc";
     if (entityType === "categoria") return "core_analytics__series_monthly_categoria_lc";
     if (entityType === "fascia") return "core_analytics__series_monthly_fascia_lc";
     if (entityType === "fascia_prezzo") return "core_analytics__series_monthly_fascia_prezzo_lc";
+    if (entityType === "articolo") return "core_analytics__series_monthly_articolo_lc";
   }
   if (g === "year") {
     if (entityType === "famiglia") return "core_analytics__series_yearly_famiglia_lc";
     if (entityType === "categoria") return "core_analytics__series_yearly_categoria_lc";
     if (entityType === "fascia") return "core_analytics__series_yearly_fascia_lc";
     if (entityType === "fascia_prezzo") return "core_analytics__series_yearly_fascia_prezzo_lc";
+    if (entityType === "articolo") return "core_analytics__series_yearly_articolo_lc";
   }
   return null;
 }
@@ -266,7 +270,7 @@ export function useAnalyticsSeries() {
     }
 
     const requested = params?.granularity ?? "auto";
-    const g: Granularity = entityType === "articolo" ? "day" : resolveGranularity(from, to, requested);
+    const g: Granularity = resolveGranularity(from, to, requested);
     setGranularity(g);
 
     const fp = String(params?.fasciaPrezzo ?? "")
@@ -283,33 +287,6 @@ export function useAnalyticsSeries() {
     setError(null);
 
     try {
-      // ---- ARTICOLO ----
-      if (entityType === "articolo") {
-        const _artResp = await apiGet("/api/v1/analytics/series", {
-          entity_type: "articolo",
-          granularity: "day",
-          entity_key: entityKey,
-          date_from: from,
-          date_to: to,
-        });
-        if (reqId !== reqIdRef.current) return;
-
-        const rows = (_artResp?.items ?? []) as any[];
-        setTotalSeries(
-          rows.map((r) => ({
-            data: isoDay(r.data),
-            qty_venduta_tot: n(r.qty_venduta),
-            imponibile_netto_tot: n(r.imponibile_netto),
-            qty_forecast_tot: r.qty_forecast != null ? n(r.qty_forecast) : null,
-            dow: Number(r.dow ?? 0),
-            is_holiday: !!r.is_holiday,
-            holiday_name: r.holiday_name ?? null,
-          })),
-        );
-        setBreakdownSeries([]);
-        return;
-      }
-
       // ---- FP FILTER (famiglia/categoria/fascia) ----
       // Con il tuo DB: il modo corretto è leggere dalla breakdown view e aggregare per data.
       if (hasFpFilter) {

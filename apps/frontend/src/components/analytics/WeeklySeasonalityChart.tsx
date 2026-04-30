@@ -1,50 +1,61 @@
-import { useMemo } from "react";
 import { Card } from "@/components/ui/card";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { SeriesDataPoint } from "@/hooks/useAnalyticsSeries";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 interface WeeklySeasonalityChartProps {
-  data: SeriesDataPoint[];
+  data: Array<{
+    dow: number;
+    day_name: string;
+    avg_qty_per_day: number;
+    sum_qty?: number;
+    avg_rev_per_day?: number;
+    sum_rev?: number;
+    n_days?: number;
+  }>;
 }
 
-const DOW_SHORT = ["Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"];
+function n(v: any) {
+  const x = Number(v);
+  return Number.isFinite(x) ? x : 0;
+}
 
 export function WeeklySeasonalityChart({ data }: WeeklySeasonalityChartProps) {
-  const weekly = useMemo(() => {
-    // avg qty per giorno della settimana sul dataset corrente (già filtrato + brush)
-    const sums = new Array(7).fill(0);
-    const counts = new Array(7).fill(0);
-
-    for (const r of data) {
-      const d = r.dow;
-      if (d == null) continue;
-      sums[d] += r.qty_venduta_tot ?? r.qty_venduta ?? 0;
-      counts[d] += 1;
-    }
-
-    return DOW_SHORT.map((name, dow) => ({
-      dow,
-      name,
-      avg_qty: counts[dow] > 0 ? sums[dow] / counts[dow] : 0,
-      days: counts[dow],
-    }));
-  }, [data]);
+  const rows = [...(data || [])].sort((a, b) => n(a.dow) - n(b.dow));
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (!active || !payload?.length) return null;
     const p = payload[0]?.payload;
+    if (!p) return null;
+
     return (
       <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
-        <p className="font-medium text-sm">{p?.name}</p>
+        <p className="font-medium text-sm">{p.day_name}</p>
         <p className="text-xs text-muted-foreground">
-          Media: {p?.avg_qty?.toLocaleString("it-IT", { maximumFractionDigits: 2 })}
+          Media/giorno: {n(p.avg_qty_per_day).toLocaleString("it-IT", { maximumFractionDigits: 2 })}
         </p>
-        <p className="text-xs text-muted-foreground">Giorni osservati: {p?.days}</p>
+        <p className="text-xs text-muted-foreground">
+          Totale: {n(p.sum_qty).toLocaleString("it-IT", { maximumFractionDigits: 0 })}
+        </p>
+        <div className="mt-2 pt-2 border-t border-border">
+          <p className="text-xs text-muted-foreground">
+            Ricavo medio/giorno: {n(p.avg_rev_per_day).toLocaleString("it-IT", { maximumFractionDigits: 0 })} €
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Giorni osservati: {n(p.n_days).toLocaleString("it-IT", { maximumFractionDigits: 0 })}
+          </p>
+        </div>
       </div>
     );
   };
 
-  if (!data || data.length === 0) {
+  if (!rows || rows.length === 0) {
     return (
       <Card className="p-6">
         <h3 className="text-sm font-medium text-muted-foreground mb-4">Stagionalità Settimanale</h3>
@@ -60,11 +71,18 @@ export function WeeklySeasonalityChart({ data }: WeeklySeasonalityChartProps) {
       <h3 className="text-sm font-medium text-muted-foreground mb-4">Stagionalità Settimanale</h3>
       <div className="h-48">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={weekly} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-            <XAxis dataKey="name" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+          <BarChart data={rows} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+            <XAxis dataKey="day_name" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
             <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
             <Tooltip content={<CustomTooltip />} />
-            <Bar dataKey="avg_qty" name="Media qty" fill="hsl(var(--primary) / 0.8)" radius={[6, 6, 0, 0]} />
+            <Bar
+              dataKey="avg_qty_per_day"
+              name="Media qty/giorno"
+              fill="hsl(var(--primary) / 0.8)"
+              radius={[6, 6, 0, 0]}
+              isAnimationActive={false}
+            />
           </BarChart>
         </ResponsiveContainer>
       </div>
