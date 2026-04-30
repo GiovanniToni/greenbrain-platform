@@ -84,7 +84,7 @@ export function useAnalyticsRollingTotals() {
         const dayMap = new Map<string, { qty: number; imp: number }>();
 
         for (const x of r) {
-          dayMap.set(isoDay(x.data), { qty: n(x.qty_venduta), imp: n(x.imponibile_netto) });
+          dayMap.set(isoDay(x.data), { qty: n(x.qty_venduta_tot ?? x.qty_venduta), imp: n(x.imponibile_netto_tot ?? x.imponibile_netto) });
         }
 
         const sumLastN = (days: number) => {
