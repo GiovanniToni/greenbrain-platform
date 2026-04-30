@@ -433,7 +433,7 @@ export default function Analytics() {
       dateTo: dateRange.to,
 
       // ✅ serve per calcolare i totals filtrati dentro il hook
-      fasciaPrezzo: ctx.fascia_prezzo ?? null,
+      fasciaPrezzo: selectedEntity.entity_type === "articolo" ? null : (ctx.fascia_prezzo ?? null),
     });
 
     refetchSeries({
@@ -455,15 +455,13 @@ export default function Analytics() {
       entityKey: selectedEntity.entity_key,
     });
 
-    if (selectedEntity.entity_type !== "fascia_prezzo" && selectedEntity.entity_type !== "articolo") {
-      refetchFuture({
-        entityType: selectedEntity.entity_type,
-        entityKey: selectedEntity.entity_key,
-        anchorTo,
-        windows: [7, 14, 30, 60, 90],
-        fasciaPrezzo: ctx.fascia_prezzo ?? null,
-      });
-    }
+    refetchFuture({
+      entityType: selectedEntity.entity_type,
+      entityKey: selectedEntity.entity_key,
+      anchorTo,
+      windows: [7, 14, 30, 60, 90],
+      fasciaPrezzo: selectedEntity.entity_type === "articolo" ? null : (ctx.fascia_prezzo ?? null),
+    });
 
     refetchRolling({
       entityType: selectedEntity.entity_type,

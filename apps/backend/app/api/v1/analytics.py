@@ -676,24 +676,50 @@ def get_future_windows_stats(
                     ),
                     years AS (
                         SELECT generate_series(
-                            EXTRACT(YEAR FROM CAST(:p_anchor_to AS date))::int - 10,
-                            EXTRACT(YEAR FROM CAST(:p_anchor_to AS date))::int
+                            EXTRACT(YEAR FROM CAST(:p_anchor_to AS date))::int - 20,
+                            EXTRACT(YEAR FROM CAST(:p_anchor_to AS date))::int - 1
                         ) AS y
+                    ),
+                    starts AS (
+                        SELECT
+                            y,
+                            (
+                                make_date(
+                                    y,
+                                    EXTRACT(MONTH FROM CAST(:p_anchor_to AS date))::int,
+                                    1
+                                )
+                                + (
+                                    LEAST(
+                                        EXTRACT(DAY FROM CAST(:p_anchor_to AS date))::int,
+                                        EXTRACT(DAY FROM (
+                                            date_trunc(
+                                                'month',
+                                                make_date(
+                                                    y,
+                                                    EXTRACT(MONTH FROM CAST(:p_anchor_to AS date))::int,
+                                                    1
+                                                )
+                                            ) + interval '1 month - 1 day'
+                                        ))::int
+                                    ) - 1
+                                ) * interval '1 day'
+                            )::date AS start_date
+                        FROM years
                     ),
                     samples AS (
                         SELECT
                             w.window_days,
-                            y.y,
-                            COALESCE(SUM(f.qty_forecast), 0)::numeric AS qty
+                            s.y,
+                            COALESCE(SUM(t.qty_venduta), 0)::numeric AS qty
                         FROM w
-                        CROSS JOIN years y
-                        LEFT JOIN public.greenhouse_forecast_results_v2 f
-                          ON f.famiglia = :p_entity_key
-                         AND f.fascia_prezzo_iva_inc = :p_fascia_prezzo
-                         AND f.data BETWEEN make_date(y.y, EXTRACT(MONTH FROM CAST(:p_anchor_to AS date))::int, EXTRACT(DAY FROM CAST(:p_anchor_to AS date))::int)
-                                        AND make_date(y.y, EXTRACT(MONTH FROM CAST(:p_anchor_to AS date))::int, EXTRACT(DAY FROM CAST(:p_anchor_to AS date))::int)
-                                            + (w.window_days - 1) * interval '1 day'
-                        GROUP BY w.window_days, y.y
+                        CROSS JOIN starts s
+                        LEFT JOIN public.core_analytics__breakdown_daily_famiglia_fp_v2 t
+                          ON t.entity_key_lc = lower(trim(:p_entity_key))
+                         AND t.fascia_prezzo_iva_inc = :p_fascia_prezzo
+                         AND t.data > s.start_date
+                         AND t.data <= s.start_date + (w.window_days * interval '1 day')
+                        GROUP BY w.window_days, s.y
                     )
                     SELECT
                         window_days,
@@ -705,7 +731,7 @@ def get_future_windows_stats(
                     ORDER BY window_days
                 """),
                 {
-                    "p_entity_key": entity_key.strip().lower(),
+                    "p_entity_key": entity_key.strip(),
                     "p_fascia_prezzo": fascia_prezzo,
                     "p_anchor_to": anchor_to,
                     "p_windows": windows_pg,
