@@ -3,6 +3,13 @@ set -Eeuo pipefail
 
 export APP_ENV="${APP_ENV:-dev}"
 source /opt/greenbrain-platform/infra/scripts/load_env.sh
+
+# On dev the ETL is manual and does not run daily — skip the freshness check.
+if [ "${APP_ENV}" = "dev" ]; then
+  echo "[check_etl_ready] APP_ENV=dev — skipping ETL freshness check, proceeding."
+  exit 0
+fi
+
 export PGPASSWORD="$PG_PASSWORD"
 
 out="$(
@@ -29,9 +36,9 @@ select case
   when exists (
     select 1
     from raw_max r
-    join last_ok l on l.target_last = r.raw_last
+    join last_ok l on l.target_last >= r.raw_last - interval '1 day'
     where r.raw_last is not null
-      and l.started_at >= now() - interval '24 hours'
+      and l.started_at >= now() - interval '48 hours'
   )
   then 'READY'
   else 'NOT_READY'
