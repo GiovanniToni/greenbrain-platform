@@ -1,12 +1,14 @@
 #!/bin/bash
 set -Eeuo pipefail
 
-PROJECT_DIR="${GH_REPO_DIR:-/opt/greenbrain-platform/apps/ml-worker}/jobs/parquet_export"
+export APP_ENV="${APP_ENV:-dev}"
+source /opt/greenbrain-platform/infra/scripts/load_env.sh
+
+export GH_REPO_DIR="${GH_REPO_DIR:-/opt/greenbrain-platform/apps/ml-worker}"
+PROJECT_DIR="${GH_REPO_DIR}/jobs/parquet_export"
 export PYTHONPATH="${GH_REPO_DIR}:${PYTHONPATH:-}"
 VENV_PY="python"
 LOG_DIR="/opt/greenbrain-platform/runtime-reports/parquet_export"
-export APP_ENV="${APP_ENV:-dev}"
-source /opt/greenbrain-platform/infra/scripts/load_env.sh
 
 # Batch config
 BATCH_SIZE=50
