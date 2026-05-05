@@ -2,8 +2,8 @@
 set -euo pipefail
 
 BASE_DIR="/opt/greenbrain-platform"
-REPO_DIR="${GH_REPO_DIR:-${BASE_DIR}/repo}"
-VENV_BIN="${BASE_DIR}/venv/bin"
+REPO_DIR="${GH_REPO_DIR:-${BASE_DIR}/apps/ml-worker}"
+VENV_BIN="${GH_REPO_DIR:-${BASE_DIR}/apps/ml-worker}/.venv/bin"
 LOG_DIR="${BASE_DIR}/logs"
 LOCK_DIR="${BASE_DIR}/tmp"
 LOCK_FILE="${LOCK_DIR}/train_missing.lock"
