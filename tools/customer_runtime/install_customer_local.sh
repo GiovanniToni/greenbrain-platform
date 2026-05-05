@@ -39,6 +39,25 @@ tar -xzf "$ARCHIVE" -C "$WORKDIR"
 
 ok "release estratta e verificata"
 
+mkdir -p "$PKGDIR/overlay/env"
+mkdir -p "$PKGDIR/overlay/tunnel/cloudflared"
+
+if [ ! -f "$PKGDIR/overlay/env/customer-local.env" ]; then
+  cp "$PKGDIR/env/customer-local.env.example" "$PKGDIR/overlay/env/customer-local.env"
+  echo "CREATED: overlay/env/customer-local.env from example"
+fi
+
+if [ ! -f "$PKGDIR/overlay/tunnel/cloudflared/config.yml" ] && [ -f "$PKGDIR/tunnel/cloudflared/config.yml.example" ]; then
+  cp "$PKGDIR/tunnel/cloudflared/config.yml.example" "$PKGDIR/overlay/tunnel/cloudflared/config.yml"
+  echo "CREATED: overlay/tunnel/cloudflared/config.yml from example"
+fi
+
+if [ ! -f "$PKGDIR/overlay/tunnel/cloudflared/cloudflared.env" ] && [ -f "$PKGDIR/tunnel/cloudflared/cloudflared.env.example" ]; then
+  cp "$PKGDIR/tunnel/cloudflared/cloudflared.env.example" "$PKGDIR/overlay/tunnel/cloudflared/cloudflared.env"
+  echo "CREATED: overlay/tunnel/cloudflared/cloudflared.env from example"
+fi
+
+
 echo
 echo "Release pronta in:"
 echo "  $PKGDIR"

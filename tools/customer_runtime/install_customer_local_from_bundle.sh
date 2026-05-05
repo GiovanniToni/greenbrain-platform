@@ -40,6 +40,22 @@ mkdir -p "$TARGET_DIR/overlay/tunnel/cloudflared"
 
 ok "bundle copiato in $TARGET_DIR"
 
+if [ ! -f "$TARGET_DIR/overlay/env/customer-local.env" ]; then
+  cp "$TARGET_DIR/env/customer-local.env.example" "$TARGET_DIR/overlay/env/customer-local.env"
+  echo "CREATED: overlay/env/customer-local.env from example"
+fi
+
+if [ ! -f "$TARGET_DIR/overlay/tunnel/cloudflared/config.yml" ] && [ -f "$TARGET_DIR/tunnel/cloudflared/config.yml.example" ]; then
+  cp "$TARGET_DIR/tunnel/cloudflared/config.yml.example" "$TARGET_DIR/overlay/tunnel/cloudflared/config.yml"
+  echo "CREATED: overlay/tunnel/cloudflared/config.yml from example"
+fi
+
+if [ ! -f "$TARGET_DIR/overlay/tunnel/cloudflared/cloudflared.env" ] && [ -f "$TARGET_DIR/tunnel/cloudflared/cloudflared.env.example" ]; then
+  cp "$TARGET_DIR/tunnel/cloudflared/cloudflared.env.example" "$TARGET_DIR/overlay/tunnel/cloudflared/cloudflared.env"
+  echo "CREATED: overlay/tunnel/cloudflared/cloudflared.env from example"
+fi
+
+
 echo
 echo "Prossimi passi:"
 echo "  cp $TARGET_DIR/env/customer-local.env.example $TARGET_DIR/overlay/env/customer-local.env"

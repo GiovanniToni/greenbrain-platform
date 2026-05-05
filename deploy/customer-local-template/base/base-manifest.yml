@@ -10,3 +10,8 @@ managed_paths:
   - tunnel/docker-compose.tunnel.yml
   - VERSION
   - release-manifest.yml
+
+  - base/apps/ml-worker
+  - base/infra/scripts
+  - base/infra/systemd
+  - base/client-runtime
