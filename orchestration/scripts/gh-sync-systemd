@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BASE="/opt/greenbrain-platform"
+SRC="$BASE/orchestration/systemd"
+DST="$BASE/infra/systemd"
+
+MODE="${1:-check}"
+
+cd "$BASE"
+
+units=(
+  gh-daily-pipeline.service
+  gh-daily-pipeline.timer
+  gh-parquet-export.service
+  gh-parquet-export.timer
+  gh-refresh-registry.service
+  gh-refresh-registry.timer
+  gh-train-missing.service
+  gh-train-missing.timer
+  gh-predict-all.service
+  gh-predict-all.timer
+  gh-train-biweekly-all.service
+  gh-train-biweekly-all.timer
+  gh-train-quarterly.service
+  gh-train-quarterly.timer
+)
+
+echo "===== GREENBRAIN SYSTEMD SYNC ====="
+echo "MODE=$MODE"
+echo "SRC=$SRC"
+echo "DST=$DST"
+echo
+
+drift=0
+
+for u in "${units[@]}"; do
+  src="$SRC/$u"
+  dst="$DST/$u"
+
+  if [ ! -f "$src" ]; then
+    echo "MISSING SRC: $u"
+    drift=1
+    continue
+  fi
+
+  if [ ! -f "$dst" ]; then
+    echo "MISSING DST: $u"
+    drift=1
+    if [ "$MODE" = "apply" ]; then
+      cp "$src" "$dst"
+      echo "COPIED: $u"
+    fi
+    continue
+  fi
+
+  if cmp -s "$src" "$dst"; then
+    echo "OK: $u"
+  else
+    echo "DRIFT: $u"
+    drift=1
+    if [ "$MODE" = "diff" ]; then
+      diff -u "$dst" "$src" || true
+    elif [ "$MODE" = "apply" ]; then
+      cp "$src" "$dst"
+      echo "SYNCED: $u"
+    fi
+  fi
+done
+
+echo
+
+if [ "$MODE" = "apply" ]; then
+  echo "===== VERIFY AFTER APPLY ====="
+  systemd-analyze verify "$DST"/*.service "$DST"/*.timer || true
+  echo "NOTE: live /etc/systemd/system not changed by this script."
+  echo "Run infra/systemd/install.sh separately when ready."
+else
+  echo "NOTE: no files modified. Use:"
+  echo "  orchestration/scripts/gh-sync-systemd diff"
+  echo "  orchestration/scripts/gh-sync-systemd apply"
+fi
+
+echo
+echo "DRIFT=$drift"
+exit 0
