@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BASE="/opt/greenbrain-platform"
+cd "$BASE"
+
+export APP_ENV="${APP_ENV:-dev}"
+source "$BASE/infra/scripts/load_env.sh"
+
+echo "===== GREENBRAIN RUNTIME DOCTOR ====="
+echo "APP_ENV=${APP_ENV}"
+echo
+
+echo "===== SYSTEMD FAILED UNITS ====="
+FAILED="$(systemctl --failed --no-legend || true)"
+
+if echo "$FAILED" | grep -E 'gh-|greenbrain' >/dev/null 2>&1; then
+  echo "$FAILED" | grep -E 'gh-|greenbrain'
+else
+  echo "OK: no failed gh/greenbrain units"
+fi
+
+echo
+echo "===== ADVISORY LOCKS ====="
+psql -P pager=off "$DATABASE_URL" -c "
+select locktype, pid, granted, mode
+from pg_locks
+where locktype='advisory';
+" || true
+
+echo
+echo "===== ACTIVE PIPELINE QUERIES ====="
+psql -P pager=off "$DATABASE_URL" -c "
+select pid,
+       state,
+       now()-query_start as runtime,
+       left(query,140) as query
+from pg_stat_activity
+where state <> 'idle'
+  and (
+    query ilike '%run_greenhouse_daily_pipeline_full%'
+    or query ilike '%refresh_fact_from_raw%'
+    or query ilike '%refresh_dense_range_from_fact%'
+    or query ilike '%refresh_forecast_features_dense_range%'
+    or query ilike '%predict%'
+    or query ilike '%train%'
+  )
+order by query_start;
+" || true
+
+echo
+echo "===== STALE ML RUNS (> 2h running) ====="
+psql -P pager=off "$DATABASE_URL" -c "
+select run_id,
+       job_type,
+       trigger_mode,
+       status,
+       started_at,
+       now()-started_at as runtime
+from ml_ops.pipeline_run_log_v1
+where status='running'
+  and started_at < now() - interval '2 hour'
+order by started_at;
+" || true
+
+echo
+echo "===== PIPELINE FRESHNESS ====="
+psql -P pager=off "$DATABASE_URL" -c "
+select snap_ts,
+       ok,
+       raw_max_data,
+       fact_max_data,
+       dense_max_data,
+       features_dense_max_data,
+       analytics_daily_max_data
+from public.v_ops_pipeline_status;
+" || true
+
+echo
+echo "===== FORECAST FRESHNESS ====="
+psql -P pager=off "$DATABASE_URL" -c "
+select freshness_status,
+       count(*) as n
+from ml_ops.v_forecast_freshness_v1
+group by freshness_status
+order by freshness_status;
+" || true
+
+echo
+echo "DOCTOR_DONE"
