@@ -2,16 +2,18 @@
 set -euo pipefail
 
 BASE="/opt/greenbrain-platform"
-cd "$BASE"
 
-export APP_ENV="${APP_ENV:-dev}"
-source "$BASE/infra/scripts/load_env.sh"
+# shellcheck disable=SC1091
+source "$BASE/orchestration/lib/common.sh"
 
-echo "===== GREENBRAIN RUNTIME DOCTOR ====="
+gb_enter_root
+gb_load_env
+
+gb_header "GREENBRAIN RUNTIME DOCTOR"
 echo "APP_ENV=${APP_ENV}"
 echo
 
-echo "===== SYSTEMD FAILED UNITS ====="
+gb_header "SYSTEMD FAILED UNITS"
 FAILED="$(systemctl --failed --no-legend || true)"
 
 if echo "$FAILED" | grep -E 'gh-|greenbrain' >/dev/null 2>&1; then
@@ -21,7 +23,7 @@ else
 fi
 
 echo
-echo "===== ADVISORY LOCKS ====="
+gb_header "ADVISORY LOCKS"
 psql -P pager=off "$DATABASE_URL" -c "
 select locktype, pid, granted, mode
 from pg_locks
@@ -29,7 +31,7 @@ where locktype='advisory';
 " || true
 
 echo
-echo "===== ACTIVE PIPELINE QUERIES ====="
+gb_header "ACTIVE PIPELINE QUERIES"
 psql -P pager=off "$DATABASE_URL" -c "
 select pid,
        state,
@@ -49,7 +51,7 @@ order by query_start;
 " || true
 
 echo
-echo "===== STALE ML RUNS (> 2h running) ====="
+gb_header "STALE ML RUNS (> 2h running)"
 psql -P pager=off "$DATABASE_URL" -c "
 select run_id,
        job_type,
@@ -64,7 +66,7 @@ order by started_at;
 " || true
 
 echo
-echo "===== PIPELINE FRESHNESS ====="
+gb_header "PIPELINE FRESHNESS"
 psql -P pager=off "$DATABASE_URL" -c "
 select snap_ts,
        ok,
@@ -77,7 +79,7 @@ from public.v_ops_pipeline_status;
 " || true
 
 echo
-echo "===== FORECAST FRESHNESS ====="
+gb_header "FORECAST FRESHNESS"
 psql -P pager=off "$DATABASE_URL" -c "
 select freshness_status,
        count(*) as n
