@@ -7,12 +7,7 @@ source /opt/greenbrain-platform/infra/scripts/load_env.sh
 export GH_REPO_DIR="${GH_REPO_DIR:-/opt/greenbrain-platform/apps/ml-worker}"
 PROJECT_DIR="${GH_REPO_DIR}/jobs/parquet_export"
 export PYTHONPATH="${GH_REPO_DIR}:${PYTHONPATH:-}"
-VENV_PY="${GH_REPO_DIR}/.venv/bin/python"
-
-if [ ! -x "$VENV_PY" ]; then
-  echo "ERROR: Python venv not found or not executable: $VENV_PY" >&2
-  exit 127
-fi
+VENV_PY="python"
 LOG_DIR="/opt/greenbrain-platform/runtime-reports/parquet_export"
 
 # Batch config
