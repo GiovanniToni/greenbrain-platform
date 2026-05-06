@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BASE="/opt/greenbrain-platform"
+cd "$BASE"
+
+export APP_ENV="${APP_ENV:-dev}"
+source "$BASE/infra/scripts/load_env.sh"
+
+echo "===== GREENBRAIN RUNTIME STATUS ====="
+echo "APP_ENV=${APP_ENV}"
+echo
+
+echo "===== TIMERS ====="
+systemctl list-timers --all | grep -E 'gh-daily-pipeline|gh-parquet-export|gh-refresh-registry|gh-train-missing|gh-predict-all|gh-train-biweekly|gh-train-quarterly' || true
+
+echo
+echo "===== FAILED UNITS ====="
+systemctl --failed | grep -E 'gh-|greenbrain' || echo "OK: no failed gh/greenbrain units"
+
+echo
+echo "===== SERVICE RESULTS ====="
+for u in \
+  gh-daily-pipeline \
+  gh-parquet-export \
+  gh-refresh-registry \
+  gh-train-missing \
+  gh-predict-all \
+  gh-train-biweekly-all \
+  gh-train-quarterly
+do
+  echo
+  echo "----- $u -----"
+  systemctl show "$u.service" \
+    -p ActiveState \
+    -p Result \
+    -p ExecMainStatus \
+    -p ExecMainStartTimestamp \
+    -p ExecMainExitTimestamp || true
+done
+
+echo
+echo "===== PIPELINE STATUS ====="
+psql -P pager=off "$DATABASE_URL" -c "
+select snap_ts, ok,
+       raw_max_data, fact_max_data, dense_max_data, features_dense_max_data,
+       analytics_daily_max_data, dash_daily_max_date,
+       planner_weekly_last_day,
+       notes
+from public.v_ops_pipeline_status;
+" || true
+
+echo
+echo "===== FORECAST FRESHNESS ====="
+psql -P pager=off "$DATABASE_URL" -c "
+select freshness_status, count(*)
+from ml_ops.v_forecast_freshness_v1
+group by freshness_status
+order by freshness_status;
+" || true
+
+echo
+echo "===== LATEST ML RUNS ====="
+psql -P pager=off "$DATABASE_URL" -c "
+select run_id, job_type, trigger_mode, status, started_at, finished_at, rows_processed
+from ml_ops.v_pipeline_runs_recent_v1
+order by run_id desc
+limit 8;
+" || true
+
+echo
+echo "STATUS_CHECK_DONE"
