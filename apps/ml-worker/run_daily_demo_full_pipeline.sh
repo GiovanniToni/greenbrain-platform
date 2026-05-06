@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+
+# GREENBRAIN LEGACY NOTICE
+# DEPRECATED: demo-only wrapper; canonical orchestration is systemd-based.
+# Keep only for compatibility/manual debugging until cleanup is finalized.
+# Do not use this script for canonical production scheduling.
+
 set -euo pipefail
 
 BASE=/opt/greenbrain-platform

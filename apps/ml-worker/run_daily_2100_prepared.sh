@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+
+# GREENBRAIN LEGACY NOTICE
+# DEPRECATED: superseded by gh-daily-pipeline + gh-parquet-export + gh-predict-all systemd timers.
+# Keep only for compatibility/manual debugging until cleanup is finalized.
+# Do not use this script for canonical production scheduling.
+
 set -euo pipefail
 
 BASE=/opt/greenbrain-platform

@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+
+# GREENBRAIN LEGACY NOTICE
+# DEPRECATED: old nightly wrapper; replaced by parquet/train/predict systemd timers.
+# Keep only for compatibility/manual debugging until cleanup is finalized.
+# Do not use this script for canonical production scheduling.
+
 set -euo pipefail
 
 cd /opt/greenbrain-platform/apps/ml-worker
