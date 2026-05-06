@@ -2,8 +2,11 @@
 set -euo pipefail
 
 BASE="/opt/greenbrain-platform"
-cd "$BASE"
 
+# shellcheck disable=SC1091
+source "$BASE/orchestration/lib/common.sh"
+
+gb_enter_root
 export APP_ENV="${APP_ENV:-dev}"
 
 TS="$(date +%Y%m%d_%H%M%S)"
