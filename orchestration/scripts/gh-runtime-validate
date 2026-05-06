@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BASE="/opt/greenbrain-platform"
+cd "$BASE"
+
+export APP_ENV="${APP_ENV:-dev}"
+
+echo "===== GREENBRAIN RUNTIME VALIDATION ====="
+echo "APP_ENV=${APP_ENV}"
+echo
+
+bash orchestration/validators/validate_client_runtime.sh
+
+echo
+echo "RUNTIME_VALIDATION_DONE"
