@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 
 import { useOrderSuggestions, OrderSuggestion } from "@/hooks/useOrderSuggestions";
+import { apiPost } from "@/lib/apiClient";
 
 // ----------------------------
 // Helpers
@@ -267,14 +268,50 @@ function buildExcelXml(args: {
 }
 
 // ----------------------------
-// Assistant (unchanged)
+// Assistant
 // ----------------------------
+type AssistantMessage = {
+  role: "user" | "assistant";
+  text: string;
+};
+
 export function ReorderAssistant() {
   const [prompt, setPrompt] = useState("");
+  const [messages, setMessages] = useState<AssistantMessage[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const mockResponse = `Basandomi sui dati attuali, consiglio di dare priorità al riordino di prodotti con rischio stock-out. 
-  
-Verifica le quantità suggerite e considera la stagionalità corrente per ottimizzare gli ordini ai fornitori.`;
+  const starterPrompt =
+    "Avvia assistente e fai una prima analisi di questa lista di prodotti da riordinare in prospettiva dei prossimi 10 giorni.";
+
+  const runAssistant = async (question?: string) => {
+    const q = (question ?? prompt).trim() || starterPrompt;
+
+    setLoading(true);
+    setError(null);
+
+    if (q !== starterPrompt || messages.length > 0) {
+      setMessages((prev) => [...prev, { role: "user", text: q }]);
+    }
+
+    try {
+      const resp = await apiPost("/api/v1/planner/reorder-assistant", {
+        question: q,
+        only_to_order: true,
+        limit: 1000,
+      });
+
+      const answer = String(resp?.answer ?? "").trim() || "Nessuna risposta generata.";
+      setMessages((prev) => [...prev, { role: "assistant", text: answer }]);
+      setPrompt("");
+    } catch (e: any) {
+      setError(e?.message ?? "Errore durante l'analisi AI del riordino");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const hasStarted = messages.length > 0;
 
   return (
     <Card className="p-6 animate-fade-in">
@@ -288,18 +325,58 @@ Verifica le quantità suggerite e considera la stagionalità corrente per ottimi
         </div>
       </div>
 
-      <div className="bg-muted/50 rounded-lg p-4 mb-4">
-        <p className="text-sm whitespace-pre-line">{mockResponse}</p>
-      </div>
+      {!hasStarted && (
+        <div className="bg-muted/50 rounded-lg p-4 mb-4">
+          <p className="text-sm whitespace-pre-line">
+            Avvia l'assistente per fare una prima analisi della lista di prodotti da riordinare in prospettiva dei prossimi 10 giorni.
+          </p>
+          <Button className="mt-3" type="button" onClick={() => runAssistant(starterPrompt)} disabled={loading}>
+            {loading ? "Analisi in corso..." : "Avvia assistente"}
+          </Button>
+        </div>
+      )}
+
+      {messages.length > 0 && (
+        <div className="space-y-3 mb-4">
+          {messages.map((m, idx) => (
+            <div
+              key={idx}
+              className={cn(
+                "rounded-lg p-4 text-sm whitespace-pre-line",
+                m.role === "assistant" ? "bg-muted/50" : "bg-primary/10",
+              )}
+            >
+              <div className="text-xs font-medium text-muted-foreground mb-1">
+                {m.role === "assistant" ? "Assistente" : "Tu"}
+              </div>
+              {m.text}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
 
       <div className="flex gap-2">
         <Textarea
-          placeholder="Chiedi all'assistente... es. 'Quali piante devo riordinare per San Valentino?'"
+          placeholder="Chiedi all'assistente... es. 'Quali famiglie sono più urgenti?'"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           className="min-h-[60px]"
+          disabled={loading}
         />
-        <Button size="icon" className="shrink-0" type="button">
+        <Button
+          size="icon"
+          className="shrink-0"
+          type="button"
+          disabled={loading}
+          onClick={() => runAssistant()}
+          title="Invia domanda"
+        >
           <Send className="w-4 h-4" />
         </Button>
       </div>

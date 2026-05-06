@@ -205,10 +205,13 @@ export default function Analytics() {
 
   const latestAvailableDate = useMemo(() => bounds?.max ?? null, [bounds]);
 
+  // Anchor storico disponibile: usato per vendite attese.
   const anchorTo = useMemo(() => {
-    if (!latestAvailableDate) return todayISO;
-    return minISO(todayISO, latestAvailableDate);
+    return latestAvailableDate ?? todayISO;
   }, [todayISO, latestAvailableDate]);
+
+  // Anchor calendario: usato per KPI vendite, range riepilogo e grafico storico.
+  const calendarAnchorTo = todayISO;
 
   const setDateRangeSafe = useCallback(
     (r: { from: string; to: string }) => {
@@ -217,12 +220,12 @@ export default function Analytics() {
       let from = isoDay(r.from);
       let to = isoDay(r.to);
 
-      if (to > anchorTo) to = anchorTo;
+      if (to > calendarAnchorTo) to = calendarAnchorTo;
       if (from > to) from = to;
 
       setDateRange({ from, to });
     },
-    [anchorTo],
+    [calendarAnchorTo],
   );
 
   // ✅ breakdown off se non ha senso o se year
@@ -278,9 +281,9 @@ export default function Analytics() {
 
       // ✅ default: 180 giorni + auto
       setGranularityMode("auto");
-      setDateRange(getDefaultDateRange180(todayISO));
+      setDateRange(getDefaultDateRange180(calendarAnchorTo));
     },
-    [todayISO],
+    [calendarAnchorTo],
   );
 
   // ✅ Se arrivo da TopBar con un preselect, lo apro automaticamente
@@ -305,18 +308,17 @@ export default function Analytics() {
     });
   }, [selectedEntity, refetchAll]);
 
-  // quando arrivano bounds, se utente non ha toccato: resetta range 180gg su anchorTo
+  // quando cambia entità, se utente non ha toccato: resetta range 180gg su oggi
   useEffect(() => {
     if (!selectedEntity) return;
     if (rangeTouchedRef.current) return;
-    setDateRange(getDefaultDateRange180(anchorTo));
-  }, [selectedEntity, anchorTo]);
+    setDateRange(getDefaultDateRange180(calendarAnchorTo));
+  }, [selectedEntity, calendarAnchorTo]);
 
-  // clamp to anchor
+  // clamp a oggi
   useEffect(() => {
-    if (!anchorTo) return;
-    if (dateRange.to > anchorTo) setDateRange((x) => ({ ...x, to: anchorTo }));
-  }, [anchorTo, dateRange.to]);
+    if (dateRange.to > calendarAnchorTo) setDateRange((x) => ({ ...x, to: calendarAnchorTo }));
+  }, [calendarAnchorTo, dateRange.to]);
 
   // evita invertito
   useEffect(() => {
@@ -466,7 +468,7 @@ export default function Analytics() {
     refetchRolling({
       entityType: selectedEntity.entity_type,
       entityKey: selectedEntity.entity_key,
-      anchorTo,
+      anchorTo: calendarAnchorTo,
       fasciaPrezzo: ctx.fascia_prezzo ?? null,
     });
 
@@ -593,7 +595,7 @@ export default function Analytics() {
           }}
           dateFrom={dateRange.from}
           dateTo={dateRange.to}
-          anchorTo={anchorTo}
+          anchorTo={calendarAnchorTo}
           minAvailableDate={bounds?.min ?? undefined}
           onDateRangeChange={({ from, to }) => setDateRangeSafe({ from, to })}
           dayFilter={dayFilter}
@@ -606,7 +608,7 @@ export default function Analytics() {
             setHolidayNameFilter("");
             setShowBreakdown(false);
             setGranularityMode("auto");
-            setDateRange(getDefaultDateRange180(anchorTo));
+            setDateRange(getDefaultDateRange180(calendarAnchorTo));
           }}
           entityType={selectedEntity.entity_type}
           entityKey={selectedEntity.entity_key}

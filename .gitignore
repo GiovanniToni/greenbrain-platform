@@ -114,3 +114,4 @@ deploy/env/*.env
 # Infra env files with real secrets — never commit dev.env
 infra/env/dev.env
 infra/env/dev.env.bak_*
+tmp/

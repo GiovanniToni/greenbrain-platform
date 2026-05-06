@@ -21,6 +21,21 @@ type Props = {
   currentWeek52: number;
 };
 
+const SERIES_COLORS = [
+  "#2563eb",
+  "#dc2626",
+  "#16a34a",
+  "#9333ea",
+  "#ea580c",
+  "#0891b2",
+  "#ca8a04",
+  "#be123c",
+  "#4f46e5",
+  "#0f766e",
+  "#7c2d12",
+  "#64748b",
+];
+
 function wLabel(w: number) {
   return `W${String(w).padStart(2, "0")}`;
 }
@@ -97,8 +112,16 @@ export function HeatmapNodeChart({ title, nodeIds, nodesById, cellsByNode, metri
             />
             <ReferenceLine x={wLabel(currentWeek52)} strokeDasharray="4 4" />
             <ReferenceLine x={wLabel(currentWeek52 + 1)} strokeDasharray="2 2" />
-            {series.map((s) => (
-              <Line key={s.key} type="monotone" dataKey={s.key} dot={false} />
+            {series.map((s, idx) => (
+              <Line
+                key={s.key}
+                type="monotone"
+                dataKey={s.key}
+                dot={false}
+                stroke={SERIES_COLORS[idx % SERIES_COLORS.length]}
+                strokeWidth={2.5}
+                connectNulls={false}
+              />
             ))}
           </LineChart>
         </ResponsiveContainer>

@@ -358,8 +358,11 @@ export function SalesHistoryChart({
     if (!from || !to || from > to) return [];
 
     if (granularity === "day") {
+      // Estendi al forecast solo se il range include/arriva all'anchor.
+      // Se l'utente seleziona un intervallo storico manuale, rispetta dateFrom/dateTo.
+      const shouldExtendForecast = to >= anchorISO;
       const fcEnd = addDaysISO(anchorISO, FORECAST_HORIZON_DAYS);
-      const effectiveTo = maxISO(to, fcEnd);
+      const effectiveTo = shouldExtendForecast ? maxISO(to, fcEnd) : to;
       return buildDailyRange(from, effectiveTo);
     }
 
@@ -392,9 +395,11 @@ export function SalesHistoryChart({
         return;
       }
 
-      // NOTA: qui facciamo coincidere le date della query con l’asse (in day l’asse estende fino anchor+10)
+      // Estendi la query forecast solo se il range arriva all'anchor.
+      // Nei range storici manuali, non forzare l'asse fino a oggi.
+      const shouldExtendForecast = to >= anchorISO;
       const fcEnd = addDaysISO(anchorISO, FORECAST_HORIZON_DAYS);
-      const effectiveTo = maxISO(to, fcEnd);
+      const effectiveTo = shouldExtendForecast ? maxISO(to, fcEnd) : to;
 
       const fp = String(fasciaPrezzo ?? "").trim();
       let rows: any[];
@@ -732,17 +737,6 @@ export function SalesHistoryChart({
     ],
     [anchorDate, minAvailableDate],
   );
-
-  if (!data || data.length === 0) {
-    return (
-      <Card className="p-6">
-        <h3 className="text-sm font-medium text-muted-foreground mb-4">Storico Vendite</h3>
-        <div className="h-64 flex items-center justify-center text-muted-foreground">
-          Nessun dato nell&apos;intervallo selezionato
-        </div>
-      </Card>
-    );
-  }
 
   return (
     <Card className="p-6">
