@@ -2,24 +2,26 @@
 set -euo pipefail
 
 BASE="/opt/greenbrain-platform"
-cd "$BASE"
 
-export APP_ENV="${APP_ENV:-dev}"
-source "$BASE/infra/scripts/load_env.sh"
+# shellcheck disable=SC1091
+source "$BASE/orchestration/lib/common.sh"
 
-echo "===== GREENBRAIN RUNTIME STATUS ====="
+gb_enter_root
+gb_load_env
+
+gb_header "GREENBRAIN RUNTIME STATUS"
 echo "APP_ENV=${APP_ENV}"
 echo
 
-echo "===== TIMERS ====="
+gb_header "TIMERS"
 systemctl list-timers --all | grep -E 'gh-daily-pipeline|gh-parquet-export|gh-refresh-registry|gh-train-missing|gh-predict-all|gh-train-biweekly|gh-train-quarterly' || true
 
 echo
-echo "===== FAILED UNITS ====="
+gb_header "FAILED UNITS"
 systemctl --failed | grep -E 'gh-|greenbrain' || echo "OK: no failed gh/greenbrain units"
 
 echo
-echo "===== SERVICE RESULTS ====="
+gb_header "SERVICE RESULTS"
 for u in \
   gh-daily-pipeline \
   gh-parquet-export \
