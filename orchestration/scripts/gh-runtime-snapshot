@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BASE="/opt/greenbrain-platform"
+cd "$BASE"
+
+export APP_ENV="${APP_ENV:-dev}"
+
+TS="$(date +%Y%m%d_%H%M%S)"
+OUT_DIR="$BASE/runtime-reports/orchestration_snapshots"
+OUT_FILE="$OUT_DIR/runtime_snapshot_${TS}.txt"
+
+mkdir -p "$OUT_DIR"
+
+{
+  echo "===== GREENBRAIN RUNTIME SNAPSHOT ====="
+  echo "TIMESTAMP=$(date --iso-8601=seconds)"
+  echo "APP_ENV=${APP_ENV}"
+  echo
+
+  echo "===== VALIDATION ====="
+  orchestration/scripts/gh-runtime-validate || true
+
+  echo
+  echo "===== STATUS ====="
+  orchestration/scripts/gh-runtime-status || true
+
+  echo
+  echo "===== DOCTOR ====="
+  orchestration/scripts/gh-runtime-doctor || true
+
+  echo
+  echo "===== SYSTEMD DRIFT ====="
+  orchestration/scripts/gh-sync-systemd check || true
+
+  echo
+  echo "===== JOB DRIFT ====="
+  orchestration/scripts/gh-sync-jobs check || true
+
+  echo
+  echo "SNAPSHOT_DONE"
+} > "$OUT_FILE" 2>&1
+
+echo "SNAPSHOT_WRITTEN=$OUT_FILE"
+
+tail -60 "$OUT_FILE"
