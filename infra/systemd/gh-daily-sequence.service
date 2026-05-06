@@ -1,0 +1,24 @@
+[Unit]
+Description=GreenBrain - Sequential Daily Runtime Orchestrator
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Environment=APP_ENV=dev
+Environment=RAW_STABLE_MINUTES=20
+Environment=RAW_WAIT_TIMEOUT_MINUTES=180
+Environment=RAW_POLL_SECONDS=300
+Type=oneshot
+User=gh
+Group=gh
+WorkingDirectory=/opt/greenbrain-platform
+ExecStart=/bin/bash -lc '/opt/greenbrain-platform/orchestration/jobs/runtime/run_daily_sequence.sh'
+TimeoutStartSec=0
+Nice=5
+IOSchedulingClass=best-effort
+IOSchedulingPriority=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

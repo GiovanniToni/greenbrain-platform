@@ -12,6 +12,8 @@ cd "$BASE"
 units=(
   gh-daily-pipeline.service
   gh-daily-pipeline.timer
+  gh-daily-sequence.service
+  gh-daily-sequence.timer
   gh-parquet-export.service
   gh-parquet-export.timer
   gh-refresh-registry.service
