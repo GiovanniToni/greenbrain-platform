@@ -9,9 +9,18 @@ test -f apps/ml-worker/jobs/ml_ops_bridge.py
 test -f apps/ml-worker/jobs/predict_family_logged.py
 test -f apps/ml-worker/jobs/train_family_logged.py
 test -f apps/ml-worker/jobs/parquet_export/export_features_dense.py
-test -f apps/ml-worker/run_daily_runtime.sh
-test -f apps/ml-worker/run_daily_demo_runtime.sh
-test -f apps/ml-worker/run_weekly_train_runtime.sh
+test -f infra/systemd/gh-daily-pipeline.service
+test -f infra/systemd/gh-daily-pipeline.timer
+test -f infra/systemd/gh-parquet-export.service
+test -f infra/systemd/gh-parquet-export.timer
+test -f infra/systemd/gh-predict-all.service
+test -f infra/systemd/gh-predict-all.timer
+test -f infra/systemd/gh-train-missing.service
+test -f infra/systemd/gh-train-missing.timer
+test -f infra/systemd/gh-train-biweekly-all.service
+test -f infra/systemd/gh-train-biweekly-all.timer
+test -f infra/systemd/gh-train-quarterly.service
+test -f infra/systemd/gh-train-quarterly.timer
 test -f client-runtime/etl/.env.ml.runtime
 test -f client-runtime/etl/run_etl_runtime.sh
 
@@ -44,21 +53,30 @@ deactivate || true
 
 echo "=== VALIDATE DB OBJECTS ==="
 cd "$BASE"
-set -a
-source client-runtime/etl/.env.ml.runtime
-set +a
-export PGPASSWORD="$PG_PASSWORD"
 
-psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$PG_DB" -Atqc "select 'ok' from information_schema.tables where table_schema='ml_ops' and table_name='pipeline_run_log_v1' limit 1;"
-psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$PG_DB" -Atqc "select 'ok' from information_schema.tables where table_schema='ml_ops' and table_name='family_run_log_v1' limit 1;"
-psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$PG_DB" -Atqc "select 'ok' from information_schema.tables where table_schema='public' and table_name='t_ops_pipeline_monitor' limit 1;"
-psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$PG_DB" -Atqc "select 'ok' from information_schema.tables where table_schema='public' and table_name='greenhouse_forecast_results_v2' limit 1;"
+if [ "${APP_ENV:-}" = "dev" ]; then
+  source infra/scripts/load_env.sh
+  BASE=/opt/greenbrain-platform
+  DB_CONN="$DATABASE_URL"
+else
+  set -a
+  source client-runtime/etl/.env.ml.runtime
+  set +a
+  export PGPASSWORD="$PG_PASSWORD"
+  DB_CONN="host=$PG_HOST port=$PG_PORT dbname=$PG_DB user=$PG_USER sslmode=${PG_SSLMODE:-disable}"
+fi
 
-echo "=== VALIDATE RUNTIME WRAPPERS ==="
+psql "$DB_CONN" -Atqc "select 'ok' from information_schema.tables where table_schema='ml_ops' and table_name='pipeline_run_log_v1' limit 1;"
+psql "$DB_CONN" -Atqc "select 'ok' from information_schema.tables where table_schema='ml_ops' and table_name='family_run_log_v1' limit 1;"
+psql "$DB_CONN" -Atqc "select 'ok' from information_schema.tables where table_schema='public' and table_name='t_ops_pipeline_monitor' limit 1;"
+psql "$DB_CONN" -Atqc "select 'ok' from information_schema.tables where table_schema='public' and table_name='greenhouse_forecast_results_v2' limit 1;"
+
+echo "=== VALIDATE CANONICAL RUNTIME ENTRYPOINTS ==="
 test -x "$BASE/client-runtime/etl/run_etl_runtime.sh"
-test -x "$BASE/apps/ml-worker/run_daily_runtime.sh"
-test -x "$BASE/apps/ml-worker/run_daily_demo_runtime.sh"
-test -x "$BASE/apps/ml-worker/run_weekly_train_runtime.sh"
+test -x "$BASE/apps/ml-worker/jobs/parquet_export/scripts/run_daily_parquet_batches.sh"
+test -x "$BASE/apps/ml-worker/jobs/run_predict_all.sh"
+test -x "$BASE/apps/ml-worker/jobs/run_train_missing.sh"
+test -x "$BASE/apps/ml-worker/jobs/run_train_all_parallel.sh"
 test -x "$BASE/apps/ml-worker/run_smoke_runtime.sh"
 
 echo "VALIDATION_OK"
