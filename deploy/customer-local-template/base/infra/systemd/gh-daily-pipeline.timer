@@ -1,0 +1,10 @@
+[Unit]
+Description=Run GreenBrain daily RAW to Features Pipeline
+
+[Timer]
+OnCalendar=*-*-* 21:05:00
+Persistent=true
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,28 @@
+Ricapitolazione processo: sales_raw → DENSE
+
+A) Ingresso dati
+	•	greenhouse_sales_raw: vendite giornaliere caricate dall’ETL (progressivo, codart, quantita, imponibilenetto, data_movimento, ecc.)
+	•	greenhouse_products_normalized: anagrafica piante normalizzata (famiglia, fascia_prezzo_iva_inc, fascia/categoria corrette, pot_size…)
+
+B) Enrichment
+	•	greenhouse_sales_enriched = sales_raw filtrato “piante” + join con products_normalized
+(qui decidi i criteri: codart che inizia con “1”, e solo quelli matchati in products_normalized)
+
+C) Aggregazione giornaliera “non-dense”
+	•	greenhouse_sales_family_daily_v2 = aggregazione giornaliera per:
+	•	data
+	•	famiglia
+	•	fascia_prezzo_iva_inc
+e dentro metadati: pot_sizes (text/json), articoli_json con qty per codart, ecc.
+
+D) FACT
+	•	greenhouse_sales_family_daily_fact = “tabella storica” (1 riga per giorno+serie quando c’è attività / o come tua definizione)
+(nel tuo caso la usi come base stabile per costruire DENSE)
+
+E) Series list
+	•	greenhouse_series_list_fact = elenco serie valide (famiglia + fascia_prezzo_iva_inc) con fascia/categoria corretta.
+
+F) DENSE
+	•	greenhouse_sales_family_daily_dense = tutte le date per tutte le serie, con 0 dove non c’è vendita.
+	•	popolata da refresh_dense_range(start,end).
+

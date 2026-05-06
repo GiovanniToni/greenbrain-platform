@@ -1,0 +1,10 @@
+[Unit]
+Description=Greenhouse - Quarterly Train ALL Families
+
+[Timer]
+OnCalendar=*-01,04,07,10-01 02:30:00
+Persistent=true
+RandomizedDelaySec=900
+
+[Install]
+WantedBy=timers.target

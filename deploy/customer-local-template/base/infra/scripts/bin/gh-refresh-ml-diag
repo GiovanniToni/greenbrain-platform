@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+set -a
+set +a
+
+export PGPASSWORD="$PG_PASSWORD"
+
+psql \
+  "host=$PG_HOST port=$PG_PORT dbname=$PG_DB user=$PG_USER sslmode=${PG_SSLMODE:-require}" \
+  -v ON_ERROR_STOP=1 <<'SQL'
+refresh materialized view ml_diag.mv_family_day_base;
+refresh materialized view ml_diag.mv_family_stats;
+refresh materialized view ml_diag.mv_family_seasonality;
+refresh materialized view ml_diag.mv_family_intermittency;
+refresh materialized view ml_diag.mv_family_importance;
+refresh materialized view ml_diag.mv_family_metrics_v3;
+refresh materialized view ml_diag.mv_family_metrics_v3b;
+refresh materialized view ml_diag.mv_family_metrics_v4;
+refresh materialized view ml_diag.mv_family_metrics_v5;
+SQL
+
+echo "OK gh-refresh-ml-diag"
