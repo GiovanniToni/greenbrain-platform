@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BASE="/opt/greenbrain-platform"
+MODE="${1:-check}"
+
+cd "$BASE"
+
+pairs=(
+"apps/ml-worker/jobs/run_predict_all.sh|orchestration/jobs/ml/run_predict_all.sh"
+"apps/ml-worker/jobs/run_train_missing.sh|orchestration/jobs/ml/run_train_missing.sh"
+"apps/ml-worker/jobs/run_train_all_parallel.sh|orchestration/jobs/ml/run_train_all_parallel.sh"
+"apps/ml-worker/jobs/run_train_all_until_done.sh|orchestration/jobs/ml/run_train_all_until_done.sh"
+"apps/ml-worker/jobs/parquet_export/check_etl_ready.sh|orchestration/jobs/parquet/check_etl_ready.sh"
+"apps/ml-worker/jobs/parquet_export/scripts/run_daily_parquet_batches.sh|orchestration/jobs/parquet/run_daily_parquet_batches.sh"
+"infra/scripts/bin/gh-refresh-registry|orchestration/jobs/registry/gh-refresh-registry"
+)
+
+echo "===== GREENBRAIN JOB SYNC ====="
+echo "MODE=$MODE"
+echo
+
+drift=0
+
+for pair in "${pairs[@]}"; do
+  src="${pair%%|*}"
+  dst="${pair##*|}"
+
+  echo "----- $(basename "$src") -----"
+
+  if [ ! -f "$src" ]; then
+    echo "MISSING SRC: $src"
+    drift=1
+    continue
+  fi
+
+  if [ ! -f "$dst" ]; then
+    echo "MISSING DST: $dst"
+    drift=1
+
+    if [ "$MODE" = "apply" ]; then
+      mkdir -p "$(dirname "$dst")"
+      cp "$src" "$dst"
+      chmod +x "$dst" || true
+      echo "COPIED"
+    fi
+
+    continue
+  fi
+
+  if cmp -s "$src" "$dst"; then
+    echo "OK"
+  else
+    echo "DRIFT"
+    drift=1
+
+    if [ "$MODE" = "diff" ]; then
+      diff -u "$src" "$dst" || true
+    elif [ "$MODE" = "apply" ]; then
+      cp "$src" "$dst"
+      chmod +x "$dst" || true
+      echo "SYNCED"
+    fi
+  fi
+
+  echo
+done
+
+echo "DRIFT=$drift"
