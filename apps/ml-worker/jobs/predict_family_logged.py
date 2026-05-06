@@ -72,16 +72,11 @@ def count_family_rows_created_after(engine, family_name: str, ts_marker) -> int:
 
 
 def push_pipeline_monitor(ok: bool) -> None:
-    engine = get_engine()
-    try:
-        with engine.begin() as conn:
-            conn.execute(
-                text("insert into public.t_ops_pipeline_monitor(ok) values (:ok)"),
-                {"ok": bool(ok)},
-            )
-    finally:
-        engine.dispose()
-
+    # No-op by design.
+    # ML family-level jobs must not write public.t_ops_pipeline_monitor,
+    # because that table powers the global pipeline status view.
+    # Use ml_ops.pipeline_run_log_v1 / ml_ops.family_run_log_v1 for ML job status.
+    return None
 
 def run_subprocess(cmd: list[str]) -> int:
     proc = subprocess.run(cmd)

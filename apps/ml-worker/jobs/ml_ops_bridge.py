@@ -62,13 +62,9 @@ def finish_pipeline_run(
                 (status, rows_processed, error_message, notes, run_id),
             )
 
-            cur.execute(
-                """
-                insert into public.t_ops_pipeline_monitor (ok)
-                values (%s)
-                """,
-                (status == "ok",),
-            )
+            # Do not write public.t_ops_pipeline_monitor from ML family/predict jobs.
+            # The global RAW->FACT->DENSE->FEATURES monitor is owned by
+            # public.ops_refresh_pipeline_monitor_snapshot().
 
 
 def start_family_run(
