@@ -72,8 +72,8 @@ Contiene:
 ## Scheduler
 Wrapper pronti ma non attivi:
 - client-runtime/etl/run_etl_runtime.sh
-- apps/ml-worker/run_daily_runtime.sh
-- apps/ml-worker/run_weekly_train_runtime.sh
+- orchestration/scripts/gh-runtime-status
+- orchestration/scripts/gh-runtime-validate
 
 File piano:
 runtime-reports/future_cron_example.txt
