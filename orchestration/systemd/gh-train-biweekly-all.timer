@@ -1,0 +1,11 @@
+[Unit]
+Description=Run greenhouse train_all biweekly
+
+[Timer]
+OnCalendar=*-*-01,15 02:00:00
+Persistent=true
+RandomizedDelaySec=300
+Unit=gh-train-biweekly-all.service
+
+[Install]
+WantedBy=timers.target

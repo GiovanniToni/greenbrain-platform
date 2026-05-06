@@ -1,0 +1,20 @@
+[Unit]
+Description=GreenBrain - Daily RAW to Features Pipeline
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Environment=APP_ENV=dev
+Type=oneshot
+User=gh
+Group=gh
+WorkingDirectory=/opt/greenbrain-platform
+ExecStart=/bin/bash -lc 'source /opt/greenbrain-platform/infra/scripts/load_env.sh && psql -v ON_ERROR_STOP=1 -P pager=off "$DATABASE_URL" -c "set statement_timeout=0; call public.run_greenhouse_daily_pipeline_full(3,14,1);" && psql -v ON_ERROR_STOP=1 -P pager=off "$DATABASE_URL" -c "select public.ops_refresh_pipeline_monitor_snapshot();"'
+Nice=5
+IOSchedulingClass=best-effort
+IOSchedulingPriority=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

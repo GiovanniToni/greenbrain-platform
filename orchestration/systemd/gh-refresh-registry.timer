@@ -1,0 +1,10 @@
+[Unit]
+Description=Run greenhouse refresh_registry daily
+
+[Timer]
+OnCalendar=*-*-* 00:45:00
+Persistent=true
+RandomizedDelaySec=180
+
+[Install]
+WantedBy=timers.target
