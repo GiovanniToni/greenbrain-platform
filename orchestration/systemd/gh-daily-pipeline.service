@@ -9,7 +9,7 @@ Type=oneshot
 User=gh
 Group=gh
 WorkingDirectory=/opt/greenbrain-platform
-ExecStart=/bin/bash -lc 'source /opt/greenbrain-platform/infra/scripts/load_env.sh && psql -v ON_ERROR_STOP=1 -P pager=off "$DATABASE_URL" -c "set statement_timeout=0; call public.run_greenhouse_daily_pipeline_full(3,14,1);" && psql -v ON_ERROR_STOP=1 -P pager=off "$DATABASE_URL" -c "select public.ops_refresh_pipeline_monitor_snapshot();"'
+ExecStart=/bin/bash -lc '/opt/greenbrain-platform/orchestration/jobs/pipeline/run_daily_pipeline.sh'
 Nice=5
 IOSchedulingClass=best-effort
 IOSchedulingPriority=5

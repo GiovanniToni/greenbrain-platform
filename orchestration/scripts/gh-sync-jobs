@@ -13,6 +13,7 @@ pairs=(
 "apps/ml-worker/jobs/run_train_all_until_done.sh|orchestration/jobs/ml/run_train_all_until_done.sh"
 "apps/ml-worker/jobs/train_one_safe.sh|orchestration/jobs/ml/train_one_safe.sh"
 "orchestration/jobs/ml/run_train_all_monitor.sh|orchestration/jobs/ml/run_train_all_monitor.sh"
+"orchestration/jobs/pipeline/run_daily_pipeline.sh|orchestration/jobs/pipeline/run_daily_pipeline.sh"
 "apps/ml-worker/jobs/parquet_export/check_etl_ready.sh|orchestration/jobs/parquet/check_etl_ready.sh"
 "apps/ml-worker/jobs/parquet_export/scripts/run_daily_parquet_batches.sh|orchestration/jobs/parquet/run_daily_parquet_batches.sh"
 "infra/scripts/bin/gh-refresh-registry|orchestration/jobs/registry/gh-refresh-registry"
