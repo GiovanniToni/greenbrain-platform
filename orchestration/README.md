@@ -50,6 +50,7 @@ Safe order:
 - `orchestration/scripts/gh-runtime-doctor`
 - `orchestration/scripts/gh-sync-systemd check`
 - `orchestration/scripts/gh-sync-jobs check`
+- `orchestration/scripts/gh-runtime-snapshot`
 
 ## Canonical daily flow
 
@@ -64,6 +65,19 @@ RAW
   -> gh-train-missing
   -> gh-predict-all
   -> periodic full training
+
+## Shared library
+
+Common helpers live in:
+
+- `orchestration/lib/common.sh`
+
+Current scripts using it:
+
+- `gh-runtime-status`
+- `gh-runtime-validate`
+- `gh-runtime-doctor`
+- `gh-runtime-snapshot`
 
 ## Safety
 
