@@ -2,7 +2,7 @@
 set -euo pipefail
 
 BASE="/opt/greenbrain-platform"
-REPO="$BASE/repo"
+REPO="${GH_REPO_DIR:-$BASE/apps/ml-worker}"
 LIST="$BASE/tmp/families.txt"
 JOBS="${1:-4}"
 
