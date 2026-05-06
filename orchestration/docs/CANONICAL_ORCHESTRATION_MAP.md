@@ -89,7 +89,7 @@ Schedule:
 
 ## Legacy / demo candidates
 
-Da valutare prima di eliminare:
+Deprecated legacy/demo scripts, kept only for compatibility/manual debugging:
 - apps/ml-worker/run_daily_2100_prepared.sh
 - apps/ml-worker/run_daily_demo_full_pipeline.sh
 - apps/ml-worker/run_daily_runtime.sh
@@ -98,7 +98,7 @@ Da valutare prima di eliminare:
 - apps/ml-worker/run_smoke_runtime.sh
 - apps/ml-worker/run_weekly_train_runtime.sh
 
-## Files da archiviare o rimuovere dopo conferma
+## Files da archiviare o rimuovere dopo conferma finale
 - *.bak*
 - *.orig_*
 - __pycache__

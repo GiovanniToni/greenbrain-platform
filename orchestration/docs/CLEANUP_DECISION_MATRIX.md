@@ -18,7 +18,7 @@
 |---|---|---|
 | apps/ml-worker/run_daily_2100_prepared.sh | Old all-in-one ETL + fact/dense/features + export + predict | Deprecate. Superseded by gh-daily-pipeline + gh-parquet-export + gh-predict-all |
 | apps/ml-worker/run_daily_demo_full_pipeline.sh | Demo full flow for selected families | Deprecate or move to docs/examples |
-| apps/ml-worker/run_daily_runtime.sh | Old client runtime daily flow, writes ETL tracking manually | Deprecate carefully. Still referenced by validation/docs |
+| apps/ml-worker/run_daily_runtime.sh | Old client runtime daily flow, writes ETL tracking manually | Deprecated. Operational references removed from validation/docs |
 | apps/ml-worker/run_daily_demo_runtime.sh | Demo export + selected predict | Deprecate or move to docs/examples |
 | apps/ml-worker/run_nightly_runtime.sh | Old export + train all + predict all | Deprecate. Replaced by systemd timers |
 | apps/ml-worker/run_smoke_runtime.sh | Manual smoke test | Keep as utility |
