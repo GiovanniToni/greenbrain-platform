@@ -114,3 +114,9 @@ select
   ) as ok,
   step_statuses
 from agg;
+
+create or replace view public.v_ops_daily_sequence_success_history as
+select *
+from public.v_ops_daily_sequence_health_history
+where ok is true
+order by sequence_started_at desc;
