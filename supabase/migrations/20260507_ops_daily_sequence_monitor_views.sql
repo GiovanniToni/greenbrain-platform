@@ -120,3 +120,40 @@ select *
 from public.v_ops_daily_sequence_health_history
 where ok is true
 order by sequence_started_at desc;
+
+create or replace view public.v_ops_runtime_health_latest as
+select
+  now() as checked_at,
+  ps.ok as pipeline_ok,
+  ds.ok as daily_sequence_ok,
+  (ps.ok is true and ds.ok is true) as overall_ok,
+  ds.sequence_started_at,
+  ds.sequence_finished_at,
+  ds.duration_min as sequence_duration_min,
+  ds.steps_found,
+  ds.steps_success,
+  ds.steps_bad,
+  ds.step_statuses,
+  ps.snap_ts as pipeline_snapshot_ts,
+  ps.raw_max_data,
+  ps.fact_max_data,
+  ps.dense_max_data,
+  ps.features_dense_max_data,
+  ps.analytics_daily_max_data,
+  ps.dash_daily_max_date,
+  ps.planner_weekly_last_day,
+  ps.notes as pipeline_notes,
+  sh.target_date as last_success_target_date,
+  sh.sequence_finished_at as last_success_finished_at,
+  sh.parquet_files as last_success_parquet_files,
+  sh.parquet_rows as last_success_parquet_rows,
+  sh.registry_families as last_success_registry_families,
+  sh.predicted_families as last_success_predicted_families
+from public.v_ops_pipeline_status ps
+cross join public.v_ops_daily_sequence_health_latest ds
+left join lateral (
+  select *
+  from public.v_ops_daily_sequence_success_history
+  order by sequence_started_at desc
+  limit 1
+) sh on true;
