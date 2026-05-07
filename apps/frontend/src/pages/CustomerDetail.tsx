@@ -619,6 +619,14 @@ export default function CustomerDetail() {
             </div>
           </Section>
 
+
+          <Section title="Runtime locale">
+            <Row label="Stato connessione" value={badge(item.runtime_connection_status)} />
+            <Row label="Ultimo heartbeat" value={fmtDt(item.last_runtime_heartbeat_at, "datetime")} />
+            <Row label="Installation ID" value={item.latest_installation_id ? <code style={{ fontSize: 11 }}>{item.latest_installation_id}</code> : "Non registrata"} />
+            <Row label="Release installata" value={item.installed_release_version || effectiveInstalledRelease || null} />
+          </Section>
+
           <Section title="Download e release">
             <Row
               label="Ultima release disponibile"

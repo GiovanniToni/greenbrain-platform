@@ -12,6 +12,9 @@ export type CustomerOpsItem = {
   db_integration_status: string;
   assigned_release_version?: string | null;
   installed_release_version?: string | null;
+  runtime_connection_status?: string | null;
+  latest_installation_id?: string | null;
+  last_runtime_heartbeat_at?: string | null;
   last_downloaded_release_version?: string | null;
   last_downloaded_at?: string | null;
   created_at?: string | null;

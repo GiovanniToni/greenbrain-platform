@@ -51,6 +51,9 @@ interface CustomerPortalProfile {
   onboarding_step?: string | null;
   assigned_release_version?: string | null;
   installed_release_version?: string | null;
+  runtime_connection_status?: string | null;
+  latest_installation_id?: string | null;
+  last_runtime_heartbeat_at?: string | null;
   first_downloaded_release_version?: string | null;
   first_downloaded_at?: string | null;
   last_downloaded_release_version?: string | null;
@@ -911,6 +914,32 @@ export default function CustomerPortalDashboard() {
       </Card>
 
       </div>
+
+
+      {/* Runtime status */}
+      <Card className="p-6 border-primary/10">
+        <h2 className="font-semibold mb-4">Runtime locale</h2>
+        <div className="grid sm:grid-cols-3 gap-3">
+          <div className="rounded-xl border bg-muted/20 p-4">
+            <p className="text-xs text-muted-foreground mb-1">Stato connessione</p>
+            <Badge variant={data?.runtime_connection_status === "healthy" ? "default" : "outline"}>
+              {data?.runtime_connection_status || "Non collegato"}
+            </Badge>
+          </div>
+          <div className="rounded-xl border bg-muted/20 p-4">
+            <p className="text-xs text-muted-foreground mb-1">Ultimo heartbeat</p>
+            <p className="font-semibold text-sm">
+              {data?.last_runtime_heartbeat_at ? fmtDateTime(data.last_runtime_heartbeat_at) : "Mai ricevuto"}
+            </p>
+          </div>
+          <div className="rounded-xl border bg-muted/20 p-4">
+            <p className="text-xs text-muted-foreground mb-1">Installazione</p>
+            <p className="font-mono text-xs break-all">
+              {data?.latest_installation_id || "Non registrata"}
+            </p>
+          </div>
+        </div>
+      </Card>
 
       {/* Bundle & install */}
       <Card className="p-6 border-primary/10">

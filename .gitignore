@@ -1,5 +1,4 @@
-.venv/
-__pycache__/
+.v__pycache__/
 *.pyc
 node_modules/
 dist/
@@ -115,3 +114,38 @@ deploy/env/*.env
 infra/env/dev.env
 infra/env/dev.env.bak_*
 tmp/
+
+# Python virtualenvs
+.v.venv-*/
+vdeploy/customer-local-template/base/backend-src/.venv-cloud/
+
+# Python virtualenvs
+.v.venv-*/
+v**/.v**/.venv-*/
+**/v**/
+# Python virtualenvs
+.v.venv-*/
+v**/.v**/.venv-*/
+**/v**/
+# Python virtualenvs
+.v.venv-*/
+v**/.v**/.venv-*/
+**/v**/
+# Python virtualenvs
+.v.venv-*/
+v**/.v**/.venv-*/
+**/v**/
+# Local env files
+deploy/env/*.env
+!deploy/env/*.env.example
+!deploy/env/README.md
+infra/env/*.env
+!infra/env/*.env.example
+!infra/env/base.env
+!infra/env/client.env
+client-runtime/env/
+deploy/customer-local-template/overlay/env/
+deploy/customer-local-instances/*/env/
+deploy/customer-local-instances/*/overlay/env/
+deploy/customer-runtime-template/env/*.env
+!deploy/customer-runtime-template/env/*.env.example
