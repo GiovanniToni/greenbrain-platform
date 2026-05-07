@@ -77,6 +77,6 @@ test -x "$BASE/apps/ml-worker/jobs/parquet_export/scripts/run_daily_parquet_batc
 test -x "$BASE/apps/ml-worker/jobs/run_predict_all.sh"
 test -x "$BASE/apps/ml-worker/jobs/run_train_missing.sh"
 test -x "$BASE/apps/ml-worker/jobs/run_train_all_parallel.sh"
-test -x "$BASE/apps/ml-worker/run_smoke_runtime.sh"
+test -x "$BASE/apps/ml-worker/tools/run_smoke_runtime.sh"
 
 echo "VALIDATION_OK"

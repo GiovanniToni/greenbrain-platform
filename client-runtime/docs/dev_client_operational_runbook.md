@@ -51,7 +51,7 @@ client-runtime/scripts/validate_client_runtime.sh
 
 ### 7. Esegui smoke test
 Script:
-apps/ml-worker/run_smoke_runtime.sh
+apps/ml-worker/tools/run_smoke_runtime.sh
 
 ### 8. Verifica DB
 Controllare:
@@ -62,7 +62,7 @@ Controllare:
 
 ## Smoke test standard
 Script:
-apps/ml-worker/run_smoke_runtime.sh
+apps/ml-worker/tools/run_smoke_runtime.sh
 
 Contiene:
 - export
@@ -108,7 +108,7 @@ Fino ad allora:
 /opt/greenbrain-platform/client-runtime/scripts/validate_client_runtime.sh
 
 ### Smoke test
-/opt/greenbrain-platform/apps/ml-worker/run_smoke_runtime.sh
+/opt/greenbrain-platform/apps/ml-worker/tools/run_smoke_runtime.sh
 
 ## Stato finale accettato
 Client-runtime pronto come runtime locale validato,

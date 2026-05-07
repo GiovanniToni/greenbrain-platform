@@ -14,4 +14,4 @@
 /opt/greenbrain-platform/client-runtime/update.sh /opt/greenbrain-platform/client-runtime/release/current_package
 
 ### 3
-/opt/greenbrain-platform/apps/ml-worker/run_smoke_runtime.sh
+/opt/greenbrain-platform/apps/ml-worker/tools/run_smoke_runtime.sh
