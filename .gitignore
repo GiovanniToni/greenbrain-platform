@@ -27,51 +27,15 @@ package_*/
 # local runtime tunnel real credentials
 deploy/customer-local-instances/*/tunnel/cloudflared/*.json
 !deploy/customer-local-instances/*/tunnel/cloudflared/*.json.example
-
 # customer local backups
-
 deploy/customer-local-instances/*/backups/
-
-
-
 # customer local real overlay secrets
-
 deploy/customer-local-instances/*/overlay/env/customer-local.env
-
 deploy/customer-local-instances/*/overlay/tunnel/cloudflared/*.json
-
 deploy/customer-local-instances/*/overlay/tunnel/cloudflared/config.yml
-
 deploy/customer-local-instances/*/overlay/tunnel/cloudflared/cloudflared.env
-
-
-
 # generated releases
-
 releases/customer-local/
-
-# customer local backups
-
-deploy/customer-local-instances/*/backups/
-
-
-
-# customer local real overlay secrets
-
-deploy/customer-local-instances/*/overlay/env/customer-local.env
-
-deploy/customer-local-instances/*/overlay/tunnel/cloudflared/*.json
-
-deploy/customer-local-instances/*/overlay/tunnel/cloudflared/config.yml
-
-deploy/customer-local-instances/*/overlay/tunnel/cloudflared/cloudflared.env
-
-
-
-# generated releases
-
-releases/customer-local/
-
 # ML runtime/local artifacts
 apps/ml-worker/*.orig_wave4_validation
 apps/ml-worker/*_progress.json
@@ -79,65 +43,36 @@ apps/ml-worker/models_v4/
 apps/ml-worker/models_v4_backup/
 apps/ml-worker/parquet_cache/
 apps/ml-worker/priors_cache/
-
 # Local generated notes / ad hoc files
 apps/ml-worker/ISTRUZIONI  & FUNZIONAMENTO/
 olvectl query *
-
 # Local release output
 client-runtime/release/
-
 # Customer local backups and live local envs
-deploy/customer-local-instances/*/backups/
-
 apps/ml-worker/**/*.orig_wave4_validation
-
 # ML storage local junk
 apps/ml-worker/storage/__pycache__/
 apps/ml-worker/storage/*.bak_*
-
 # Local customer instance examples/templates generated per instance
 deploy/customer-local-instances/*/overlay/frontend-nginx/*.template
 deploy/customer-local-instances/*/overlay/tunnel/cloudflared/*.example
-
 # Local-only customer demo instance
 deploy/customer-local-instances/cliente-demo-5/
-
 # Local sync-agent real env
 deploy/customer-runtime-template/sync-agent/cloud-sync.env
-
 # Local stack env files
 deploy/env/*.env
 !deploy/env/*.env.example
-
 # Infra env files with real secrets — never commit dev.env
 infra/env/dev.env
 infra/env/dev.env.bak_*
 tmp/
-
 # Python virtualenvs
 .v.venv-*/
 vdeploy/customer-local-template/base/backend-src/.venv-cloud/
-
-# Python virtualenvs
-.v.venv-*/
-v**/.v**/.venv-*/
-**/v**/
-# Python virtualenvs
-.v.venv-*/
-v**/.v**/.venv-*/
-**/v**/
-# Python virtualenvs
-.v.venv-*/
-v**/.v**/.venv-*/
-**/v**/
-# Python virtualenvs
-.v.venv-*/
 v**/.v**/.venv-*/
 **/v**/
 # Local env files
-deploy/env/*.env
-!deploy/env/*.env.example
 !deploy/env/README.md
 infra/env/*.env
 !infra/env/*.env.example
@@ -149,3 +84,10 @@ deploy/customer-local-instances/*/env/
 deploy/customer-local-instances/*/overlay/env/
 deploy/customer-runtime-template/env/*.env
 !deploy/customer-runtime-template/env/*.env.example
+# Local / secret env files
+.venv/
+.venv-*/
+venv/
+**/.venv/
+**/.venv-*/
+**/venv/
