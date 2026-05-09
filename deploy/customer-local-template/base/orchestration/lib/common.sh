@@ -15,12 +15,23 @@ gb_load_env() {
   [ -f "$GB_RUNTIME_ENV" ] && source "$GB_RUNTIME_ENV"
   set +a
 
-  export PGHOST="${PGHOST:-postgres}"
-  export PGPORT="${PGPORT:-5432}"
+  export PGHOST="${PGHOST:-${POSTGRES_HOST:-postgres}}"
+  export PGPORT="${PGPORT:-${POSTGRES_PORT:-5432}}"
   export PGDATABASE="${PGDATABASE:-${POSTGRES_DB:-greenbrain}}"
   export PGUSER="${PGUSER:-${POSTGRES_USER:-greenbrain}}"
   export PGPASSWORD="${PGPASSWORD:-${POSTGRES_PASSWORD:-greenbrain}}"
+
+  export PG_HOST="${PG_HOST:-$PGHOST}"
+  export PG_PORT="${PG_PORT:-$PGPORT}"
+  export PG_DB="${PG_DB:-$PGDATABASE}"
+  export PG_USER="${PG_USER:-$PGUSER}"
+  export PG_PASSWORD="${PG_PASSWORD:-$PGPASSWORD}"
+  export PG_SSLMODE="${PG_SSLMODE:-${POSTGRES_SSLMODE:-disable}}"
+
   export DATABASE_URL="${DATABASE_URL:-postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}}"
+
+  export BACKEND_HEALTH_URL="${BACKEND_HEALTH_URL:-http://backend:8000/health}"
+  export FRONTEND_HEALTH_URL="${FRONTEND_HEALTH_URL:-http://frontend:80}"
 }
 
 gb_psql() {
