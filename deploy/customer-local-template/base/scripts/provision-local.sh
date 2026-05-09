@@ -55,6 +55,8 @@ fi
 
 set -a
 source "$CUSTOMER_ENV"
+set +a
+set -a
 source "$RUNTIME_ENV"
 set +a
 
