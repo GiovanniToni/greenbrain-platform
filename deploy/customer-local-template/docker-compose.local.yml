@@ -19,8 +19,6 @@ services:
     build:
       context: ./base/backend-src
       dockerfile: Dockerfile
-    volumes:
-      - ../../releases/customer-local:/opt/greenbrain-platform/releases/customer-local:ro
     container_name: greenbrain_local_backend
     restart: unless-stopped
     env_file:
@@ -29,6 +27,24 @@ services:
       - postgres
     ports:
       - "${LOCAL_BACKEND_PORT}:8000"
+
+  scheduler:
+    image: alpine:3.20
+    container_name: gb_customer_scheduler
+    restart: unless-stopped
+    env_file:
+      - ./overlay/env/customer-local.env
+    depends_on:
+      - backend
+      - frontend
+    volumes:
+      - ./:/workspace:rw
+    command: >
+      sh -lc "apk add --no-cache bash curl python3 >/dev/null &&
+              mkdir -p /workspace/overlay/logs &&
+              echo '*/5 * * * * cd /workspace && bash base/scripts/runtime-heartbeat.sh >> overlay/logs/heartbeat.log 2>&1' | crontab - &&
+              echo GREENBRAIN_SCHEDULER_START &&
+              crond -f -l 8"
 
   frontend:
     image: nginx:alpine
