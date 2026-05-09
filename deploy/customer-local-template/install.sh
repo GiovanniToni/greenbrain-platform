@@ -17,6 +17,15 @@ fi
 
 mkdir -p "$ROOT/overlay/env"
 
+if [ ! -f "$ROOT/overlay/env/customer-local.env" ]; then
+  if [ -f "$ROOT/env/customer-local.env.example" ]; then
+    cp "$ROOT/env/customer-local.env.example" "$ROOT/overlay/env/customer-local.env"
+  else
+    echo "ERROR: missing $ROOT/env/customer-local.env.example"
+    exit 3
+  fi
+fi
+
 if [ ! -f "$ROOT/overlay/provisioning/local-runtime.env" ]; then
   cp \
     "$ROOT/overlay/provisioning/local-runtime.env.example" \
