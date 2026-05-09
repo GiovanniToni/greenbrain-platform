@@ -86,6 +86,10 @@ export default function Login() {
             window.location.href = res.redirect_url;
             return;
           }
+          // Same-host users do not need SSO. Continue with standard login below.
+          if (targetHost && targetHost === window.location.host) {
+            // no-op
+          }
         } catch {
           // Non cliente/SSO non applicabile: continua con login standard dev/admin.
         }
