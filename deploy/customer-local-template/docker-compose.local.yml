@@ -23,9 +23,6 @@ services:
     restart: unless-stopped
     env_file:
       - ./overlay/env/customer-local.env
-    environment:
-      BACKEND_HEALTH_URL: http://backend:8000/health
-      FRONTEND_HEALTH_URL: http://frontend:80
     depends_on:
       - postgres
     ports:
@@ -37,6 +34,9 @@ services:
     restart: unless-stopped
     env_file:
       - ./overlay/env/customer-local.env
+    environment:
+      BACKEND_HEALTH_URL: http://backend:8000/health
+      FRONTEND_HEALTH_URL: http://frontend:80
     depends_on:
       - backend
       - frontend
