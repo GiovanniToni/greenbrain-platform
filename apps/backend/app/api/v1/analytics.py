@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from app.db.session import get_db
-from app.api.v1.auth import require_admin
+from app.api.v1.auth import require_platform_access
 
 router = APIRouter(prefix="/api/v1/analytics", tags=["analytics"])
 
@@ -86,7 +86,7 @@ def get_series(
     date_to: str = Query(...),
     fascia_prezzo: Optional[str] = Query(default=None, description="FP filter: routes to breakdown view with ILIKE"),
     db: Session = Depends(get_db),
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_platform_access),
 ):
     # Articolo usa le stesse viste gerarchiche degli altri livelli:
     # core_analytics__series_{day/week/month/year}_articolo_lc
@@ -140,7 +140,7 @@ def get_series_breakdown(
     date_from: str = Query(...),
     date_to: str = Query(...),
     db: Session = Depends(get_db),
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_platform_access),
 ):
     if entity_type not in BREAKDOWN_ENTITIES:
         raise HTTPException(
@@ -174,7 +174,7 @@ def get_range_totals(
     date_from: str = Query(...),
     date_to: str = Query(...),
     db: Session = Depends(get_db),
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_platform_access),
 ):
     try:
         if entity_type == "articolo":
@@ -241,7 +241,7 @@ def get_series_bounds(
     granularity: str = Query(default="day", description="day, week, month, year"),
     entity_key: str = Query(default=None, description="Optional: filter to a specific entity"),
     db: Session = Depends(get_db),
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_platform_access),
 ):
     gran = _resolve_gran(granularity)
 
@@ -306,7 +306,7 @@ def get_series_bounds(
 def get_future_windows(
     famiglia: str = Query(default=None, description="Optional: filter by famiglia"),
     db: Session = Depends(get_db),
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_platform_access),
 ):
     try:
         if famiglia:
@@ -350,7 +350,7 @@ def get_compare_series(
     date_from: str = Query(...),
     date_to: str = Query(...),
     db: Session = Depends(get_db),
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_platform_access),
 ):
     col_map = {
         "famiglia": "famiglia",
@@ -393,7 +393,7 @@ def get_entity_summary(
     p_famiglia: Optional[str] = Query(default=None),
     p_fascia_prezzo: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_platform_access),
 ):
     try:
         result = db.execute(
@@ -439,7 +439,7 @@ def get_components(
     entity_key: str = Query(...),
     limit: int = Query(default=5000, ge=1, le=10000),
     db: Session = Depends(get_db),
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_platform_access),
 ):
     col_map = {
         "famiglia": "famiglia",
@@ -474,7 +474,7 @@ def get_seasonality(
     entity_type: str = Query(..., description="famiglia, categoria, fascia, fascia_prezzo, articolo"),
     entity_key: str = Query(...),
     db: Session = Depends(get_db),
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_platform_access),
 ):
     try:
         if entity_type == "articolo":
@@ -514,7 +514,7 @@ def get_seasonality_weekly(
     entity_key: str = Query(...),
     fascia_prezzo: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_platform_access),
 ):
     day_names = {
         0: "Dom",
@@ -633,7 +633,7 @@ def get_stock_and_reorder(
     entity_key: str = Query(...),
     fascia_prezzo: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_platform_access),
 ):
     _resolve_entity(entity_type)
     try:
@@ -663,7 +663,7 @@ def get_future_windows_stats(
     windows: List[int] = Query(default=[7, 14, 30, 60], description="Window sizes in days"),
     fascia_prezzo: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_platform_access),
 ):
     _resolve_entity(entity_type)
     windows_pg = "{" + ",".join(str(w) for w in windows) + "}"

@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from app.api.v1.auth import require_admin
+from app.api.v1.auth import require_internal_admin
 from app.schemas.customer_ops import CustomerCompanyCreate
 from app.services.customer_ops_service import (
     confirm_customer_setup_slot,
@@ -40,7 +40,7 @@ class ConfirmSlotPayload(BaseModel):
 
 @router.get("/customers")
 def list_customers_route(
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_internal_admin),
     limit: int = Query(default=100, ge=1, le=500),
 ):
     try:
@@ -56,7 +56,7 @@ class SendReleasePayload(BaseModel):
 @router.post("/customers")
 def create_customer_route(
     payload: CustomerCompanyCreate,
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_internal_admin),
 ):
     try:
         row = create_customer(payload.model_dump())
@@ -68,7 +68,7 @@ def create_customer_route(
 @router.get("/customers/{customer_id}")
 def get_customer_detail_route(
     customer_id: str,
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_internal_admin),
 ):
     try:
         return get_customer_ops_item(customer_id)
@@ -86,7 +86,7 @@ def get_customer_detail_route(
 def send_release_route(
     customer_id: str,
     payload: SendReleasePayload,
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_internal_admin),
 ):
     try:
         return send_release(customer_id, payload.release_version)
@@ -103,7 +103,7 @@ def send_release_route(
 def update_onboarding_status_route(
     customer_id: str,
     payload: OnboardingStatusUpdate,
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_internal_admin),
 ):
     try:
         return update_customer_onboarding_status(
@@ -122,7 +122,7 @@ def update_onboarding_status_route(
 def confirm_slot_route(
     customer_id: str,
     payload: ConfirmSlotPayload,
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_internal_admin),
 ):
     try:
         return confirm_customer_setup_slot(
@@ -142,7 +142,7 @@ def confirm_slot_route(
 @router.post("/customers/{customer_id}/request-cancellation")
 def request_cancellation_route(
     customer_id: str,
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_internal_admin),
 ):
     try:
         return request_cancellation(customer_id)
@@ -158,7 +158,7 @@ def request_cancellation_route(
 @router.post("/customers/{customer_id}/activate-subscription")
 def activate_subscription_route(
     customer_id: str,
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_internal_admin),
 ):
     try:
         return trigger_subscription_activation(customer_id)
@@ -182,7 +182,7 @@ def activate_subscription_route(
 @router.post("/customers/{customer_id}/force-activate-subscription")
 def force_activate_subscription_route(
     customer_id: str,
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_internal_admin),
 ):
     try:
         return force_activate_subscription(customer_id)

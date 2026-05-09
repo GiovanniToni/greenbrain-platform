@@ -22,9 +22,30 @@ const adminNavItems = [
   { path: "/suppliers", label: "Fornitori", icon: Truck },
 ];
 
-const customerNavItems = [
-  { path: "/account", label: "Il mio account", icon: User },
-];
+const accountNavItem = { path: "/account", label: "Il mio account", icon: User };
+
+const INTERNAL_ADMIN_ROLES = new Set(["super_admin", "greenbrain_admin"]);
+const PLATFORM_ACCESS_ROLES = new Set([
+  "super_admin",
+  "greenbrain_admin",
+  "customer_admin",
+  "customer_user",
+  "tenant_admin",
+]);
+
+function roleOf(user: { user_role?: string | null } | null | undefined): string {
+  return (user?.user_role ?? "").trim();
+}
+
+function isInternalAdmin(user: any): boolean {
+  const role = roleOf(user);
+  return INTERNAL_ADMIN_ROLES.has(role) || Boolean(user?.is_admin && !user?.tenant_code);
+}
+
+function hasPlatformAccess(user: any): boolean {
+  const role = roleOf(user);
+  return PLATFORM_ACCESS_ROLES.has(role) || Boolean(user?.is_admin);
+}
 
 type SidebarProps = {
   collapsed: boolean;
@@ -34,8 +55,10 @@ type SidebarProps = {
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const location = useLocation();
   const { user } = useAuth();
-  const visibleItems = user?.is_admin ? adminNavItems : customerNavItems;
-  const logoTarget = user?.is_admin ? "/dashboard" : "/account";
+  const canUsePlatform = hasPlatformAccess(user);
+  const canUseOps = isInternalAdmin(user);
+  const visibleItems = canUsePlatform ? [...adminNavItems, accountNavItem] : [accountNavItem];
+  const logoTarget = canUsePlatform ? "/dashboard" : "/account";
 
   return (
     <aside
@@ -98,7 +121,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             );
           })}
 
-          {user?.is_admin && (
+          {canUseOps && (
             <li key="/ops">
               <Link
                 to="/ops"

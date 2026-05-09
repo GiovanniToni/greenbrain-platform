@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app.api.v1.auth import require_admin
+from app.api.v1.auth import require_internal_admin
 from app.services.customer_delivery_service import (
     mark_delivery_sent,
     prepare_delivery_plan,
@@ -28,7 +28,7 @@ def delivery_health():
 @router.post("/prepare")
 def prepare_delivery_route(
     payload: PrepareDeliveryPayload,
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_internal_admin),
 ):
     try:
         return prepare_delivery_plan(payload.customer_id)
@@ -39,7 +39,7 @@ def prepare_delivery_route(
 @router.post("/mark-sent")
 def mark_delivery_sent_route(
     payload: MarkSentPayload,
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_internal_admin),
 ):
     try:
         return mark_delivery_sent(payload.customer_id)

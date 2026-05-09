@@ -122,13 +122,58 @@ def get_current_user(
     return user
 
 
+INTERNAL_ADMIN_ROLES = {"super_admin", "greenbrain_admin"}
+PLATFORM_ACCESS_ROLES = {"super_admin", "greenbrain_admin", "customer_admin", "customer_user", "tenant_admin"}
+
+
+def _user_role(user: dict) -> str:
+    return str(user.get("user_role") or "").strip()
+
+
 def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    """Backward-compatible admin guard.
+
+    Kept for existing internal/cloud-only routes.
+    Prefer require_internal_admin or require_platform_access for new code.
+    """
     if not user.get("is_admin"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required",
         )
     return user
+
+
+def require_internal_admin(user: dict = Depends(get_current_user)) -> dict:
+    """GreenBrain internal admin only: ops, customers, delivery, provisioning."""
+    role = _user_role(user)
+    if role in INTERNAL_ADMIN_ROLES:
+        return user
+
+    # Backward compatibility for old internal admins without user_role.
+    if user.get("is_admin") and not user.get("tenant_code"):
+        return user
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Internal admin access required",
+    )
+
+
+def require_platform_access(user: dict = Depends(get_current_user)) -> dict:
+    """Operational platform access: dashboards, analytics, catalog, sales, forecast, planner."""
+    role = _user_role(user)
+    if role in PLATFORM_ACCESS_ROLES:
+        return user
+
+    # Backward compatibility for old admin/dev accounts.
+    if user.get("is_admin"):
+        return user
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Platform access required",
+    )
 
 
 @router.post("/login", response_model=TokenResponse)

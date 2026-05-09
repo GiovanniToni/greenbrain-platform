@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app.api.v1.auth import require_admin
+from app.api.v1.auth import require_internal_admin
 from app.services.customer_provisioning_service import assign_release
 
 router = APIRouter(prefix="/api/v1/customer-provisioning", tags=["customer-provisioning"])
@@ -22,7 +22,7 @@ def provisioning_health():
 @router.post("/assign-release")
 def assign_release_route(
     payload: AssignReleasePayload,
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_internal_admin),
 ):
     try:
         result = assign_release(

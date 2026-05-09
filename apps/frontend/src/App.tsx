@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import { AuthProvider } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { ProtectedRoute, AdminRoute } from "@/components/auth/ProtectedRoute";
+import { ProtectedRoute, CustomerRoute, InternalAdminRoute } from "@/components/auth/ProtectedRoute";
 
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
@@ -45,13 +45,16 @@ const App = () => (
                 <Route path="/account" element={<CustomerPortalDashboard />} />
                 <Route path="/portal" element={<Navigate to="/account" replace />} />
 
-                <Route element={<AdminRoute />}>
-                  <Route path="/ops" element={<CustomerOpsConsolePage />} />
+                <Route element={<CustomerRoute />}>
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/dashboard/reorders" element={<Reorders />} />
                   <Route path="/analytics" element={<Analytics />} />
                   <Route path="/assortment-planner" element={<AssortmentPlanner />} />
                   <Route path="/suppliers" element={<Suppliers />} />
+                </Route>
+
+                <Route element={<InternalAdminRoute />}>
+                  <Route path="/ops" element={<CustomerOpsConsolePage />} />
                   <Route path="/ops/customers" element={<Navigate to="/customers" replace />} />
                   <Route path="/customers" element={<Customers />} />
                   <Route path="/customers/:customerId" element={<CustomerDetail />} />

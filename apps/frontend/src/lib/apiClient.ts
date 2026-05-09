@@ -1,22 +1,73 @@
 const BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
 
 const TOKEN_KEY = "gb_access_token";
+const RUNTIME_BASE_KEY = "gb_runtime_base_url";
+
+let memoryToken: string | null = null;
+
+const RUNTIME_API_PREFIXES = [
+  "/api/v1/dashboard/",
+  "/api/v1/analytics/",
+  "/api/v1/forecast/",
+  "/api/v1/catalog/",
+  "/api/v1/sales/",
+  "/api/v1/planner/",
+  "/api/v1/settings/",
+];
 
 export function getStoredToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+  try {
+    return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || memoryToken;
+  } catch {
+    try {
+      return sessionStorage.getItem(TOKEN_KEY) || memoryToken;
+    } catch {
+      return memoryToken;
+    }
+  }
 }
 
 export function setStoredToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
+  memoryToken = token;
+  try { localStorage.setItem(TOKEN_KEY, token); } catch {}
+  try { sessionStorage.setItem(TOKEN_KEY, token); } catch {}
 }
 
 export function clearStoredToken(): void {
-  localStorage.removeItem(TOKEN_KEY);
+  memoryToken = null;
+  try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(RUNTIME_BASE_KEY); } catch {}
+  try { sessionStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(RUNTIME_BASE_KEY); } catch {}
+}
+
+export function getRuntimeBaseUrl(): string | null {
+  return localStorage.getItem(RUNTIME_BASE_KEY);
+}
+
+export function setRuntimeBaseUrl(url: string | null | undefined): void {
+  const clean = (url || "").trim().replace(/\/$/, "");
+  if (clean) localStorage.setItem(RUNTIME_BASE_KEY, clean);
 }
 
 function authHeaders(): Record<string, string> {
   const token = getStoredToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function shouldUseRuntime(path: string): boolean {
+  return RUNTIME_API_PREFIXES.some((prefix) => path.startsWith(prefix));
+}
+
+function apiOrigin(path: string): string {
+  if (shouldUseRuntime(path)) {
+    const runtimeBase = getRuntimeBaseUrl();
+    return runtimeBase || window.location.origin;
+  }
+
+  // Auth, portal and all same-app APIs must follow the current host.
+  // This is critical for tenant SSO exchange:
+  // cliente-reale.greenbrain.it/login?sso=... must POST to cliente-reale.greenbrain.it,
+  // not to the central VITE_API_BASE_URL.
+  return window.location.origin || BASE;
 }
 
 export class ApiError extends Error {
@@ -33,8 +84,7 @@ export async function apiGet(
   path: string,
   params?: Record<string, string | number | boolean | string[] | number[] | null | undefined>,
 ): Promise<any> {
-  const origin = BASE || window.location.origin;
-  const url = new URL(path, origin);
+  const url = new URL(path, apiOrigin(path));
 
   if (params) {
     for (const [k, v] of Object.entries(params)) {
@@ -54,9 +104,7 @@ export async function apiGet(
     try {
       const body = await res.json();
       detail = body?.detail ?? body?.message ?? detail;
-    } catch {
-      // ignore parse error
-    }
+    } catch {}
     throw new ApiError(res.status, detail);
   }
 
@@ -64,8 +112,7 @@ export async function apiGet(
 }
 
 export async function apiPost(path: string, body: unknown): Promise<any> {
-  const origin = BASE || window.location.origin;
-  const url = new URL(path, origin);
+  const url = new URL(path, apiOrigin(path));
 
   const res = await fetch(url.toString(), {
     method: "POST",
@@ -78,9 +125,7 @@ export async function apiPost(path: string, body: unknown): Promise<any> {
     try {
       const b = await res.json();
       detail = b?.detail ?? b?.message ?? detail;
-    } catch {
-      // ignore parse error
-    }
+    } catch {}
     throw new ApiError(res.status, detail);
   }
 
@@ -88,8 +133,7 @@ export async function apiPost(path: string, body: unknown): Promise<any> {
 }
 
 export async function apiPatch(path: string, body: unknown): Promise<any> {
-  const origin = BASE || window.location.origin;
-  const url = new URL(path, origin);
+  const url = new URL(path, apiOrigin(path));
 
   const res = await fetch(url.toString(), {
     method: "PATCH",
@@ -102,9 +146,7 @@ export async function apiPatch(path: string, body: unknown): Promise<any> {
     try {
       const b = await res.json();
       detail = b?.detail ?? b?.message ?? detail;
-    } catch {
-      // ignore parse error
-    }
+    } catch {}
     throw new ApiError(res.status, detail);
   }
 
