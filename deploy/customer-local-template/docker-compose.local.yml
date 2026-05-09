@@ -45,7 +45,7 @@ services:
     command: >
       sh -lc "apk add --no-cache bash curl python3 >/dev/null &&
               mkdir -p /workspace/overlay/logs &&
-              echo '*/5 * * * * cd /workspace && bash base/scripts/runtime-heartbeat.sh >> overlay/logs/heartbeat.log 2>&1' | crontab - &&
+              { echo '*/5 * * * * cd /workspace && bash base/scripts/runtime-heartbeat.sh >> overlay/logs/heartbeat.log 2>&1'; echo '5 21 * * * cd /workspace && bash base/orchestration/jobs/runtime/run_daily_sequence.sh >> overlay/logs/daily_sequence_cron.log 2>&1'; } | crontab - &&
               echo GREENBRAIN_SCHEDULER_START &&
               crond -f -l 8"
 
