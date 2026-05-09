@@ -43,8 +43,8 @@ function isInternalAdmin(user: any): boolean {
 }
 
 function hasPlatformAccess(user: any): boolean {
-  const role = roleOf(user);
-  return PLATFORM_ACCESS_ROLES.has(role) || Boolean(user?.is_admin);
+  if (isInternalAdmin(user)) return true;
+  return Boolean(user?.platform_enabled);
 }
 
 type SidebarProps = {

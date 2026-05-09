@@ -24,6 +24,10 @@ export interface AuthUser {
   home_host?: string | null;
   home_path?: string | null;
   user_role?: string | null;
+  platform_enabled?: boolean;
+  runtime_health?: string | null;
+  runtime_public_backend_url?: string | null;
+  runtime_installation_id?: string | null;
 }
 
 type AuthContextValue = {
