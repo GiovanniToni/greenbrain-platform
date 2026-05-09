@@ -22,7 +22,7 @@ echo
 echo "== DB checks =="
 docker compose -f "$ROOT/docker-compose.local.yml" --env-file "$ENV" exec -T postgres \
   psql -U "${POSTGRES_USER:-greenbrain}" -d "${POSTGRES_DB:-greenbrain}" -P pager=off -c "
-select 'features_unique_index' as check_name, to_regclass('public.ux_greenhouse_forecast_features_dense_key') as result
+select 'features_unique_index' as check_name, to_regclass('public.ux_greenhouse_forecast_features_dense_key')::text as result
 union all
 select 'routing_view', to_regclass('ml_forecast.v_family_execution_routing_v2')::text
 union all
