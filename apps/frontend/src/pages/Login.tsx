@@ -35,6 +35,7 @@ export default function Login() {
 
   const currentHost = window.location.host;
   const isCentralHost = currentHost === "www.greenbrain.it" || currentHost === "greenbrain.it";
+  const isSsoBridge = Boolean(searchParams.get("sso")) && !isCentralHost;
 
   useEffect(() => {
     if (!loading && user) {
@@ -121,10 +122,21 @@ export default function Login() {
     }
   };
 
-  if (loading) {
+  if (loading || isSsoBridge) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse text-muted-foreground">Caricamento...</div>
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md p-8 text-center animate-fade-in">
+          <div className="mx-auto mb-6 w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
+            <Leaf className="w-7 h-7 text-primary-foreground" />
+          </div>
+          <h1 className="text-xl font-semibold mb-2">Accesso in corso...</h1>
+          <p className="text-sm text-muted-foreground">
+            Ti stiamo portando alla tua piattaforma GreenBrain.
+          </p>
+          {errorMessage && (
+            <p className="text-sm text-destructive mt-4">{errorMessage}</p>
+          )}
+        </Card>
       </div>
     );
   }
