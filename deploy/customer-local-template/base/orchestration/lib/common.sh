@@ -29,5 +29,5 @@ gb_psql() {
 }
 
 gb_log() {
-  echo "$(date --iso-8601=seconds) $*"
+  echo "$(date -Iseconds) $*"
 }
