@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, type AuthUser } from "@/hooks/useAuth";
-import { ApiError, apiPost, setStoredToken } from "@/lib/apiClient";
+import { ApiError, apiPost } from "@/lib/apiClient";
 
 function redirectAfterLogin(user: AuthUser, navigate: ReturnType<typeof useNavigate>) {
   const currentHost = window.location.host;
@@ -31,7 +31,7 @@ export default function Login() {
 
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading, login } = useAuth();
+  const { user, loading, login, loginWithToken } = useAuth();
 
   const currentHost = window.location.host;
   const isCentralHost = currentHost === "www.greenbrain.it" || currentHost === "greenbrain.it";
@@ -44,15 +44,20 @@ export default function Login() {
 
   useEffect(() => {
     const sso = searchParams.get("sso");
+
     if (!sso || isCentralHost) return;
 
     let cancelled = false;
 
     async function run() {
       try {
+        setIsLoading(true);
         const data = await apiPost("/api/v1/auth/sso/exchange", { ticket: sso });
-        setStoredToken(data.access_token);
-        window.location.href = `${window.location.origin}/dashboard`;
+        const me = await loginWithToken(data.access_token);
+        try {
+          localStorage.setItem("gb_sso_last_ok", new Date().toISOString());
+        } catch {}
+        redirectAfterLogin(me, navigate);
       } catch (err) {
         if (!cancelled) {
           setErrorMessage(err instanceof Error ? err.message : "Errore SSO");
@@ -64,7 +69,7 @@ export default function Login() {
     return () => {
       cancelled = true;
     };
-  }, [searchParams, isCentralHost]);
+  }, [searchParams, isCentralHost, loginWithToken, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,6 +77,22 @@ export default function Login() {
     setErrorMessage(null);
 
     try {
+      if (isCentralHost) {
+        try {
+          const res = await apiPost("/api/v1/auth/sso/start", { email, password });
+          const targetHost = res?.target_host?.trim();
+          if (res?.redirect_url && targetHost && targetHost !== window.location.host) {
+            window.location.href = res.redirect_url;
+            return;
+          }
+        } catch {
+          // Non cliente/SSO non applicabile: continua con login standard dev/admin.
+        }
+      } else {
+        window.location.href = "https://www.greenbrain.it/login";
+        return;
+      }
+
       const me = await login(email, password);
 
       toast({

@@ -30,6 +30,7 @@ type AuthContextValue = {
   user: AuthUser | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<AuthUser>;
+  loginWithToken: (token: string) => Promise<AuthUser>;
   logout: () => void;
 };
 
@@ -70,6 +71,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return me;
   }, []);
 
+  const loginWithToken = useCallback(async (token: string) => {
+    setStoredToken(token);
+    const me: AuthUser = await apiGet("/api/v1/auth/me");
+    setUser(me);
+    return me;
+  }, []);
+
   const logout = useCallback(() => {
     clearStoredToken();
     setUser(null);
@@ -80,9 +88,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       loading,
       login,
+      loginWithToken,
       logout,
     }),
-    [user, loading, login, logout]
+    [user, loading, login, loginWithToken, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
