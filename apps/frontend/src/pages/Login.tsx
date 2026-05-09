@@ -11,7 +11,18 @@ import { ApiError, apiPost } from "@/lib/apiClient";
 function redirectAfterLogin(user: AuthUser, navigate: ReturnType<typeof useNavigate>) {
   const currentHost = window.location.host;
   const targetHost = user.home_host?.trim();
-  const defaultPath = user.is_admin ? "/ops" : user.platform_enabled ? "/dashboard" : "/account";
+
+  const isInternalAdmin =
+    user.user_role === "super_admin" ||
+    user.user_role === "greenbrain_admin" ||
+    (user.is_admin && !user.tenant_code);
+
+  const defaultPath = isInternalAdmin
+    ? "/ops"
+    : user.platform_enabled
+      ? "/dashboard"
+      : "/account";
+
   const targetPath = user.home_path?.trim() || defaultPath;
 
   if (targetHost && targetHost !== currentHost) {
