@@ -221,6 +221,12 @@ def sso_start(body: LoginRequest, db: Session = Depends(get_db)):
             detail="Missing home_host for user",
         )
 
+    if home_host in {"www.greenbrain.it", "greenbrain.it"}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="SSO not required for same-cloud user",
+        )
+
     ticket = _build_sso_ticket(user)
     redirect_url = f"https://{home_host}/login?sso={ticket}"
 
