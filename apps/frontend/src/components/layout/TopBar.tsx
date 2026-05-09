@@ -31,8 +31,17 @@ export function TopBar() {
   }, []);
 
   const handleLogout = () => {
+    const host = window.location.host;
+    const isCentralHost = host === "www.greenbrain.it" || host === "greenbrain.it";
+
     logout();
-    navigate("/login");
+
+    if (!isCentralHost) {
+      window.location.href = "https://www.greenbrain.it/login";
+      return;
+    }
+
+    navigate("/login", { replace: true });
   };
 
   const handleTopSearchSelect = (item: CatalogItem) => {
