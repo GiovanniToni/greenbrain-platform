@@ -4,6 +4,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 ENV="$ROOT/overlay/env/customer-local.env"
 
+[ -f "$ENV" ] || { echo "ERROR: missing $ENV"; exit 1; }
+
+set -a
+source "$ENV"
+set +a
+
 echo "== GreenBrain Local Extended Doctor =="
 
 docker compose -f "$ROOT/docker-compose.local.yml" --env-file "$ENV" ps
