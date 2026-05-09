@@ -31,6 +31,7 @@ app.add_middleware(
         "http://127.0.0.1:80",
         "https://app.greenbrain.it",
     ],
+    allow_origin_regex=r"^https://([a-zA-Z0-9-]+\.)?greenbrain\.it$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

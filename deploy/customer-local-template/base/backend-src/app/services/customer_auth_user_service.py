@@ -27,7 +27,15 @@ def _build_auth_engine():
         f"postgresql+psycopg://{quote_plus(user)}:{quote_plus(password)}"
         f"@{host}:{port}/{dbname}"
     )
-    return create_engine(url, future=True)
+    return create_engine(
+        url,
+        future=True,
+        pool_pre_ping=True,
+        pool_size=2,
+        max_overflow=0,
+        pool_timeout=10,
+        pool_recycle=300,
+    )
 
 
 def _find_user_table(engine) -> tuple[str, set[str]]:

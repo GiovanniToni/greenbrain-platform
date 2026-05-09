@@ -3,7 +3,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.api.v1.auth import require_admin
+from app.api.v1.auth import require_platform_access
 
 router = APIRouter(prefix="/api/v1/catalog", tags=["catalog"])
 
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api/v1/catalog", tags=["catalog"])
 def list_families(
     limit: int = Query(default=20, ge=1, le=500),
     db: Session = Depends(get_db),
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_platform_access),
 ):
     query = text(
         """
@@ -36,7 +36,7 @@ def search_catalog(
     term: str = Query(..., min_length=2, description="Search term (min 2 chars)"),
     limit: int = Query(default=50, ge=1, le=500),
     db: Session = Depends(get_db),
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_platform_access),
 ):
     try:
         result = db.execute(
@@ -58,7 +58,7 @@ def get_catalog_children(
     fascia_prezzo: str = Query(default=None),
     limit: int = Query(default=500, ge=1, le=5000),
     db: Session = Depends(get_db),
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_platform_access),
 ):
     try:
         result = db.execute(
@@ -87,7 +87,7 @@ def list_catalog(
     entity_type: str = Query(..., description="famiglia, categoria, fascia, fascia_prezzo, articolo"),
     limit: int = Query(default=500, ge=1, le=5000),
     db: Session = Depends(get_db),
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_platform_access),
 ):
     try:
         result = db.execute(

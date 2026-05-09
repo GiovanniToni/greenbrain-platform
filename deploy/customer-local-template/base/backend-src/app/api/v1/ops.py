@@ -3,14 +3,14 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.api.v1.auth import require_admin
+from app.api.v1.auth import require_internal_admin
 
 router = APIRouter(prefix="/api/v1/ops", tags=["ops"])
 
 
 @router.get("/health")
 def ops_health(db: Session = Depends(get_db),
-    _: dict = Depends(require_admin),):
+    _: dict = Depends(require_internal_admin),):
     checks = {}
 
     probes = [
@@ -53,7 +53,7 @@ def ops_health(db: Session = Depends(get_db),
 def pipeline_status(
     limit: int = Query(20, ge=1, le=200),
     db: Session = Depends(get_db),
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_internal_admin),
 ):
     try:
         rows = db.execute(
@@ -91,7 +91,7 @@ def pipeline_status(
 def family_runs(
     limit: int = Query(50, ge=1, le=500),
     db: Session = Depends(get_db),
-    _: dict = Depends(require_admin),
+    _: dict = Depends(require_internal_admin),
 ):
     try:
         rows = db.execute(

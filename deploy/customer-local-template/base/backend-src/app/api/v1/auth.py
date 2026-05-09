@@ -62,6 +62,10 @@ class UserResponse(BaseModel):
     home_host: str | None = None
     home_path: str | None = None
     user_role: str | None = None
+    platform_enabled: bool = False
+    runtime_health: str | None = None
+    runtime_public_backend_url: str | None = None
+    runtime_installation_id: str | None = None
 
 
 class SsoStartResponse(BaseModel):
@@ -122,13 +126,58 @@ def get_current_user(
     return user
 
 
+INTERNAL_ADMIN_ROLES = {"super_admin", "greenbrain_admin"}
+PLATFORM_ACCESS_ROLES = {"super_admin", "greenbrain_admin", "customer_admin", "customer_user", "tenant_admin"}
+
+
+def _user_role(user: dict) -> str:
+    return str(user.get("user_role") or "").strip()
+
+
 def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    """Backward-compatible admin guard.
+
+    Kept for existing internal/cloud-only routes.
+    Prefer require_internal_admin or require_platform_access for new code.
+    """
     if not user.get("is_admin"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required",
         )
     return user
+
+
+def require_internal_admin(user: dict = Depends(get_current_user)) -> dict:
+    """GreenBrain internal admin only: ops, customers, delivery, provisioning."""
+    role = _user_role(user)
+    if role in INTERNAL_ADMIN_ROLES:
+        return user
+
+    # Backward compatibility for old internal admins without user_role.
+    if user.get("is_admin") and not user.get("tenant_code"):
+        return user
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Internal admin access required",
+    )
+
+
+def require_platform_access(user: dict = Depends(get_current_user)) -> dict:
+    """Operational platform access: dashboards, analytics, catalog, sales, forecast, planner."""
+    role = _user_role(user)
+    if role in PLATFORM_ACCESS_ROLES:
+        return user
+
+    # Backward compatibility for old admin/dev accounts.
+    if user.get("is_admin"):
+        return user
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Platform access required",
+    )
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -231,6 +280,10 @@ def sso_exchange(body: SsoExchangeRequest, request: Request, db: Session = Depen
 
 @router.get("/me", response_model=UserResponse)
 def me(user: dict = Depends(get_current_user)):
+    role = str(user.get("user_role") or "").strip()
+    is_internal = role in {"super_admin", "greenbrain_admin"} or bool(user.get("is_admin") and not user.get("tenant_code"))
+    is_customer_runtime = role in {"customer_admin", "customer_user", "tenant_admin"}
+
     return UserResponse(
         id=str(user["id"]),
         email=user["email"],
@@ -240,6 +293,10 @@ def me(user: dict = Depends(get_current_user)):
         home_host=user.get("home_host"),
         home_path=user.get("home_path"),
         user_role=user.get("user_role"),
+        platform_enabled=bool(is_internal or is_customer_runtime),
+        runtime_health="healthy" if is_customer_runtime else None,
+        runtime_public_backend_url=user.get("home_host"),
+        runtime_installation_id=None,
     )
 
 
