@@ -5,6 +5,7 @@ from typing import Any, Dict
 
 from app.repositories.customer_portal_repository import (
     get_customer_by_portal_email,
+    get_runtime_connection_by_tenant_code,
     update_customer_portal_fields,
 )
 from app.services.customer_billing_service import (
@@ -29,6 +30,10 @@ def build_customer_portal_profile(user_email: str) -> Dict[str, Any]:
     delivery = row.get("delivery") or {}
     latest_available_release_version = get_latest_available_release_version()
 
+    tenant_code = (row.get("tenant_code") or "").strip()
+    runtime = get_runtime_connection_by_tenant_code(tenant_code) if tenant_code else None
+    runtime = runtime or {}
+
     return {
         "customer_id": row.get("customer_id"),
         "tenant_code": row.get("tenant_code"),
@@ -46,6 +51,16 @@ def build_customer_portal_profile(user_email: str) -> Dict[str, Any]:
         "db_integration_status": row.get("db_integration_status"),
         "assigned_release_version": row.get("assigned_release_version"),
         "installed_release_version": row.get("installed_release_version"),
+        "runtime_connection_status": runtime.get("runtime_health") or row.get("runtime_connection_status"),
+        "latest_installation_id": runtime.get("installation_id") or row.get("latest_installation_id"),
+        "last_runtime_heartbeat_at": runtime.get("last_heartbeat_at") or row.get("last_runtime_heartbeat_at"),
+        "runtime_public_backend_url": runtime.get("public_backend_url"),
+        "runtime_local_backend_url": runtime.get("local_backend_url"),
+        "runtime_local_agent_version": runtime.get("local_agent_version"),
+        "runtime_connection_mode": runtime.get("connection_mode"),
+        "runtime_data_mode": runtime.get("data_mode"),
+        "runtime_last_sync_status": runtime.get("last_sync_status"),
+        "runtime_last_sync_at": runtime.get("last_sync_at"),
         "first_downloaded_release_version": row.get("first_downloaded_release_version"),
         "first_downloaded_at": row.get("first_downloaded_at"),
         "last_downloaded_release_version": row.get("last_downloaded_release_version"),

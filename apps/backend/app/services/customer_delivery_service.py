@@ -9,12 +9,14 @@ import tarfile
 import tempfile
 
 
+from app.core.config import settings
 from app.repositories.customer_delivery_repository import (
     get_customer_by_id,
     get_delivery_row,
     mark_bundle_sent,
 )
 from app.repositories.customer_portal_repository import update_customer_last_download
+from app.services.customer_runtime_service import create_provisioning_token
 
 RELEASES_ROOT = Path("/opt/greenbrain-platform/releases/customer-local")
 
@@ -27,6 +29,21 @@ def _version_key(version_name: str) -> Tuple[int, ...]:
         except ValueError:
             parts.append(0)
     return tuple(parts)
+
+
+def _find_release_bundle(version: str) -> Path | None:
+    version = (version or "").strip()
+    if not version:
+        return None
+    bundle = RELEASES_ROOT / version / f"customer-local-{version}.tar.gz"
+    if bundle.exists() and bundle.is_file():
+        return bundle
+    return None
+
+
+def _tenant_public_host(tenant_code: str) -> str:
+    safe = (tenant_code or "").strip().replace("_", "-")
+    return f"{safe}.greenbrain.it" if safe else "CHANGE_ME.greenbrain.it"
 
 
 def _find_latest_release_bundle() -> Path | None:
@@ -81,7 +98,7 @@ def _render_customer_env(base_env: str, customer_profile: Dict[str, Any], temp_p
     tenant_code = _safe_env_value(customer_profile.get("tenant_code"))
     email = _safe_env_value(customer_profile.get("portal_user_email") or customer_profile.get("contact_email"))
     full_name = _safe_env_value(customer_profile.get("company_name") or customer_profile.get("contact_name") or email)
-    home_host = f"{tenant_code}.greenbrain.it" if tenant_code else "CHANGE_ME.greenbrain.it"
+    home_host = _tenant_public_host(tenant_code)
 
     overrides = {
         "LOCAL_CUSTOMER_EMAIL": email,
@@ -111,9 +128,25 @@ def _render_customer_env(base_env: str, customer_profile: Dict[str, Any], temp_p
     return "\n".join(lines).rstrip() + "\n"
 
 
+def _replace_or_append_env_value(text: str, key: str, value: str) -> str:
+    lines = []
+    found = False
+    for line in text.splitlines():
+        if line.startswith(f"{key}="):
+            lines.append(f"{key}={value}")
+            found = True
+        else:
+            lines.append(line)
+    if not found:
+        lines.append(f"{key}={value}")
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def _build_personalized_bundle(source_bundle: Path, customer_profile: Dict[str, Any]) -> Path:
     customer_id = _safe_env_value(customer_profile.get("customer_id"))
     tenant_code = _safe_env_value(customer_profile.get("tenant_code"))
+    tenant_name = _safe_env_value(customer_profile.get("company_name") or customer_profile.get("contact_name") or tenant_code)
+
     if not customer_id or not tenant_code:
         raise RuntimeError("customer_profile_missing_customer_id_or_tenant_code")
 
@@ -121,8 +154,16 @@ def _build_personalized_bundle(source_bundle: Path, customer_profile: Dict[str, 
     out_dir = Path("/tmp/greenbrain-customer-bundles")
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    token_result = create_provisioning_token(
+        customer_id=customer_id,
+        tenant_code=tenant_code,
+        expires_days=14,
+    )
+    provisioning_token = token_result["token"]
+
     temp_password = secrets.token_urlsafe(18)
-    output_bundle = out_dir / f"customer-local-{version}-{tenant_code}.tar.gz"
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    output_bundle = out_dir / f"customer-local-{version}-{tenant_code}-{stamp}.tar.gz"
 
     with tempfile.TemporaryDirectory(prefix="gb_bundle_") as tmp:
         tmp_path = Path(tmp)
@@ -130,11 +171,32 @@ def _build_personalized_bundle(source_bundle: Path, customer_profile: Dict[str, 
             tar.extractall(tmp_path)
 
         env_candidates = list(tmp_path.rglob("overlay/env/customer-local.env"))
-        if not env_candidates:
-            raise RuntimeError("customer_local_env_missing_in_bundle")
+        if env_candidates:
+            env_path = env_candidates[0]
+            env_path.write_text(_render_customer_env(env_path.read_text(), customer_profile, temp_password))
 
-        env_path = env_candidates[0]
-        env_path.write_text(_render_customer_env(env_path.read_text(), customer_profile, temp_password))
+        customer_env_candidates = list(tmp_path.rglob("overlay/env/customer-local.env"))
+        if customer_env_candidates:
+            customer_env_path = customer_env_candidates[0]
+            customer_env_text = customer_env_path.read_text()
+            customer_env_text = _replace_or_append_env_value(customer_env_text, "JWT_SECRET", settings.jwt_secret)
+            customer_env_path.write_text(customer_env_text)
+
+        runtime_env_candidates = list(tmp_path.rglob("overlay/provisioning/local-runtime.env"))
+        if not runtime_env_candidates:
+            raise RuntimeError("local_runtime_env_missing_in_bundle")
+
+        runtime_env_path = runtime_env_candidates[0]
+        runtime_env = runtime_env_path.read_text()
+        runtime_env = _replace_or_append_env_value(runtime_env, "TENANT_CODE", tenant_code)
+        runtime_env = _replace_or_append_env_value(runtime_env, "TENANT_NAME", tenant_name)
+        public_host = _tenant_public_host(tenant_code)
+        runtime_env = _replace_or_append_env_value(runtime_env, "TUNNEL_PUBLIC_HOST", public_host)
+        runtime_env = _replace_or_append_env_value(runtime_env, "PUBLIC_BACKEND_URL", f"https://{public_host}")
+        runtime_env = _replace_or_append_env_value(runtime_env, "CENTRAL_AUTH_URL", "https://www.greenbrain.it")
+        runtime_env = _replace_or_append_env_value(runtime_env, "HEARTBEAT_URL", "https://www.greenbrain.it/api/v1/customer-runtime/heartbeat")
+        runtime_env = _replace_or_append_env_value(runtime_env, "PROVISIONING_TOKEN", provisioning_token)
+        runtime_env_path.write_text(runtime_env)
 
         with tarfile.open(output_bundle, "w:gz") as tar:
             for child in tmp_path.iterdir():
@@ -209,7 +271,19 @@ def resolve_bundle_download(customer_profile: Dict[str, Any]) -> Dict[str, Any]:
     if not payment_saved or not slot_requested or not slot_confirmed:
         raise RuntimeError("bundle_not_ready")
 
-    # 1) Preferred source: latest release available on host, personalized per customer
+    # 1) Preferred source: assigned release for this customer
+    assigned_version = (customer_profile.get("assigned_release_version") or "").strip()
+    assigned_bundle = _find_release_bundle(assigned_version)
+    if assigned_bundle and assigned_bundle.exists() and assigned_bundle.is_file():
+        personalized_bundle = _build_personalized_bundle(assigned_bundle, customer_profile)
+        return {
+            "bundle_path": str(personalized_bundle),
+            "filename": personalized_bundle.name,
+            "source": "personalized_assigned_release",
+            "assigned_release_version": assigned_version,
+        }
+
+    # 2) Fallback: latest release available on host
     latest_bundle = _find_latest_release_bundle()
     if latest_bundle and latest_bundle.exists() and latest_bundle.is_file():
         personalized_bundle = _build_personalized_bundle(latest_bundle, customer_profile)

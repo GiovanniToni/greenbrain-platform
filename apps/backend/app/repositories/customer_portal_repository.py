@@ -141,3 +141,31 @@ def update_customer_last_download(
             "last_downloaded_release_version": last_downloaded_release_version,
             "last_downloaded_at": last_downloaded_at,
         }
+
+
+def get_runtime_connection_by_tenant_code(tenant_code: str) -> Optional[Dict[str, Any]]:
+    client = get_supabase_client()
+
+    resp = (
+        client.table("greenbrain_runtime_connections")
+        .select(
+            """
+            tenant_code,
+            runtime_health,
+            installation_id,
+            public_backend_url,
+            local_backend_url,
+            last_heartbeat_at,
+            local_agent_version,
+            connection_mode,
+            last_sync_status,
+            last_sync_at
+            """
+        )
+        .eq("tenant_code", tenant_code)
+        .limit(1)
+        .execute()
+    )
+
+    rows = resp.data or []
+    return rows[0] if rows else None
