@@ -11,7 +11,7 @@ import { ApiError, apiPost } from "@/lib/apiClient";
 function redirectAfterLogin(user: AuthUser, navigate: ReturnType<typeof useNavigate>) {
   const currentHost = window.location.host;
   const targetHost = user.home_host?.trim();
-  const defaultPath = user.is_admin ? "/ops" : "/account";
+  const defaultPath = user.is_admin ? "/ops" : user.platform_enabled ? "/dashboard" : "/account";
   const targetPath = user.home_path?.trim() || defaultPath;
 
   if (targetHost && targetHost !== currentHost) {
