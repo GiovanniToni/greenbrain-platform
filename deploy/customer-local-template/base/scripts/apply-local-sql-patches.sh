@@ -13,7 +13,7 @@ set +a
 
 echo "== Applying local SQL patches =="
 
-for f in "$INIT_DIR"/*.sql; do
+for f in "$INIT_DIR"/2[5-9]_*.sql "$INIT_DIR"/[3-9][0-9]_*.sql; do
   [ -f "$f" ] || continue
   echo
   echo "----- $(basename "$f") -----"
