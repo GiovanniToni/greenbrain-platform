@@ -27,13 +27,16 @@ fi
 
 VERSION="$(cat "$VERSION_FILE" 2>/dev/null || echo unknown)"
 
+BACKEND_HEALTH_URL="${BACKEND_HEALTH_URL:-http://127.0.0.1:${LOCAL_BACKEND_PORT:-8008}/health}"
+FRONTEND_HEALTH_URL="${FRONTEND_HEALTH_URL:-http://127.0.0.1:${LOCAL_FRONTEND_PORT:-8088}}"
+
 BACKEND_STATUS="unknown"
-if curl -fsS "http://127.0.0.1:${LOCAL_BACKEND_PORT:-8008}/health" >/dev/null 2>&1; then
+if curl -fsS "$BACKEND_HEALTH_URL" >/dev/null 2>&1; then
   BACKEND_STATUS="healthy"
 fi
 
 FRONTEND_STATUS="unknown"
-if curl -fsS "http://127.0.0.1:${LOCAL_FRONTEND_PORT:-8088}" >/dev/null 2>&1; then
+if curl -fsS "$FRONTEND_HEALTH_URL" >/dev/null 2>&1; then
   FRONTEND_STATUS="healthy"
 fi
 
