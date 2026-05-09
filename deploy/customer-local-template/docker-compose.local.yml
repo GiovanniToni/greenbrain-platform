@@ -43,11 +43,25 @@ services:
     volumes:
       - ./:/workspace:rw
     command: >
-      sh -lc "apk add --no-cache bash curl python3 postgresql-client >/dev/null &&
+      sh -lc "apk add --no-cache bash curl python3 postgresql-client docker-cli docker-cli-compose >/dev/null &&
               mkdir -p /workspace/overlay/logs &&
-              { echo '*/5 * * * * cd /workspace && bash base/scripts/runtime-heartbeat.sh >> overlay/logs/heartbeat.log 2>&1'; echo '5 21 * * * cd /workspace && bash base/orchestration/jobs/runtime/run_daily_sequence.sh >> overlay/logs/daily_sequence_cron.log 2>&1'; } | crontab - &&
+              { echo '*/5 * * * * cd /workspace && bash base/scripts/runtime-heartbeat.sh >> overlay/logs/heartbeat.log 2>&1'; echo '5 21 * * * cd /workspace && docker compose -f docker-compose.local.yml --env-file overlay/env/customer-local.env run --rm ml-worker bash /workspace/base/orchestration/jobs/runtime/run_daily_sequence.sh >> overlay/logs/daily_sequence_cron.log 2>&1'; } | crontab - &&
               echo GREENBRAIN_SCHEDULER_START &&
               crond -f -l 8"
+
+  ml-worker:
+    build:
+      context: ./base/apps/ml-worker
+      dockerfile: Dockerfile.local
+    container_name: greenbrain_local_ml_worker
+    restart: "no"
+    env_file:
+      - ./overlay/env/customer-local.env
+    depends_on:
+      - postgres
+    volumes:
+      - ./:/workspace:rw
+    working_dir: /workspace/base/apps/ml-worker
 
   frontend:
     image: nginx:alpine

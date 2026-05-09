@@ -15,10 +15,13 @@ ln -sfn "$LOG" "$GB_LOG_DIR/daily_sequence_latest.log"
   gb_log "STEP 1 pipeline"
   bash "$ROOT/orchestration/jobs/pipeline/run_daily_pipeline.sh"
 
-  gb_log "STEP 2 ml placeholder"
-  echo "ML local orchestration not enabled yet in 0.1.27 skeleton"
+  gb_log "STEP 2 train missing"
+  bash "$ROOT/orchestration/jobs/ml/run_train_missing_local.sh" || true
 
-  gb_log "STEP 3 heartbeat"
+  gb_log "STEP 3 predict all"
+  bash "$ROOT/orchestration/jobs/ml/run_predict_all_local.sh" || true
+
+  gb_log "STEP 4 heartbeat"
   bash "$GB_LOCAL_ROOT/base/scripts/runtime-heartbeat.sh" || true
 
   gb_log "GREENBRAIN_LOCAL_DAILY_SEQUENCE_DONE"
