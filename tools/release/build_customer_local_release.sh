@@ -42,6 +42,8 @@ cp "$TEMPLATE/VERSION" "$PKG/VERSION"
 cp "$TEMPLATE/release-manifest.yml" "$PKG/release-manifest.yml"
 cp "$TEMPLATE/base-overlay-model.md" "$PKG/base-overlay-model.md"
 cp "$TEMPLATE/docker-compose.local.yml" "$PKG/docker-compose.local.yml"
+cp "$TEMPLATE/install.sh" "$PKG/install.sh"
+chmod +x "$PKG/install.sh"
 
 # directory canoniche da mantenere
 cp -R "$TEMPLATE/base" "$PKG/base"
