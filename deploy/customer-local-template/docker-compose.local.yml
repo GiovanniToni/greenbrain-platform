@@ -62,6 +62,9 @@ services:
     volumes:
       - ./:/workspace:rw
     working_dir: /workspace/base/apps/ml-worker
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
 
   frontend:
     image: nginx:alpine
