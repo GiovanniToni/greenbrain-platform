@@ -1,8 +1,12 @@
-import { getStoredToken } from "@/lib/apiClient";
+import { getStoredToken, setRuntimeBaseUrl } from "@/lib/apiClient";
 import { apiGet, apiPost } from "@/lib/apiClient";
 
+const CENTRAL_API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "https://www.greenbrain.it").replace(/\/$/, "");
+
 export async function getCustomerPortalMe() {
-  return apiGet("/api/v1/customer-portal/me");
+  const profile = await apiGet("/api/v1/customer-portal/me");
+  setRuntimeBaseUrl(profile?.runtime_public_backend_url);
+  return profile;
 }
 
 export async function bookSetupSlot(payload: {
@@ -28,7 +32,7 @@ export async function downloadCustomerPortalBundle(): Promise<{ blob: Blob; file
     throw new Error("Token non trovato. Effettua di nuovo il login.");
   }
 
-  const response = await fetch(`/api/v1/customer-portal/download-bundle?t=${Date.now()}`, {
+  const response = await fetch(`${CENTRAL_API_BASE}/api/v1/customer-portal/download-bundle?t=${Date.now()}`, {
     method: "GET",
     cache: "no-store",
     headers: {

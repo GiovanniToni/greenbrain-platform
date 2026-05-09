@@ -57,16 +57,25 @@ function shouldUseRuntime(path: string): boolean {
   return RUNTIME_API_PREFIXES.some((prefix) => path.startsWith(prefix));
 }
 
+function shouldUseCentralCloud(path: string): boolean {
+  return path.startsWith("/api/v1/customer-portal/");
+}
+
 function apiOrigin(path: string): string {
   if (shouldUseRuntime(path)) {
     const runtimeBase = getRuntimeBaseUrl();
     return runtimeBase || window.location.origin;
   }
 
-  // Auth, portal and all same-app APIs must follow the current host.
+  // Customer account / portal data lives in the GreenBrain cloud even when
+  // the user is currently using a customer-local runtime.
+  if (shouldUseCentralCloud(path)) {
+    return BASE || "https://www.greenbrain.it";
+  }
+
+  // Auth and same-app APIs must follow the current host.
   // This is critical for tenant SSO exchange:
-  // cliente-reale.greenbrain.it/login?sso=... must POST to cliente-reale.greenbrain.it,
-  // not to the central VITE_API_BASE_URL.
+  // cliente-reale.greenbrain.it/login?sso=... must POST to cliente-reale.greenbrain.it.
   return window.location.origin || BASE;
 }
 
