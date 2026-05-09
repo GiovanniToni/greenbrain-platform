@@ -42,9 +42,10 @@ import json, os
 print(json.dumps({
   "tenant_code": os.environ.get("TENANT_CODE"),
   "installation_id": os.environ.get("INSTALLATION_ID"),
-  "runtime_version": "$VERSION",
+  "version": "$VERSION",
   "public_backend_url": "https://" + os.environ.get("TENANT_HOST", ""),
   "runtime_health": "healthy" if "$BACKEND_STATUS" == "healthy" else "degraded",
+  "runtime": {"backend_health": "$BACKEND_STATUS", "frontend_health": "$FRONTEND_STATUS"},
   "backend_status": "$BACKEND_STATUS",
   "frontend_status": "$FRONTEND_STATUS",
 }))
