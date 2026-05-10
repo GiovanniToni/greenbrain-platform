@@ -43,7 +43,7 @@ echo
 echo
 echo "== Scheduler cron =="
 docker compose -f "$ROOT/docker-compose.local.yml" --env-file "$ENV" exec -T scheduler \
-  sh -lc 'crontab -l | grep -E "runtime-heartbeat|run_daily_sequence"'
+  sh -lc 'crontab -l | grep -E "runtime-heartbeat|run_daily_sequence|run-local-daily-once"'
 
 echo
 echo "== ML latest logs =="
