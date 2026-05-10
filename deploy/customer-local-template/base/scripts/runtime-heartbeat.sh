@@ -6,8 +6,12 @@ RUNTIME_ENV="$ROOT/overlay/provisioning/local-runtime.env"
 CUSTOMER_ENV="$ROOT/overlay/env/customer-local.env"
 VERSION_FILE="$ROOT/VERSION"
 
-[ -f "$RUNTIME_ENV" ] || { echo "missing $RUNTIME_ENV"; exit 1; }
 [ -f "$CUSTOMER_ENV" ] || { echo "missing $CUSTOMER_ENV"; exit 1; }
+
+if [ ! -f "$RUNTIME_ENV" ]; then
+  echo "heartbeat skipped: runtime not provisioned ($RUNTIME_ENV missing)"
+  exit 0
+fi
 
 set -a
 source "$CUSTOMER_ENV"
