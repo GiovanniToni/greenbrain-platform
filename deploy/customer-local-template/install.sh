@@ -15,24 +15,21 @@ if ! command -v docker compose >/dev/null 2>&1; then
   exit 2
 fi
 
-mkdir -p "$ROOT/overlay/env"
+mkdir -p "$ROOT/overlay/env" "$ROOT/overlay/provisioning"
 
 if [ ! -f "$ROOT/overlay/env/customer-local.env" ]; then
-  if [ -f "$ROOT/env/customer-local.env.example" ]; then
+  if [ -x "$ROOT/base/scripts/wizard/generate-customer-env.sh" ]; then
+    bash "$ROOT/base/scripts/wizard/generate-customer-env.sh"
+  elif [ -f "$ROOT/env/customer-local.env.example" ]; then
     cp "$ROOT/env/customer-local.env.example" "$ROOT/overlay/env/customer-local.env"
   else
-    echo "ERROR: missing $ROOT/env/customer-local.env.example"
+    echo "ERROR: missing customer env generator/example"
     exit 3
   fi
 fi
 
 if [ ! -f "$ROOT/overlay/provisioning/local-runtime.env" ]; then
   bash "$ROOT/base/scripts/wizard/generate-runtime-env.sh"
-
-  echo
-  echo "Provisioning file generated."
-  echo "Review it if needed, then rerun install.sh"
-  exit 10
 fi
 
 chmod +x "$ROOT"/base/scripts/*.sh
