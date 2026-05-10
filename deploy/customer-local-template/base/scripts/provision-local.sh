@@ -2,65 +2,51 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-
 RUNTIME_ENV="$ROOT/overlay/provisioning/local-runtime.env"
 CUSTOMER_ENV="$ROOT/overlay/env/customer-local.env"
 
-fail() {
-  echo "ERROR: $1" >&2
-  exit 1
+fail(){ echo "ERROR: $1" >&2; exit 1; }
+
+[ -f "$CUSTOMER_ENV" ] || fail "missing $CUSTOMER_ENV"
+[ -f "$RUNTIME_ENV" ] || fail "missing $RUNTIME_ENV"
+
+ensure_key() {
+  local key="$1"
+  local value="$2"
+  if ! grep -q "^${key}=" "$RUNTIME_ENV"; then
+    echo "${key}=${value}" >> "$RUNTIME_ENV"
+  elif [ -z "$(grep "^${key}=" "$RUNTIME_ENV" | tail -1 | cut -d= -f2-)" ]; then
+    python3 - "$RUNTIME_ENV" "$key" "$value" <<'PY'
+from pathlib import Path
+import sys
+p=Path(sys.argv[1]); key=sys.argv[2]; val=sys.argv[3]
+out=[]
+for line in p.read_text().splitlines():
+    out.append(f"{key}={val}" if line.startswith(key+"=") else line)
+p.write_text("\n".join(out)+"\n")
+PY
+  fi
 }
 
-[ -f "$RUNTIME_ENV" ] || fail "missing $RUNTIME_ENV"
-[ -f "$CUSTOMER_ENV" ] || fail "missing $CUSTOMER_ENV"
-
-if ! grep -q '^INSTALLATION_ID=' "$RUNTIME_ENV"; then
-  echo "INSTALLATION_ID=$(python3 - <<'PY'
-import uuid
-print(uuid.uuid4())
-PY
-)" >> "$RUNTIME_ENV"
-fi
-
-CURRENT_ID="$(grep '^INSTALLATION_ID=' "$RUNTIME_ENV" | cut -d= -f2- || true)"
-if [ -z "$CURRENT_ID" ]; then
-  TMP_ID="$(python3 - <<'PY'
+ensure_key INSTALLATION_ID "$(python3 - <<'PY'
 import uuid
 print(uuid.uuid4())
 PY
 )"
-  python3 - "$RUNTIME_ENV" "$TMP_ID" <<'PY'
-from pathlib import Path
-import sys
-
-p = Path(sys.argv[1])
-new_id = sys.argv[2]
-lines = p.read_text().splitlines()
-out = []
-done = False
-
-for line in lines:
-    if line.startswith("INSTALLATION_ID="):
-        out.append(f"INSTALLATION_ID={new_id}")
-        done = True
-    else:
-        out.append(line)
-
-if not done:
-    out.append(f"INSTALLATION_ID={new_id}")
-
-p.write_text("\n".join(out) + "\n")
-PY
-fi
 
 set -a
 source "$CUSTOMER_ENV"
-set +a
-set -a
 source "$RUNTIME_ENV"
 set +a
 
+for var in TENANT_CODE TENANT_NAME CENTRAL_PROVISIONING_URL PROVISIONING_TOKEN HEARTBEAT_URL INSTALLATION_ID; do
+  val="${!var:-}"
+  [ -n "$val" ] || fail "$var missing in runtime/customer env"
+  [[ "$val" != CHANGE_ME* ]] || fail "$var still has placeholder value: $val"
+done
+
 echo "Provisioning OK"
-echo "  tenant: ${TENANT_CODE:-missing}"
-echo "  installation: ${INSTALLATION_ID:-missing}"
-echo "  customer env preserved: $CUSTOMER_ENV"
+echo "  tenant: ${TENANT_CODE}"
+echo "  installation: ${INSTALLATION_ID}"
+echo "  customer env: $CUSTOMER_ENV"
+echo "  runtime env: $RUNTIME_ENV"
