@@ -1,5 +1,5 @@
 package_type: customer-local-runtime
-package_version: 0.1.43
+package_version: 0.1.44
 source_of_truth: greenbrain-platform
 template_name: customer-local-template
 
