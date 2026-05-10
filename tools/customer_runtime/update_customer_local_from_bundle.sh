@@ -82,6 +82,14 @@ docker compose \
   up -d --build
 
 echo
+echo "== APPLY LOCAL SQL PATCHES =="
+if [ -x "$INSTANCE_DIR/base/scripts/apply-local-sql-patches.sh" ]; then
+  bash "$INSTANCE_DIR/base/scripts/apply-local-sql-patches.sh"
+else
+  echo "No local SQL patch runner found, skipping."
+fi
+
+echo
 echo "== HEALTH CHECK =="
 set -a
 source "$ENV_FILE"
