@@ -27,15 +27,11 @@ if [ ! -f "$ROOT/overlay/env/customer-local.env" ]; then
 fi
 
 if [ ! -f "$ROOT/overlay/provisioning/local-runtime.env" ]; then
-  cp \
-    "$ROOT/overlay/provisioning/local-runtime.env.example" \
-    "$ROOT/overlay/provisioning/local-runtime.env"
+  bash "$ROOT/base/scripts/wizard/generate-runtime-env.sh"
 
   echo
-  echo "EDIT:"
-  echo "  $ROOT/overlay/provisioning/local-runtime.env"
-  echo
-  echo "Then rerun install.sh"
+  echo "Provisioning file generated."
+  echo "Review it if needed, then rerun install.sh"
   exit 10
 fi
 
