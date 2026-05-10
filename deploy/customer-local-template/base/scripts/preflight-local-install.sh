@@ -23,16 +23,35 @@ check_port() {
   local port="$1"
   local label="$2"
 
+  local in_use=0
+
   if command -v ss >/dev/null 2>&1; then
     if ss -ltn | awk '{print $4}' | grep -Eq "[:.]${port}$"; then
-      warn "$label port $port appears already in use"
+      in_use=1
     fi
   elif command -v lsof >/dev/null 2>&1; then
     if lsof -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
-      warn "$label port $port appears already in use"
+      in_use=1
     fi
   else
     warn "cannot check port $port: ss/lsof missing"
+    return 0
+  fi
+
+  [ "$in_use" -eq 1 ] || return 0
+
+  local gb_match=0
+
+  if docker ps --format '{{.Names}} {{.Ports}}' | grep -E "greenbrain_local_|gb_customer_scheduler" >/dev/null 2>&1; then
+    if docker ps --format '{{.Ports}}' | grep -Eq "[:.]${port}->"; then
+      gb_match=1
+    fi
+  fi
+
+  if [ "$gb_match" -eq 1 ]; then
+    warn "$label port $port already used by existing GreenBrain stack"
+  else
+    fail "$label port $port already used by external service"
   fi
 }
 
