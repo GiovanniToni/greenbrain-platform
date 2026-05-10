@@ -39,6 +39,16 @@ print("ml imports: OK")
 PY'
 
 echo
+
+echo
+echo "== Scheduler cron =="
+docker compose -f "$ROOT/docker-compose.local.yml" --env-file "$ENV" exec -T scheduler \
+  sh -lc 'crontab -l | grep -E "runtime-heartbeat|run_daily_sequence"'
+
+echo
+echo "== ML latest logs =="
+ls -lah "$ROOT/overlay/logs/ml" 2>/dev/null || true
+
 echo "== Latest daily sequence log =="
 if [ -L "$ROOT/overlay/logs/daily_sequence_latest.log" ]; then
   tail -80 "$ROOT/overlay/logs/$(basename "$(readlink "$ROOT/overlay/logs/daily_sequence_latest.log")")"
