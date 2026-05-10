@@ -12,6 +12,8 @@ bash -n base/scripts/doctor-local-extended.sh
 bash -n base/scripts/apply-local-sql-patches.sh
 bash -n base/scripts/runtime-heartbeat.sh
 bash -n base/scripts/setup-source-db.sh
+bash -n base/scripts/wizard/generate-runtime-env.sh
+bash -n base/scripts/wizard/generate-customer-env.sh
 bash -n base/orchestration/lib/common.sh
 bash -n base/orchestration/jobs/pipeline/run_daily_pipeline.sh
 bash -n base/orchestration/jobs/ml/run_train_missing_local.sh
