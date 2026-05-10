@@ -46,7 +46,12 @@ TENANT_NAME_VALUE="${TENANT_NAME:-$TENANT_CODE_VALUE}"
 echo "Tenant code: $TENANT_CODE_VALUE"
 echo "Tenant name: $TENANT_NAME_VALUE"
 
-PROVISIONING_TOKEN_VALUE="$(ask "Provisioning token")"
+PROVISIONING_TOKEN_VALUE="${GREENBRAIN_PROVISIONING_TOKEN:-${PROVISIONING_TOKEN:-}}"
+if [ -z "$PROVISIONING_TOKEN_VALUE" ]; then
+  PROVISIONING_TOKEN_VALUE="$(ask "Provisioning token")"
+fi
+
+[ -n "$PROVISIONING_TOKEN_VALUE" ] || { echo "ERROR: provisioning token is required"; exit 4; }
 
 CENTRAL_AUTH_URL="https://www.greenbrain.it"
 CENTRAL_PROVISIONING_URL="https://www.greenbrain.it/api/v1/customer-runtime/register"
