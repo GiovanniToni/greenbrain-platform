@@ -31,14 +31,21 @@ ask() {
 
 echo "== GreenBrain Provisioning Wizard =="
 
-if [ -f "$CUSTOMER_ENV" ]; then
-  set -a
-  source "$CUSTOMER_ENV"
-  set +a
-fi
+[ -f "$CUSTOMER_ENV" ] || { echo "ERROR: missing $CUSTOMER_ENV"; exit 1; }
 
-TENANT_CODE_VALUE="$(ask "Tenant code" "${TENANT_CODE:-cliente_reale}")"
-TENANT_NAME_VALUE="$(ask "Tenant name" "${TENANT_NAME:-Cliente Reale}")"
+set -a
+source "$CUSTOMER_ENV"
+set +a
+
+TENANT_CODE_VALUE="${TENANT_CODE:-${CENTRAL_TENANT_CODE:-}}"
+TENANT_NAME_VALUE="${TENANT_NAME:-$TENANT_CODE_VALUE}"
+
+[ -n "$TENANT_CODE_VALUE" ] || { echo "ERROR: missing TENANT_CODE in customer env"; exit 2; }
+[ -n "$TENANT_NAME_VALUE" ] || { echo "ERROR: missing TENANT_NAME in customer env"; exit 3; }
+
+echo "Tenant code: $TENANT_CODE_VALUE"
+echo "Tenant name: $TENANT_NAME_VALUE"
+
 PROVISIONING_TOKEN_VALUE="$(ask "Provisioning token")"
 
 CENTRAL_AUTH_URL="https://www.greenbrain.it"
