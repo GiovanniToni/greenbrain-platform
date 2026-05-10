@@ -34,6 +34,8 @@ fi
 
 chmod +x "$ROOT"/base/scripts/*.sh
 
+"$ROOT/base/scripts/preflight-local-install.sh"
+
 "$ROOT/base/scripts/provision-local.sh"
 
 docker compose \
