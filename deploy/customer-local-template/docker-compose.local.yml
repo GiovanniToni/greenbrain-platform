@@ -62,6 +62,7 @@ services:
     volumes:
       - ./:/workspace:rw
     working_dir: /workspace/base/apps/ml-worker
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
     environment:
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
