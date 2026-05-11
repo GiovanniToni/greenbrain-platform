@@ -187,11 +187,29 @@ def _build_personalized_bundle(source_bundle: Path, customer_profile: Dict[str, 
             runtime_env_path = runtime_env_candidates[0]
         else:
             runtime_env_example_candidates = list(tmp_path.rglob("overlay/provisioning/local-runtime.env.example"))
-            if not runtime_env_example_candidates:
-                raise RuntimeError("local_runtime_env_template_missing_in_bundle")
-            runtime_env_example_path = runtime_env_example_candidates[0]
-            runtime_env_path = runtime_env_example_path.with_name("local-runtime.env")
-            runtime_env_path.write_text(runtime_env_example_path.read_text())
+            if runtime_env_example_candidates:
+                runtime_env_example_path = runtime_env_example_candidates[0]
+                runtime_env_path = runtime_env_example_path.with_name("local-runtime.env")
+                runtime_env_path.write_text(runtime_env_example_path.read_text())
+            else:
+                provisioning_dirs = list(tmp_path.rglob("overlay/provisioning"))
+                if not provisioning_dirs:
+                    provisioning_dir = tmp_path / "package" / "customer-local-template" / "overlay" / "provisioning"
+                    provisioning_dir.mkdir(parents=True, exist_ok=True)
+                else:
+                    provisioning_dir = provisioning_dirs[0]
+                runtime_env_path = provisioning_dir / "local-runtime.env"
+                runtime_env_path.write_text("""TENANT_CODE=CHANGE_ME
+TENANT_NAME='CHANGE_ME'
+INSTALLATION_ID=
+CONNECTION_MODE=reverse-tunnel
+DATA_MODE=local-db-via-tunnel
+TUNNEL_PUBLIC_HOST=
+PUBLIC_BACKEND_URL=
+CENTRAL_AUTH_URL=https://www.greenbrain.it
+HEARTBEAT_URL=https://www.greenbrain.it/api/v1/customer-runtime/heartbeat
+PROVISIONING_TOKEN=
+""")
 
         runtime_env = runtime_env_path.read_text()
         runtime_env = _replace_or_append_env_value(runtime_env, "TENANT_CODE", tenant_code)
