@@ -14,9 +14,14 @@ ln -sfn "$(basename "$LOG")" "$GB_LOG_DIR/daily_sequence_latest.log"
 
   gb_log "STEP 0 source db import"
   if bash "$GB_LOCAL_ROOT/base/scripts/import-source-db-once.sh"; then
-    gb_log "SOURCE_DB_IMPORT_DONE"
-else
-    gb_log "SOURCE_DB_IMPORT_FAILED_NON_BLOCKING"
+    gb_log "SOURCE_DB_IMPORT_OK"
+  else
+    RC=$?
+    if [ "$RC" = "2" ]; then
+      gb_log "SOURCE_DB_IMPORT_SKIPPED_UNREACHABLE"
+    else
+      gb_log "SOURCE_DB_IMPORT_FAILED_NON_BLOCKING"
+    fi
   fi
 
   gb_log "STEP 1 pipeline"
