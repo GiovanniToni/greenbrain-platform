@@ -13,9 +13,9 @@ LOG="$ROOT/overlay/logs/source-db/import_sales_raw_${TS}.log"
 LATEST="$ROOT/overlay/logs/source-db/import_sales_raw_latest.log"
 
 if [ ! -f "$SOURCE_ENV" ]; then
-  echo "source-db.env not configured, skipping import" | tee "$LOG"
+  echo "SOURCE_DB_IMPORT_NOT_CONFIGURED" | tee "$LOG"
   ln -sfn "$(basename "$LOG")" "$LATEST"
-  exit 0
+  exit 3
 fi
 
 if ! bash "$ROOT/base/scripts/test-source-db-connection.sh" 2>&1 | tee -a "$LOG"; then

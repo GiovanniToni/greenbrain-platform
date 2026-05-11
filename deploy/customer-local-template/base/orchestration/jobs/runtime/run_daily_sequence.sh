@@ -19,6 +19,8 @@ ln -sfn "$(basename "$LOG")" "$GB_LOG_DIR/daily_sequence_latest.log"
     RC=$?
     if [ "$RC" = "2" ]; then
       gb_log "SOURCE_DB_IMPORT_SKIPPED_UNREACHABLE"
+    elif [ "$RC" = "3" ]; then
+      gb_log "SOURCE_DB_IMPORT_NOT_CONFIGURED"
     else
       gb_log "SOURCE_DB_IMPORT_FAILED_NON_BLOCKING"
     fi

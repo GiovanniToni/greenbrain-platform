@@ -69,7 +69,10 @@ fi
 
 echo
 echo
-read -r -p "Configure Source DB now? yes/no [no]: " CONFIG_SOURCE_DB
+CONFIG_SOURCE_DB="${GREENBRAIN_CONFIGURE_SOURCE_DB:-}"
+if [ -z "$CONFIG_SOURCE_DB" ]; then
+  read -r -p "Configure Source DB now? yes/no [no]: " CONFIG_SOURCE_DB || CONFIG_SOURCE_DB="no"
+fi
 CONFIG_SOURCE_DB="${CONFIG_SOURCE_DB:-no}"
 
 if [ "$CONFIG_SOURCE_DB" = "yes" ] || [ "$CONFIG_SOURCE_DB" = "y" ]; then
@@ -79,4 +82,17 @@ else
   echo "  bash base/scripts/generate-source-db-env.sh"
 fi
 
+echo
+echo "== INSTALL SUMMARY =="
+echo "VERSION: $(cat "$ROOT/VERSION" 2>/dev/null || echo unknown)"
+echo "Customer env: $ROOT/overlay/env/customer-local.env"
+echo "Runtime env: $ROOT/overlay/provisioning/local-runtime.env"
+if [ -f "$ROOT/overlay/env/source-db.env" ]; then
+  echo "Source DB: configured"
+else
+  echo "Source DB: not configured"
+fi
+echo "Backend URL: http://127.0.0.1:${LOCAL_BACKEND_PORT:-8008}/health"
+echo "Frontend URL: http://127.0.0.1:${LOCAL_FRONTEND_PORT:-8088}"
+echo
 echo "INSTALL COMPLETED"
