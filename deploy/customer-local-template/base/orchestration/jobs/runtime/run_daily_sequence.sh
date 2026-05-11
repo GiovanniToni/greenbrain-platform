@@ -13,13 +13,13 @@ ln -sfn "$LOG" "$GB_LOG_DIR/daily_sequence_latest.log"
   gb_log "GREENBRAIN_LOCAL_DAILY_SEQUENCE_START"
 
   gb_log "STEP 0 source db import"
-if bash base/scripts/import-source-db-once.sh; then
-  log "SOURCE_DB_IMPORT_DONE"
+  if bash "$GB_LOCAL_ROOT/base/scripts/import-source-db-once.sh"; then
+    gb_log "SOURCE_DB_IMPORT_DONE"
 else
-  log "SOURCE_DB_IMPORT_FAILED_NON_BLOCKING"
-fi
+    gb_log "SOURCE_DB_IMPORT_FAILED_NON_BLOCKING"
+  fi
 
-log "STEP 1 pipeline"
+  gb_log "STEP 1 pipeline"
   bash "$ROOT/orchestration/jobs/pipeline/run_daily_pipeline.sh"
 
   gb_log "STEP 2 train missing"
