@@ -2,8 +2,8 @@
 Version=1.0
 Type=Application
 Name=GreenBrain Installer
-Comment=Install GreenBrain Customer Local
-Exec=bash -lc "cd \"$(dirname \"%k\")\" && chmod +x INSTALL_GREENBRAIN.sh && ./INSTALL_GREENBRAIN.sh"
+Comment=Installa GreenBrain Customer Local
+Exec=bash -lc 'cd "$(dirname "$0")" && chmod +x INSTALL_GREENBRAIN.sh install.sh && ./INSTALL_GREENBRAIN.sh' %k
 Icon=./base/frontend-dist/favicon.ico
 Terminal=true
 Categories=Utility;
