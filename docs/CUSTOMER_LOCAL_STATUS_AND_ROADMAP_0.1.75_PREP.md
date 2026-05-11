@@ -21,3 +21,11 @@ UX hardening:
 - rendere più chiaro il flusso: estrai bundle → clicca installer → wizard → verifica finale
 - aggiungere eventuale check visibile versione nel portale
 - mantenere SQL Server reale rimandato
+
+## Verifica download portale
+
+- Download portale testato dopo rebuild backend/frontend.
+- Bundle personalizzato generato correttamente.
+- Versione bundle attesa: `0.1.74`.
+- File runtime personalizzato `overlay/provisioning/local-runtime.env` presente.
+- Nome pubblico atteso: `GreenBrain-Customer-Local-Setup.tar.gz`.
