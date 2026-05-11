@@ -26,9 +26,30 @@ ask() {
   echo "$value"
 }
 
+normalize_tenant_code() {
+  echo "$1" \
+    | tr '[:upper:]' '[:lower:]' \
+    | sed 's/[^a-z0-9]/_/g' \
+    | sed 's/__*/_/g' \
+    | sed 's/^_//;s/_$//'
+}
+
+validate_tenant_code() {
+  echo "$1" | grep -Eq '^[a-z0-9_]+$'
+}
+
 echo "== GreenBrain Customer Env Wizard =="
 
-TENANT_CODE="$(ask "Tenant code" "cliente_reale")"
+TENANT_CODE_RAW="$(ask "Tenant code" "cliente_reale")"
+TENANT_CODE="$(normalize_tenant_code "$TENANT_CODE_RAW")"
+
+if ! validate_tenant_code "$TENANT_CODE"; then
+  echo "ERROR: invalid tenant code after normalization: $TENANT_CODE_RAW"
+  exit 1
+fi
+
+echo "Normalized tenant code: $TENANT_CODE"
+
 TENANT_NAME="$(ask "Tenant name" "Cliente Reale")"
 TENANT_HOST="$(ask "Tenant public host" "${TENANT_CODE//_/-}.greenbrain.it")"
 POSTGRES_DB="$(ask "Local Postgres DB" "greenbrain_${TENANT_CODE}")"
