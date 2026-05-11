@@ -7,7 +7,7 @@ source "$ROOT/orchestration/lib/common.sh"
 gb_load_env
 
 LOG="$GB_LOG_DIR/daily_sequence_$(date +%Y%m%d_%H%M%S).log"
-ln -sfn "$LOG" "$GB_LOG_DIR/daily_sequence_latest.log"
+ln -sfn "$(basename "$LOG")" "$GB_LOG_DIR/daily_sequence_latest.log"
 
 {
   gb_log "GREENBRAIN_LOCAL_DAILY_SEQUENCE_START"
