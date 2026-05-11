@@ -31,7 +31,4 @@ Il runtime locale è ora robusto anche con Source DB configurato ma non raggiung
 ## Prossimo step
 
 0.1.59:
-- distinguere nel daily log tra:
-  - Source DB import OK
-  - Source DB skip irraggiungibile
-  - Source DB import failed reale
+- distinguere nel daily log tra Source DB import OK, Source DB skip irraggiungibile e Source DB import failed reale
