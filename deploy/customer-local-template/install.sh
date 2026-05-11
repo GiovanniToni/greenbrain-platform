@@ -68,4 +68,15 @@ fi
 "$ROOT/base/scripts/doctor-local.sh"
 
 echo
+echo
+read -r -p "Configure Source DB now? yes/no [no]: " CONFIG_SOURCE_DB
+CONFIG_SOURCE_DB="${CONFIG_SOURCE_DB:-no}"
+
+if [ "$CONFIG_SOURCE_DB" = "yes" ] || [ "$CONFIG_SOURCE_DB" = "y" ]; then
+  bash "$ROOT/base/scripts/generate-source-db-env.sh"
+else
+  echo "Source DB configuration skipped. You can run later:"
+  echo "  bash base/scripts/generate-source-db-env.sh"
+fi
+
 echo "INSTALL COMPLETED"
