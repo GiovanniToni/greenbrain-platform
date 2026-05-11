@@ -1,0 +1,37 @@
+GREENBRAIN CUSTOMER LOCAL
+
+INSTALLAZIONE RAPIDA
+
+1) Estrarre il pacchetto scaricato.
+
+2) Aprire la cartella estratta.
+
+3) Avviare uno di questi file:
+
+   INSTALL_GREENBRAIN.sh
+
+   oppure
+
+   GreenBrain-Install.desktop
+
+4) Seguire il wizard guidato.
+
+VERIFICA INSTALLAZIONE
+
+Dopo installazione eseguire:
+
+   bash base/scripts/post-install-check.sh
+
+URL LOCALI
+
+Frontend:
+   http://127.0.0.1:8088
+
+Backend:
+   http://127.0.0.1:8008/health
+
+SOURCE DB SQL SERVER
+
+La configurazione SQL Server può essere fatta anche più avanti con:
+
+   bash base/scripts/generate-source-db-env.sh
