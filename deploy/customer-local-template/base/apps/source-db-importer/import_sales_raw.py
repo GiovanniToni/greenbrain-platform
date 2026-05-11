@@ -37,6 +37,18 @@ def load_envs():
     load_dotenv(SOURCE_ENV, override=True)
 
 
+
+def normalize_odbc_bool(value, *, true_value="yes", false_value="no"):
+    v = str(value or "").strip().lower()
+    if v in ("1", "true", "yes", "y", "on"):
+        return true_value
+    if v in ("0", "false", "no", "n", "off"):
+        return false_value
+    if v in ("optional", "mandatory", "strict"):
+        return v
+    return value
+
+
 def get_best_sql_driver():
     available = [d.strip() for d in pyodbc.drivers()]
     preferred = [
@@ -60,8 +72,8 @@ def sqlserver_connection():
     db = os.getenv("SOURCE_DB_NAME")
     user = os.getenv("SOURCE_DB_USER")
     password = os.getenv("SOURCE_DB_PASSWORD")
-    encrypt = os.getenv("SOURCE_DB_ENCRYPT", "false")
-    trust_cert = os.getenv("SOURCE_DB_TRUST_CERT", "true")
+    encrypt = normalize_odbc_bool(os.getenv("SOURCE_DB_ENCRYPT", "no"))
+    trust_cert = normalize_odbc_bool(os.getenv("SOURCE_DB_TRUST_CERT", "yes"))
 
     if not all([host, db, user, password]):
         raise RuntimeError("missing Source DB env values")
