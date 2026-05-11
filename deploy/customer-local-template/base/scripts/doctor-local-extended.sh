@@ -40,6 +40,22 @@ PY'
 
 echo
 
+
+echo
+echo "== Source DB config =="
+
+if [ -f overlay/env/source-db.env ]; then
+  echo "source-db.env: present"
+
+  if bash base/scripts/test-source-db-connection.sh; then
+    echo "source db connectivity: OK"
+  else
+    echo "source db connectivity: FAILED"
+  fi
+else
+  echo "source-db.env: not configured"
+fi
+
 echo
 echo "== Scheduler cron =="
 docker compose -f "$ROOT/docker-compose.local.yml" --env-file "$ENV" exec -T scheduler \
