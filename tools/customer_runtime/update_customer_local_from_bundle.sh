@@ -52,9 +52,9 @@ cp "$BUNDLE_DIR/tunnel/docker-compose.tunnel.yml" "$INSTANCE_DIR/tunnel/docker-c
 
 echo
 echo "== UPDATE SAFE ENV EXAMPLES =="
-if [ -d "$SRC/env" ]; then
-  mkdir -p "$DST/env"
-  rsync -a "$SRC/env/" "$DST/env/"
+if [ -d "$BUNDLE_DIR/env" ]; then
+  mkdir -p "$INSTANCE_DIR/env"
+  rsync -a "$BUNDLE_DIR/env/" "$INSTANCE_DIR/env/"
 fi
 
 echo
