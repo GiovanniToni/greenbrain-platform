@@ -246,11 +246,13 @@ def sso_start(body: LoginRequest, db: Session = Depends(get_db)):
 @router.post("/sso/exchange", response_model=TokenResponse)
 def sso_exchange(body: SsoExchangeRequest, request: Request, db: Session = Depends(get_db)):
     try:
+        unverified = jwt.get_unverified_claims(body.ticket)
+        expected_audience = unverified.get("aud")
         payload = jwt.decode(
             body.ticket,
             settings.jwt_secret,
             algorithms=[SSO_ALGORITHM],
-            audience=request.headers.get("host", "").split(":")[0],
+            audience=expected_audience,
         )
     except JWTError:
         raise HTTPException(
