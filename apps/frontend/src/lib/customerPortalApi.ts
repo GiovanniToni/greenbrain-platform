@@ -53,9 +53,17 @@ export async function downloadCustomerPortalBundle(): Promise<{ blob: Blob; file
     throw new Error(detail);
   }
 
-  const disposition = response.headers.get("content-disposition") || "";
-  const match = disposition.match(/filename="?([^"]+)"?/i);
-  const filename = match?.[1] || "greenbrain-bundle.tar.gz";
+  const disposition =
+    response.headers.get("content-disposition") ||
+    response.headers.get("Content-Disposition") ||
+    "";
+
+  const filenameStarMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+  const filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
+
+  const filename = filenameStarMatch?.[1]
+    ? decodeURIComponent(filenameStarMatch[1])
+    : filenameMatch?.[1] || "GreenBrain-Customer-Local-Setup.tar.gz";
 
   const blob = await response.blob();
   return { blob, filename };
