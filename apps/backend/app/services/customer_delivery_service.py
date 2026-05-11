@@ -302,7 +302,8 @@ def resolve_bundle_download(customer_profile: Dict[str, Any]) -> Dict[str, Any]:
         personalized_bundle = _build_personalized_bundle(latest_bundle, customer_profile)
         return {
             "bundle_path": str(personalized_bundle),
-            "filename": personalized_bundle.name,
+            "filename": "GreenBrain-Customer-Local-Setup.tar.gz",
+            "internal_filename": personalized_bundle.name,
             "source": "personalized_latest_release",
             "assigned_release_version": latest_version,
         }
@@ -314,7 +315,8 @@ def resolve_bundle_download(customer_profile: Dict[str, Any]) -> Dict[str, Any]:
         personalized_bundle = _build_personalized_bundle(assigned_bundle, customer_profile)
         return {
             "bundle_path": str(personalized_bundle),
-            "filename": personalized_bundle.name,
+            "filename": "GreenBrain-Customer-Local-Setup.tar.gz",
+            "internal_filename": personalized_bundle.name,
             "source": "personalized_assigned_release_fallback",
             "assigned_release_version": assigned_version,
         }
