@@ -7,12 +7,28 @@ SOURCE_ENV="$ROOT/overlay/env/source-db.env"
 
 echo "== GreenBrain Source DB Import Once =="
 
+mkdir -p "$ROOT/overlay/logs/source-db"
+TS="$(date -u +%Y%m%d_%H%M%S)"
+LOG="$ROOT/overlay/logs/source-db/import_sales_raw_${TS}.log"
+LATEST="$ROOT/overlay/logs/source-db/import_sales_raw_latest.log"
+
 if [ ! -f "$SOURCE_ENV" ]; then
-  echo "source-db.env not configured, skipping import"
+  echo "source-db.env not configured, skipping import" | tee "$LOG"
+  ln -sfn "$LOG" "$LATEST"
   exit 0
 fi
 
+set +e
 docker compose -f "$ROOT/docker-compose.local.yml" --env-file "$ENV" run --rm ml-worker \
-  bash -lc 'cd /workspace && python base/apps/source-db-importer/import_sales_raw.py'
+  bash -lc 'cd /workspace && python base/apps/source-db-importer/import_sales_raw.py' 2>&1 | tee "$LOG"
+RC="${PIPESTATUS[0]}"
+set -e
+
+ln -sfn "$LOG" "$LATEST"
+
+if [ "$RC" -ne 0 ]; then
+  echo "SOURCE_DB_IMPORT_ONCE_FAILED rc=$RC"
+  exit "$RC"
+fi
 
 echo "SOURCE_DB_IMPORT_ONCE_OK"
