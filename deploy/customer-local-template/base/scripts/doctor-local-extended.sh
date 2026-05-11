@@ -42,6 +42,30 @@ echo
 
 
 echo
+echo "== JWT SSO consistency =="
+ENV_JWT="$(grep -E '^JWT_SECRET=' "$ENV" | tail -1 | cut -d= -f2- || true)"
+CONTAINER_JWT="$(docker compose -f "$ROOT/docker-compose.local.yml" --env-file "$ENV" exec -T backend sh -lc 'printf "%s" "$JWT_SECRET"' || true)"
+
+if [ -z "$ENV_JWT" ]; then
+  echo "JWT_SECRET env file: MISSING"
+  exit 1
+fi
+
+if [ -z "$CONTAINER_JWT" ]; then
+  echo "JWT_SECRET backend container: MISSING"
+  exit 1
+fi
+
+if [ "$ENV_JWT" != "$CONTAINER_JWT" ]; then
+  echo "JWT_SECRET mismatch between env file and backend container"
+  echo "Fix:"
+  echo "  docker compose -f docker-compose.local.yml --env-file overlay/env/customer-local.env up -d --build backend"
+  exit 1
+fi
+
+echo "JWT_SECRET consistency: OK"
+
+echo
 echo "== Source DB config =="
 
 if [ -f overlay/env/source-db.env ]; then
