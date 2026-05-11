@@ -57,6 +57,21 @@ else
 fi
 
 echo
+echo
+echo "== Source DB latest logs =="
+if [ -d overlay/logs/source-db ]; then
+  ls -lah overlay/logs/source-db | tail -30
+  if [ -L overlay/logs/source-db/import_sales_raw_latest.log ] || [ -f overlay/logs/source-db/import_sales_raw_latest.log ]; then
+    echo
+    echo "== Latest Source DB import log =="
+    tail -80 overlay/logs/source-db/import_sales_raw_latest.log || true
+  fi
+else
+  echo "No source-db logs yet"
+fi
+
+echo
+
 echo "== Scheduler cron =="
 docker compose -f "$ROOT/docker-compose.local.yml" --env-file "$ENV" exec -T scheduler \
   sh -lc 'crontab -l | grep -E "runtime-heartbeat|run_daily_sequence|run-local-daily-once"'
