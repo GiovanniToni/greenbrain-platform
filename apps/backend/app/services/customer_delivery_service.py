@@ -183,10 +183,16 @@ def _build_personalized_bundle(source_bundle: Path, customer_profile: Dict[str, 
             customer_env_path.write_text(customer_env_text)
 
         runtime_env_candidates = list(tmp_path.rglob("overlay/provisioning/local-runtime.env"))
-        if not runtime_env_candidates:
-            raise RuntimeError("local_runtime_env_missing_in_bundle")
+        if runtime_env_candidates:
+            runtime_env_path = runtime_env_candidates[0]
+        else:
+            runtime_env_example_candidates = list(tmp_path.rglob("overlay/provisioning/local-runtime.env.example"))
+            if not runtime_env_example_candidates:
+                raise RuntimeError("local_runtime_env_template_missing_in_bundle")
+            runtime_env_example_path = runtime_env_example_candidates[0]
+            runtime_env_path = runtime_env_example_path.with_name("local-runtime.env")
+            runtime_env_path.write_text(runtime_env_example_path.read_text())
 
-        runtime_env_path = runtime_env_candidates[0]
         runtime_env = runtime_env_path.read_text()
         runtime_env = _replace_or_append_env_value(runtime_env, "TENANT_CODE", tenant_code)
         runtime_env = _replace_or_append_env_value(runtime_env, "TENANT_NAME", tenant_name)
