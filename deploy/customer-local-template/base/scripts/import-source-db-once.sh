@@ -18,6 +18,12 @@ if [ ! -f "$SOURCE_ENV" ]; then
   exit 0
 fi
 
+if ! bash "$ROOT/base/scripts/test-source-db-connection.sh" 2>&1 | tee -a "$LOG"; then
+  echo "SOURCE_DB_IMPORT_SKIPPED_UNREACHABLE" | tee -a "$LOG"
+  ln -sfn "$(basename "$LOG")" "$LATEST"
+  exit 2
+fi
+
 set +e
 if command -v docker >/dev/null 2>&1; then
   docker compose -f "$ROOT/docker-compose.local.yml" --env-file "$ENV" run --rm ml-worker \
