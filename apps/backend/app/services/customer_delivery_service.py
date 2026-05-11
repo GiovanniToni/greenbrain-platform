@@ -295,7 +295,19 @@ def resolve_bundle_download(customer_profile: Dict[str, Any]) -> Dict[str, Any]:
     if not payment_saved or not slot_requested or not slot_confirmed:
         raise RuntimeError("bundle_not_ready")
 
-    # 1) Preferred source: assigned release for this customer
+    # 1) Preferred source: latest release available on host
+    latest_bundle = _find_latest_release_bundle()
+    if latest_bundle and latest_bundle.exists() and latest_bundle.is_file():
+        latest_version = _extract_release_version_from_bundle_path(latest_bundle)
+        personalized_bundle = _build_personalized_bundle(latest_bundle, customer_profile)
+        return {
+            "bundle_path": str(personalized_bundle),
+            "filename": personalized_bundle.name,
+            "source": "personalized_latest_release",
+            "assigned_release_version": latest_version,
+        }
+
+    # 2) Fallback: assigned release for this customer
     assigned_version = (customer_profile.get("assigned_release_version") or "").strip()
     assigned_bundle = _find_release_bundle(assigned_version)
     if assigned_bundle and assigned_bundle.exists() and assigned_bundle.is_file():
@@ -303,18 +315,8 @@ def resolve_bundle_download(customer_profile: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "bundle_path": str(personalized_bundle),
             "filename": personalized_bundle.name,
-            "source": "personalized_assigned_release",
+            "source": "personalized_assigned_release_fallback",
             "assigned_release_version": assigned_version,
-        }
-
-    # 2) Fallback: latest release available on host
-    latest_bundle = _find_latest_release_bundle()
-    if latest_bundle and latest_bundle.exists() and latest_bundle.is_file():
-        personalized_bundle = _build_personalized_bundle(latest_bundle, customer_profile)
-        return {
-            "bundle_path": str(personalized_bundle),
-            "filename": personalized_bundle.name,
-            "source": "personalized_latest_release",
         }
 
     # 2) Fallback: per-customer prepared bundle path, if available
