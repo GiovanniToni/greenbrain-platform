@@ -86,7 +86,7 @@ echo "== RESTART =="
 docker compose \
   --env-file "$ENV_FILE" \
   -f "$COMPOSE_FILE" \
-  up -d --build
+  up -d --build --force-recreate
 
 echo
 echo "== APPLY LOCAL SQL PATCHES =="
