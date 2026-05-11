@@ -56,6 +56,10 @@ if [ -f "$TEMPLATE/GreenBrain-Install.desktop" ]; then
   chmod +x "$PKG/GreenBrain-Install.desktop"
 fi
 
+if [ -f "$TEMPLATE/COME_INSTALLARE_GREENBRAIN.txt" ]; then
+  cp "$TEMPLATE/COME_INSTALLARE_GREENBRAIN.txt" "$PKG/COME_INSTALLARE_GREENBRAIN.txt"
+fi
+
 # directory canoniche da mantenere
 cp -R "$TEMPLATE/base" "$PKG/base"
 cp -R "$TEMPLATE/env" "$PKG/env"
