@@ -22,3 +22,28 @@ Il fresh test precedente ha usato input wizard non validi, quindi il DB check ha
 - Update demo runtime con script corretto.
 - Verifica login reale `2@gmail.com`.
 - Poi procedere con hardening installer/launcher.
+
+## Validazione finale completata
+
+Fresh install validata con input provisioning corretti:
+
+- tenant_code: `cliente_reale`
+- runtime version: `0.1.71`
+- post-install-check: OK
+- extended doctor: OK
+- JWT SSO consistency: OK
+- run-local-daily-once: OK
+- heartbeat centrale healthy: `0.1.71`
+- SSO `/sso/start` + `/sso/exchange` validati con `2@gmail.com`
+
+## Stato finale release 0.1.71
+
+Release customer-local stabile e validata end-to-end:
+- installer guidato
+- launcher
+- provisioning
+- update runtime
+- SSO
+- scheduler
+- heartbeat
+- Source DB opzionale non bloccante
