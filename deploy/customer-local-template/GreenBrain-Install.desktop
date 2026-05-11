@@ -1,8 +1,10 @@
 [Desktop Entry]
+Version=1.0
 Type=Application
-Name=Install GreenBrain
-Comment=Avvia installazione GreenBrain Customer Local
-Exec=bash -lc 'cd "$(dirname "%k")" && bash INSTALL_GREENBRAIN.sh'
+Name=GreenBrain Installer
+Comment=Install GreenBrain Customer Local
+Exec=bash -lc "cd \"$(dirname \"%k\")\" && chmod +x INSTALL_GREENBRAIN.sh && ./INSTALL_GREENBRAIN.sh"
+Icon=./base/frontend-dist/favicon.ico
 Terminal=true
-Icon=base/frontend-dist/favicon.ico
 Categories=Utility;
+StartupNotify=true

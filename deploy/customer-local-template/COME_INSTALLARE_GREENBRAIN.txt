@@ -1,37 +1,50 @@
-GREENBRAIN CUSTOMER LOCAL
+========================================================
+        GREENBRAIN CUSTOMER LOCAL
+========================================================
 
 INSTALLAZIONE RAPIDA
 
-1) Estrarre il pacchetto scaricato.
+1) Estrai il file .tar.gz in una cartella locale.
 
-2) Aprire la cartella estratta.
+2) Apri la cartella:
+   customer-local-template
 
-3) Avviare uno di questi file:
+3) Avvia l'installer:
+   - doppio click su:
+       GreenBrain-Install.desktop
+   oppure:
+       INSTALL_GREENBRAIN.sh
 
-   INSTALL_GREENBRAIN.sh
+4) Segui il wizard guidato.
 
-   oppure
-
-   GreenBrain-Install.desktop
-
-4) Seguire il wizard guidato.
-
-VERIFICA INSTALLAZIONE
-
-Dopo installazione eseguire:
-
-   bash base/scripts/post-install-check.sh
-
-URL LOCALI
-
-Frontend:
+5) Al termine apri:
    http://127.0.0.1:8088
 
-Backend:
-   http://127.0.0.1:8008/health
+--------------------------------------------------------
 
-SOURCE DB SQL SERVER
+VERIFICA STATO
 
-La configurazione SQL Server può essere fatta anche più avanti con:
+Da terminale:
 
-   bash base/scripts/generate-source-db-env.sh
+bash base/scripts/post-install-check.sh
+
+--------------------------------------------------------
+
+LOGS
+
+I log principali sono in:
+
+overlay/logs/
+
+--------------------------------------------------------
+
+SUPPORTO
+
+In caso di problemi:
+- verificare Docker installato
+- verificare porte libere:
+  8008
+  8088
+  55450
+
+========================================================
