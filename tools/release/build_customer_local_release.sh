@@ -45,6 +45,17 @@ cp "$TEMPLATE/docker-compose.local.yml" "$PKG/docker-compose.local.yml"
 cp "$TEMPLATE/install.sh" "$PKG/install.sh"
 chmod +x "$PKG/install.sh"
 
+# launcher utente finale
+if [ -f "$TEMPLATE/INSTALL_GREENBRAIN.sh" ]; then
+  cp "$TEMPLATE/INSTALL_GREENBRAIN.sh" "$PKG/INSTALL_GREENBRAIN.sh"
+  chmod +x "$PKG/INSTALL_GREENBRAIN.sh"
+fi
+
+if [ -f "$TEMPLATE/GreenBrain-Install.desktop" ]; then
+  cp "$TEMPLATE/GreenBrain-Install.desktop" "$PKG/GreenBrain-Install.desktop"
+  chmod +x "$PKG/GreenBrain-Install.desktop"
+fi
+
 # directory canoniche da mantenere
 cp -R "$TEMPLATE/base" "$PKG/base"
 cp -R "$TEMPLATE/env" "$PKG/env"
