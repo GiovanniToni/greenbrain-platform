@@ -51,6 +51,13 @@ cp "$BUNDLE_DIR/base-overlay-model.md" "$INSTANCE_DIR/base-overlay-model.md"
 cp "$BUNDLE_DIR/tunnel/docker-compose.tunnel.yml" "$INSTANCE_DIR/tunnel/docker-compose.tunnel.yml"
 
 echo
+echo "== UPDATE SAFE ENV EXAMPLES =="
+if [ -d "$SRC/env" ]; then
+  mkdir -p "$DST/env"
+  rsync -a "$SRC/env/" "$DST/env/"
+fi
+
+echo
 echo "== UPDATE TEMPLATE FILES NON SENSIBILI =="
 if [ -f "$BUNDLE_DIR/overlay/frontend-nginx/default.conf" ]; then
   cp "$BUNDLE_DIR/overlay/frontend-nginx/default.conf" \
