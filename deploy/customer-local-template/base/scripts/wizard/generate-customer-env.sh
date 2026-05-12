@@ -67,20 +67,22 @@ import sys
 example = Path(sys.argv[1])
 out = Path(sys.argv[2])
 
+import os
+
 values = {
-    "TENANT_CODE": ${TENANT_CODE@Q},
-    "TENANT_NAME": ${TENANT_NAME@Q},
-    "TENANT_HOST": ${TENANT_HOST@Q},
-    "POSTGRES_DB": ${POSTGRES_DB@Q},
-    "POSTGRES_USER": ${POSTGRES_USER@Q},
-    "POSTGRES_PASSWORD": ${POSTGRES_PASSWORD@Q},
+    "TENANT_CODE": os.environ["TENANT_CODE"],
+    "TENANT_NAME": os.environ["TENANT_NAME"],
+    "TENANT_HOST": os.environ["TENANT_HOST"],
+    "POSTGRES_DB": os.environ["POSTGRES_DB"],
+    "POSTGRES_USER": os.environ["POSTGRES_USER"],
+    "POSTGRES_PASSWORD": os.environ["POSTGRES_PASSWORD"],
     "POSTGRES_SSLMODE": "disable",
-    "DATABASE_URL": f"postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}",
-    "LOCAL_BACKEND_PORT": ${LOCAL_BACKEND_PORT@Q},
-    "LOCAL_FRONTEND_PORT": ${LOCAL_FRONTEND_PORT@Q},
-    "JWT_SECRET": ${JWT_SECRET@Q},
-    "CENTRAL_TENANT_CODE": ${TENANT_CODE@Q},
-    "LOCAL_CUSTOMER_TENANT_CODE": ${TENANT_CODE@Q},
+    "DATABASE_URL": f"postgresql://{os.environ['POSTGRES_USER']}:{os.environ['POSTGRES_PASSWORD']}@postgres:5432/{os.environ['POSTGRES_DB']}",
+    "LOCAL_BACKEND_PORT": os.environ["LOCAL_BACKEND_PORT"],
+    "LOCAL_FRONTEND_PORT": os.environ["LOCAL_FRONTEND_PORT"],
+    "JWT_SECRET": os.environ["JWT_SECRET"],
+    "CENTRAL_TENANT_CODE": os.environ["TENANT_CODE"],
+    "LOCAL_CUSTOMER_TENANT_CODE": os.environ["TENANT_CODE"],
 }
 
 def quote(v: str) -> str:
