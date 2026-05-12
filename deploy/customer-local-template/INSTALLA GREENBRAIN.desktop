@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=INSTALLA GREENBRAIN
+Comment=Avvia il wizard di installazione GreenBrain
+Exec=bash -lc 'cd "$(dirname "$0")" && chmod +x INSTALL_GREENBRAIN.sh install.sh && ./INSTALL_GREENBRAIN.sh' %k
+Icon=./base/frontend-dist/favicon.ico
+Terminal=true
+Categories=Utility;
+StartupNotify=true

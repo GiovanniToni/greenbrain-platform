@@ -56,6 +56,11 @@ if [ -f "$TEMPLATE/GreenBrain-Install.desktop" ]; then
   chmod +x "$PKG/GreenBrain-Install.desktop"
 fi
 
+if [ -f "$TEMPLATE/INSTALLA GREENBRAIN.desktop" ]; then
+  cp "$TEMPLATE/INSTALLA GREENBRAIN.desktop" "$PKG/INSTALLA GREENBRAIN.desktop"
+  chmod +x "$PKG/INSTALLA GREENBRAIN.desktop"
+fi
+
 if [ -f "$TEMPLATE/COME_INSTALLARE_GREENBRAIN.txt" ]; then
   cp "$TEMPLATE/COME_INSTALLARE_GREENBRAIN.txt" "$PKG/COME_INSTALLARE_GREENBRAIN.txt"
 fi

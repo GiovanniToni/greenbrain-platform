@@ -4,47 +4,41 @@
 
 INSTALLAZIONE RAPIDA
 
-1) Estrai il file .tar.gz in una cartella locale.
+1) Estrai il file scaricato.
 
-2) Apri la cartella:
-   customer-local-template
+2) Apri la cartella GreenBrain.
 
-3) Avvia l'installer:
-   - doppio click su:
-       GreenBrain-Install.desktop
-   oppure:
-       INSTALL_GREENBRAIN.sh
+3) Fai doppio click su:
 
-4) Segui il wizard guidato.
+   INSTALLA GREENBRAIN
 
-5) Al termine apri:
+4) Si aprirà il wizard guidato GreenBrain nel browser.
+
+5) Premi "Installa" e segui il processo.
+
+6) Al termine apri:
+
    http://127.0.0.1:8088
+
+--------------------------------------------------------
+
+SE IL DOPPIO CLICK NON PARTE
+
+Apri un terminale nella cartella GreenBrain ed esegui:
+
+bash INSTALL_GREENBRAIN.sh
 
 --------------------------------------------------------
 
 VERIFICA STATO
 
-Da terminale:
-
 bash base/scripts/post-install-check.sh
 
 --------------------------------------------------------
 
-LOGS
+NOTE
 
-I log principali sono in:
-
-overlay/logs/
-
---------------------------------------------------------
-
-SUPPORTO
-
-In caso di problemi:
-- verificare Docker installato
-- verificare porte libere:
-  8008
-  8088
-  55450
+I dati del cliente restano nel database locale del cliente.
+GreenBrain centrale serve solo per login, instradamento e visualizzazione autorizzata.
 
 ========================================================
