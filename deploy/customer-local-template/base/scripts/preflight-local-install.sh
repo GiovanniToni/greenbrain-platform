@@ -13,7 +13,19 @@ command -v docker >/dev/null 2>&1 || fail "docker missing"
 if ! docker info >/dev/null 2>&1; then
   if [ "$(uname -s)" = "Darwin" ] && [ -d "/Applications/Docker.app" ]; then
     echo "Docker Desktop non attivo. Avvio Docker..."
-    open -a Docker || true
+
+    if ! open -a Docker >/dev/null 2>&1; then
+      echo
+      echo "ERROR: Docker Desktop non trovato sul Mac."
+      echo "Installa Docker Desktop da:"
+      echo "  https://www.docker.com/products/docker-desktop/"
+      echo
+      echo "Dopo l'installazione:"
+      echo "  1) apri Docker Desktop"
+      echo "  2) attendi che sia completamente avviato"
+      echo "  3) rilancia INSTALLA_GREENBRAIN_MAC.command"
+      exit 1
+    fi
 
     for i in $(seq 1 60); do
       if docker info >/dev/null 2>&1; then
