@@ -63,7 +63,7 @@ export async function downloadCustomerPortalBundle(): Promise<{ blob: Blob; file
 
   const filename = filenameStarMatch?.[1]
     ? decodeURIComponent(filenameStarMatch[1])
-    : filenameMatch?.[1] || "GreenBrain-Customer-Local-Setup.tar.gz";
+    : filenameMatch?.[1] || "INSTALLA_GREENBRAIN.run";
 
   const blob = await response.blob();
   return { blob, filename };
