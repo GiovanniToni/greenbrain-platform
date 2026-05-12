@@ -67,6 +67,8 @@ import sys
 example = Path(sys.argv[1])
 out = Path(sys.argv[2])
 
+export TENANT_CODE TENANT_NAME TENANT_HOST POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD LOCAL_BACKEND_PORT LOCAL_FRONTEND_PORT JWT_SECRET
+
 import os
 
 values = {
