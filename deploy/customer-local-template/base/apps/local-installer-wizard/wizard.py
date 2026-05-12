@@ -198,14 +198,39 @@ class Handler(http.server.BaseHTTPRequestHandler):
         threading.Thread(target=run, daemon=True).start()
         self._send(200, "started")
 
-def main():
-    url = f"http://127.0.0.1:{PORT}"
-    print(f"GreenBrain installer wizard: {url}")
+def open_browser(url: str) -> None:
+    for cmd in (["gio", "open", url], ["xdg-open", url], ["sensible-browser", url]):
+        try:
+            subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return
+        except Exception:
+            pass
     try:
         webbrowser.open(url)
     except Exception:
         pass
-    http.server.ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
+
+
+def bind_server():
+    global PORT
+    for port in [DEFAULT_PORT, DEFAULT_PORT + 1, DEFAULT_PORT + 2, 8110]:
+        try:
+            server = http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler)
+            PORT = port
+            return server
+        except OSError:
+            continue
+    raise RuntimeError("No available local wizard port")
+
+
+def main():
+    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    server = bind_server()
+    url = f"http://127.0.0.1:{PORT}"
+    print(f"GreenBrain installer wizard: {url}")
+    threading.Timer(1.0, lambda: open_browser(url)).start()
+    server.serve_forever()
+
 
 if __name__ == "__main__":
     main()
