@@ -58,10 +58,20 @@ HTML = r"""<!doctype html>
 <body>
   <div class="wrap">
     <div class="brand">
-      <img src="/favicon.ico" onerror="this.style.display='none'">
+      <div class="logoBox">
+        <svg xmlns="http://www.w3.org/2000/svg"
+             fill="none"
+             viewBox="0 0 24 24"
+             stroke="currentColor"
+             stroke-width="2">
+          <path stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M11 20A7 7 0 0 1 4 13C4 7 9 4 20 4c0 11-3 16-9 16Zm0 0v-7m0 0c0-2 2-4 5-4"/>
+        </svg>
+      </div>
       <div>
-        <h1>GreenBrain Customer Local</h1>
-        <div class="hint">Installazione guidata locale</div>
+        <h1>GreenBrain</h1>
+        <div class="hint">Customer Local Installer</div>
       </div>
     </div>
 
