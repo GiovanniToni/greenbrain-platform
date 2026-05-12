@@ -9,10 +9,12 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[3]
-PORT = int(os.environ.get("GREENBRAIN_INSTALLER_WIZARD_PORT", "8099"))
+DEFAULT_PORT = int(os.environ.get("GREENBRAIN_INSTALLER_WIZARD_PORT", "8099"))
+PORT = DEFAULT_PORT
 LOG_FILE = ROOT / "overlay" / "logs" / "installer_wizard.log"
 
 install_process = None
+install_lock = threading.Lock()
 
 HTML = r"""<!doctype html>
 <html lang="it">
@@ -86,7 +88,7 @@ HTML = r"""<!doctype html>
       <h2>Installa</h2>
       <p class="hint">Premi Installa per avviare il processo. Il log apparirà qui sotto.</p>
       <button class="secondary" onclick="go(4)">Indietro</button>
-      <button class="primary" onclick="startInstall()">Installa</button>
+      <button id="installBtn" class="primary" onclick="startInstall()">Installa</button>
       <button class="secondary" onclick="openGreenBrain()">Apri GreenBrain</button>
       <pre id="log">Pronto.</pre>
     </div>
