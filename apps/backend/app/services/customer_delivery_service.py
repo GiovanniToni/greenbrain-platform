@@ -35,7 +35,7 @@ def _find_release_bundle(version: str) -> Path | None:
     version = (version or "").strip()
     if not version:
         return None
-    bundle = RELEASES_ROOT / version / "INSTALLA_GREENBRAIN.run"
+    bundle = RELEASES_ROOT / version / "GreenBrain-Installer.zip"
     if bundle.exists() and bundle.is_file():
         return bundle
     return None
@@ -57,7 +57,7 @@ def _find_latest_release_bundle() -> Path | None:
             continue
 
         version = entry.name.strip()
-        bundle = entry / "INSTALLA_GREENBRAIN.run"
+        bundle = entry / "GreenBrain-Installer.zip"
         if bundle.exists() and bundle.is_file():
             candidates.append((_version_key(version), bundle))
 
@@ -314,9 +314,9 @@ def resolve_bundle_download(customer_profile: Dict[str, Any], user_agent: str = 
         latest_version = _extract_release_version_from_bundle_path(latest_bundle)
         return {
             "bundle_path": str(latest_bundle),
-            "filename": "INSTALLA_GREENBRAIN.run",
+            "filename": "GreenBrain-Installer.zip",
             "internal_filename": latest_bundle.name,
-            "source": "oneclick_latest_release",
+            "source": "universal_installer_latest_release",
             "assigned_release_version": latest_version,
         }
 
@@ -326,9 +326,9 @@ def resolve_bundle_download(customer_profile: Dict[str, Any], user_agent: str = 
     if assigned_bundle and assigned_bundle.exists() and assigned_bundle.is_file():
         return {
             "bundle_path": str(assigned_bundle),
-            "filename": "INSTALLA_GREENBRAIN.run",
+            "filename": "GreenBrain-Installer.zip",
             "internal_filename": assigned_bundle.name,
-            "source": "oneclick_assigned_release_fallback",
+            "source": "universal_installer_assigned_release_fallback",
             "assigned_release_version": assigned_version,
         }
 
