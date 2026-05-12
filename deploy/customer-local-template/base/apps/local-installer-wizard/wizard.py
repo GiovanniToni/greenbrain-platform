@@ -25,7 +25,23 @@ HTML = r"""<!doctype html>
     body { font-family: Arial, sans-serif; margin: 0; background: #f3f7f2; color: #17351f; }
     .wrap { max-width: 880px; margin: 40px auto; background: white; border-radius: 18px; padding: 32px; box-shadow: 0 8px 30px rgba(0,0,0,.12); }
     .brand { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
-    .brand img { width: 56px; height: 56px; }
+    .logoBox {
+      width: 64px;
+      height: 64px;
+      border-radius: 18px;
+      background: #1f7a3b;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex-shrink:0;
+      box-shadow: 0 4px 12px rgba(31,122,59,.28);
+    }
+
+    .logoBox svg {
+      width: 34px;
+      height: 34px;
+      color: white;
+    }
     h1 { margin: 0; font-size: 30px; }
     .step { display: none; }
     .step.active { display: block; }
