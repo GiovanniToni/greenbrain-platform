@@ -11,33 +11,26 @@ echo "== GreenBrain Local Install Preflight =="
 
 command -v docker >/dev/null 2>&1 || fail "docker missing"
 if ! docker info >/dev/null 2>&1; then
-  if [ "$(uname -s)" = "Darwin" ] && [ -d "/Applications/Docker.app" ]; then
-    echo "Docker Desktop non attivo. Avvio Docker..."
+  if [ "$(uname -s)" = "Darwin" ]; then
+    echo "Docker Desktop non attivo. Provo ad avviarlo..."
 
-    if ! open -a Docker >/dev/null 2>&1; then
+    if [ -d "/Applications/Docker.app" ]; then
+      open "/Applications/Docker.app" >/dev/null 2>&1 || true
+    elif [ -d "/Applications/Docker Desktop.app" ]; then
+      open "/Applications/Docker Desktop.app" >/dev/null 2>&1 || true
+    elif open -a Docker >/dev/null 2>&1; then
+      true
+    elif open -a "Docker Desktop" >/dev/null 2>&1; then
+      true
+    else
       echo
       echo "ERROR: Docker Desktop non trovato sul Mac."
-      echo
-      echo "GreenBrain richiede Docker Desktop per creare:"
-      echo "  - database locale"
-      echo "  - backend locale"
-      echo "  - frontend locale"
-      echo "  - motore ML locale"
-      echo
       echo "Apro ora la pagina ufficiale Docker Desktop..."
       open "https://www.docker.com/products/docker-desktop/" >/dev/null 2>&1 || true
-      echo
-      echo "Cosa fare:"
-      echo "  1) scarica e installa Docker Desktop per Mac"
-      echo "  2) apri Docker Desktop"
-      echo "  3) attendi che Docker sia completamente avviato"
-      echo "  4) rilancia INSTALLA_GREENBRAIN_MAC.command"
-      echo
-      echo "Nota: i dati del cliente restano locali sul Mac del cliente."
       exit 1
     fi
 
-    for i in $(seq 1 60); do
+    for i in $(seq 1 90); do
       if docker info >/dev/null 2>&1; then
         echo "Docker pronto."
         break
@@ -48,6 +41,7 @@ if ! docker info >/dev/null 2>&1; then
 
   docker info >/dev/null 2>&1 || fail "docker daemon not running"
 fi
+
 docker compose version >/dev/null 2>&1 || fail "docker compose missing"
 
 [ -f "$ENV" ] || fail "missing $ENV"
