@@ -10,7 +10,22 @@ warn(){ echo "WARN: $1" >&2; }
 echo "== GreenBrain Local Install Preflight =="
 
 command -v docker >/dev/null 2>&1 || fail "docker missing"
-docker info >/dev/null 2>&1 || fail "docker daemon not running"
+if ! docker info >/dev/null 2>&1; then
+  if [ "$(uname -s)" = "Darwin" ] && [ -d "/Applications/Docker.app" ]; then
+    echo "Docker Desktop non attivo. Avvio Docker..."
+    open -a Docker || true
+
+    for i in $(seq 1 60); do
+      if docker info >/dev/null 2>&1; then
+        echo "Docker pronto."
+        break
+      fi
+      sleep 2
+    done
+  fi
+
+  docker info >/dev/null 2>&1 || fail "docker daemon not running"
+fi
 docker compose version >/dev/null 2>&1 || fail "docker compose missing"
 
 [ -f "$ENV" ] || fail "missing $ENV"
