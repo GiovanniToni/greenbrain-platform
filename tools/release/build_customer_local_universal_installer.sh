@@ -56,6 +56,11 @@ HEADER
 make_script "$OUT_DIR/INSTALLA_GREENBRAIN_LINUX.run" "GreenBrain Installer Linux"
 make_script "$OUT_DIR/INSTALLA_GREENBRAIN_MAC.command" "GreenBrain Installer macOS"
 
+if [ -f "$ROOT/deploy/customer-local-template/GreenBrain-Install.desktop" ]; then
+  cp "$ROOT/deploy/customer-local-template/GreenBrain-Install.desktop" "$OUT_DIR/GreenBrain-Install.desktop"
+  chmod +x "$OUT_DIR/GreenBrain-Install.desktop"
+fi
+
 cat > "$OUT_DIR/LEGGIMI_INSTALLAZIONE.txt" <<TXT
 GREENBRAIN INSTALLER
 
