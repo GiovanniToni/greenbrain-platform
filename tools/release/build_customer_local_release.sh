@@ -73,6 +73,9 @@ rm -rf "$PKG/backend-src" \
        "$PKG/systemd" \
        "$PKG/frontend-nginx"
 
+find "$PKG" -type d -name "__pycache__" -prune -exec rm -rf {} +
+find "$PKG" -type f -name "*.pyc" -delete
+
 rm -f "$PKG/overlay/env/customer-local.env"
 rm -f "$PKG/base/backend-src/.env"
 rm -f "$PKG/overlay/tunnel/cloudflared/cloudflared.env"
