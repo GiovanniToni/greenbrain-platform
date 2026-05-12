@@ -17,13 +17,23 @@ if ! docker info >/dev/null 2>&1; then
     if ! open -a Docker >/dev/null 2>&1; then
       echo
       echo "ERROR: Docker Desktop non trovato sul Mac."
-      echo "Installa Docker Desktop da:"
-      echo "  https://www.docker.com/products/docker-desktop/"
       echo
-      echo "Dopo l'installazione:"
-      echo "  1) apri Docker Desktop"
-      echo "  2) attendi che sia completamente avviato"
-      echo "  3) rilancia INSTALLA_GREENBRAIN_MAC.command"
+      echo "GreenBrain richiede Docker Desktop per creare:"
+      echo "  - database locale"
+      echo "  - backend locale"
+      echo "  - frontend locale"
+      echo "  - motore ML locale"
+      echo
+      echo "Apro ora la pagina ufficiale Docker Desktop..."
+      open "https://www.docker.com/products/docker-desktop/" >/dev/null 2>&1 || true
+      echo
+      echo "Cosa fare:"
+      echo "  1) scarica e installa Docker Desktop per Mac"
+      echo "  2) apri Docker Desktop"
+      echo "  3) attendi che Docker sia completamente avviato"
+      echo "  4) rilancia INSTALLA_GREENBRAIN_MAC.command"
+      echo
+      echo "Nota: i dati del cliente restano locali sul Mac del cliente."
       exit 1
     fi
 
