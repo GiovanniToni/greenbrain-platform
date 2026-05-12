@@ -284,7 +284,7 @@ def mark_delivery_sent(customer_id: str) -> Dict[str, Any]:
     }
 
 
-def resolve_bundle_download(customer_profile: Dict[str, Any]) -> Dict[str, Any]:
+def resolve_bundle_download(customer_profile: Dict[str, Any], user_agent: str = '') -> Dict[str, Any]:
     payment_saved = customer_profile.get("payment_method_saved") is True
     slot_requested = bool(customer_profile.get("setup_slot_requested_at"))
     slot_confirmed = bool(
@@ -295,8 +295,21 @@ def resolve_bundle_download(customer_profile: Dict[str, Any]) -> Dict[str, Any]:
     if not payment_saved or not slot_requested or not slot_confirmed:
         raise RuntimeError("bundle_not_ready")
 
+    is_macos = "macintosh" in (user_agent or "").lower() or "mac os x" in (user_agent or "").lower()
+
     # 1) Preferred source: latest one-click release available on host
     latest_bundle = _find_latest_release_bundle()
+    if is_macos and latest_bundle:
+        mac_zip = latest_bundle.parent / "INSTALLA_GREENBRAIN_MAC.zip"
+        if mac_zip.exists() and mac_zip.is_file():
+            latest_version = _extract_release_version_from_bundle_path(latest_bundle)
+            return {
+                "bundle_path": str(mac_zip),
+                "filename": "INSTALLA_GREENBRAIN_MAC.zip",
+                "internal_filename": mac_zip.name,
+                "source": "oneclick_macos_latest_release",
+                "assigned_release_version": latest_version,
+            }
     if latest_bundle and latest_bundle.exists() and latest_bundle.is_file():
         latest_version = _extract_release_version_from_bundle_path(latest_bundle)
         return {

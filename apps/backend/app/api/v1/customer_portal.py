@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import Request, APIRouter, Depends, Header, HTTPException
 from fastapi.responses import FileResponse
 from jose import JWTError
 from pydantic import BaseModel
@@ -109,10 +109,11 @@ def cancel_subscription_route(email: str = Depends(get_portal_email_from_bearer)
 
 
 @router.get("/download-bundle")
-def customer_portal_download_bundle(email: str = Depends(get_portal_email_from_bearer)):
+def customer_portal_download_bundle(request: Request, email: str = Depends(get_portal_email_from_bearer)):
     try:
         profile = build_customer_portal_profile(email)
-        bundle = resolve_bundle_download(profile)
+        user_agent = request.headers.get("user-agent", "")
+        bundle = resolve_bundle_download(profile, user_agent=user_agent)
         record_bundle_download(profile, bundle)
 
         return FileResponse(
