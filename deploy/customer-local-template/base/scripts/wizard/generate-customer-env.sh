@@ -57,7 +57,8 @@ POSTGRES_USER="$(ask "Local Postgres user" "greenbrain_${TENANT_CODE}")"
 POSTGRES_PASSWORD="$(ask "Local Postgres password" "CHANGE_ME_DB_PASSWORD")"
 LOCAL_BACKEND_PORT="$(ask "Local backend port" "8008")"
 LOCAL_FRONTEND_PORT="$(ask "Local frontend port" "8088")"
-JWT_SECRET="$(ask "JWT secret" "CHANGE_ME_LOCAL_JWT_SECRET")"
+JWT_SECRET_DEFAULT="${GREENBRAIN_LOCAL_JWT_SECRET:-${JWT_SECRET:-CHANGE_ME_LOCAL_JWT_SECRET}}"
+JWT_SECRET="$(ask "JWT secret" "$JWT_SECRET_DEFAULT")"
 
 python3 - "$EXAMPLE" "$OUT" <<PY
 from pathlib import Path
