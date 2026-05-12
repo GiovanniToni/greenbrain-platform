@@ -30,16 +30,29 @@ if ! docker info >/dev/null 2>&1; then
       exit 1
     fi
 
-    for i in $(seq 1 90); do
+    for i in $(seq 1 180); do
       if docker info >/dev/null 2>&1; then
         echo "Docker pronto."
         break
+      fi
+      if [ "$((i % 15))" -eq 0 ]; then
+        echo "Attendo Docker Desktop... (${i}/180)"
       fi
       sleep 2
     done
   fi
 
-  docker info >/dev/null 2>&1 || fail "docker daemon not running"
+  if ! docker info >/dev/null 2>&1; then
+    echo
+    echo "ERROR: Docker Desktop è stato avviato, ma il motore Docker non è ancora pronto."
+    echo
+    echo "Cosa fare:"
+    echo "  1) controlla che Docker Desktop sia aperto"
+    echo "  2) aspetta che in Docker compaia 'Engine running'"
+    echo "  3) poi rilancia INSTALLA_GREENBRAIN_MAC.command"
+    echo
+    exit 1
+  fi
 fi
 
 docker compose version >/dev/null 2>&1 || fail "docker compose missing"
