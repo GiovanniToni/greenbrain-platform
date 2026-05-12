@@ -56,6 +56,11 @@ fi
 CENTRAL_AUTH_URL="https://www.greenbrain.it"
 CENTRAL_PROVISIONING_URL="https://www.greenbrain.it/api/v1/customer-runtime/register"
 HEARTBEAT_URL="https://www.greenbrain.it/api/v1/customer-runtime/heartbeat"
+INSTALLATION_ID_VALUE="$(python3 - <<'PY2'
+import uuid
+print(uuid.uuid4())
+PY2
+)"
 
 cat > "$OUT" <<EOF
 TENANT_CODE=$(q "$TENANT_CODE_VALUE")
@@ -63,7 +68,7 @@ TENANT_NAME=$(q "$TENANT_NAME_VALUE")
 CENTRAL_AUTH_URL=$(q "$CENTRAL_AUTH_URL")
 CENTRAL_PROVISIONING_URL=$(q "$CENTRAL_PROVISIONING_URL")
 PROVISIONING_TOKEN=$(q "$PROVISIONING_TOKEN_VALUE")
-INSTALLATION_ID=
+INSTALLATION_ID=$(q "$INSTALLATION_ID_VALUE")
 HEARTBEAT_ENABLED=true
 HEARTBEAT_URL=$(q "$HEARTBEAT_URL")
 HEARTBEAT_INTERVAL_SECONDS=300
