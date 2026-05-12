@@ -10,8 +10,9 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! command -v docker compose >/dev/null 2>&1; then
-  echo "ERROR: docker compose missing"
+if ! docker compose version >/dev/null 2>&1; then
+  echo "ERROR: Docker Compose plugin missing or not available"
+  echo "Install Docker Compose plugin, then retry."
   exit 2
 fi
 
