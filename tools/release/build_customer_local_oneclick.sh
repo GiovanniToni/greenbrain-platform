@@ -13,7 +13,7 @@ cat > "$OUT" <<'HEADER'
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_DIR="${HOME}/GreenBrain-Customer-Local"
+APP_DIR="${GREENBRAIN_ONECLICK_TARGET_DIR:-${HOME}/GreenBrain-Customer-Local}"
 mkdir -p "$APP_DIR"
 
 echo "======================================"
