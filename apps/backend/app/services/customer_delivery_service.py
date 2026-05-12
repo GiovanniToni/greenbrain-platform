@@ -35,7 +35,7 @@ def _find_release_bundle(version: str) -> Path | None:
     version = (version or "").strip()
     if not version:
         return None
-    bundle = RELEASES_ROOT / version / f"customer-local-{version}.tar.gz"
+    bundle = RELEASES_ROOT / version / "INSTALLA_GREENBRAIN.run"
     if bundle.exists() and bundle.is_file():
         return bundle
     return None
@@ -57,7 +57,7 @@ def _find_latest_release_bundle() -> Path | None:
             continue
 
         version = entry.name.strip()
-        bundle = entry / f"customer-local-{version}.tar.gz"
+        bundle = entry / "INSTALLA_GREENBRAIN.run"
         if bundle.exists() and bundle.is_file():
             candidates.append((_version_key(version), bundle))
 
@@ -302,7 +302,7 @@ def resolve_bundle_download(customer_profile: Dict[str, Any]) -> Dict[str, Any]:
         personalized_bundle = _build_personalized_bundle(latest_bundle, customer_profile)
         return {
             "bundle_path": str(personalized_bundle),
-            "filename": "GreenBrain-Customer-Local-Setup.tar.gz",
+            "filename": "INSTALLA_GREENBRAIN.run",
             "internal_filename": personalized_bundle.name,
             "source": "personalized_latest_release",
             "assigned_release_version": latest_version,
@@ -315,7 +315,7 @@ def resolve_bundle_download(customer_profile: Dict[str, Any]) -> Dict[str, Any]:
         personalized_bundle = _build_personalized_bundle(assigned_bundle, customer_profile)
         return {
             "bundle_path": str(personalized_bundle),
-            "filename": "GreenBrain-Customer-Local-Setup.tar.gz",
+            "filename": "INSTALLA_GREENBRAIN.run",
             "internal_filename": personalized_bundle.name,
             "source": "personalized_assigned_release_fallback",
             "assigned_release_version": assigned_version,
