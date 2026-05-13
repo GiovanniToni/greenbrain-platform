@@ -16,6 +16,12 @@ if [ -f "$ROOT/base/apps/local-installer-wizard/wizard.py" ] && command -v pytho
   echo "Se il browser non si apre, visita:"
   echo "  http://127.0.0.1:${GREENBRAIN_INSTALLER_WIZARD_PORT:-8099}"
   echo
+
+  if grep -qi microsoft /proc/version 2>/dev/null; then
+    echo "Ambiente WSL rilevato: apro browser Windows..."
+    explorer.exe "http://127.0.0.1:${GREENBRAIN_INSTALLER_WIZARD_PORT:-8099}" >/dev/null 2>&1 || true
+  fi
+
   exec python3 "$ROOT/base/apps/local-installer-wizard/wizard.py"
 fi
 
