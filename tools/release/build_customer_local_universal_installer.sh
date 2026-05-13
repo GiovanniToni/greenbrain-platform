@@ -178,10 +178,46 @@ if (-not $dockerOk) {
 Write-Host "Docker pronto."
 
 Write-Host ""
-Write-Host "Avvio GreenBrain tramite WSL..."
-$wslDir = (wsl wslpath -a "$ScriptDir").Trim()
+Write-Host "Cerco una distro WSL Linux con bash..."
 
-wsl bash -lc "cd '$wslDir' && chmod +x INSTALLA_GREENBRAIN_LINUX.run && ./INSTALLA_GREENBRAIN_LINUX.run"
+$usableDistro = $null
+$distros = @(wsl -l -q 2>$null) | ForEach-Object { ($_ -replace "\0","").Trim() } | Where-Object { $_ -ne "" }
+
+foreach ($d in $distros) {
+  if ($d -match "docker-desktop") { continue }
+  wsl -d "$d" -- bash -lc "command -v bash >/dev/null 2>&1" *> $null
+  if ($LASTEXITCODE -eq 0) {
+    $usableDistro = $d
+    break
+  }
+}
+
+if (-not $usableDistro) {
+  Write-Host ""
+  Write-Host "Nessuna distro WSL con bash trovata."
+  Write-Host "Installo Ubuntu tramite WSL..."
+  Write-Host ""
+  Start-Process -FilePath "wsl.exe" -ArgumentList "--install -d Ubuntu" -Verb RunAs -Wait
+  Write-Host ""
+  Write-Host "Se Windows richiede riavvio, riavvia il PC."
+  Write-Host "Poi apri Ubuntu una prima volta dal menu Start e rilancia INSTALLA_GREENBRAIN_WINDOWS.bat."
+  exit 1
+}
+
+Write-Host "Distro WSL selezionata: $usableDistro"
+
+$wslDir = (wsl -d "$usableDistro" -- wslpath -a "$ScriptDir").Trim()
+
+Write-Host ""
+Write-Host "Avvio GreenBrain tramite WSL..."
+wsl -d "$usableDistro" -- bash -lc "cd '$wslDir' && chmod +x INSTALLA_GREENBRAIN_LINUX.run && ./INSTALLA_GREENBRAIN_LINUX.run"
+
+if ($LASTEXITCODE -ne 0) {
+  Write-Host ""
+  Write-Host "ERRORE: installazione GreenBrain non completata."
+  Write-Host "Codice errore: $LASTEXITCODE"
+  exit $LASTEXITCODE
+}
 
 Write-Host ""
 Write-Host "Installazione GreenBrain completata."
