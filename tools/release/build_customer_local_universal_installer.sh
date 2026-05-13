@@ -206,6 +206,27 @@ if (-not $usableDistro) {
 
 Write-Host "Distro WSL selezionata: $usableDistro"
 
+Write-Host ""
+Write-Host "Verifico Docker Compose dentro WSL..."
+wsl -d "$usableDistro" -- docker compose version *> $null
+if ($LASTEXITCODE -ne 0) {
+  Write-Host ""
+  Write-Host "ERRORE: Docker Compose non disponibile dentro Ubuntu/WSL."
+  Write-Host ""
+  Write-Host "Apri Docker Desktop e vai in:"
+  Write-Host "  Settings > Resources > WSL Integration"
+  Write-Host ""
+  Write-Host "Poi abilita:"
+  Write-Host "  Enable integration with my default WSL distro"
+  Write-Host "  Ubuntu = ON"
+  Write-Host ""
+  Write-Host "Premi Apply & Restart, poi rilancia INSTALLA_GREENBRAIN_WINDOWS.bat."
+  Start-Process "docker-desktop:" -ErrorAction SilentlyContinue
+  exit 2
+}
+
+Write-Host "Docker Compose disponibile dentro WSL."
+
 $fullPath = [System.IO.Path]::GetFullPath($ScriptDir)
 $drive = $fullPath.Substring(0,1).ToLower()
 $rest = $fullPath.Substring(2).TrimStart("\") -replace "\\","/"
