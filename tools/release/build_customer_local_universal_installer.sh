@@ -56,6 +56,41 @@ HEADER
 make_script "$OUT_DIR/INSTALLA_GREENBRAIN_LINUX.run" "GreenBrain Installer Linux"
 make_script "$OUT_DIR/INSTALLA_GREENBRAIN_MAC.command" "GreenBrain Installer macOS"
 
+cat > "$OUT_DIR/INSTALLA_GREENBRAIN_WINDOWS.bat" <<'BAT'
+@echo off
+setlocal
+
+echo ======================================
+echo    GreenBrain Installer Windows
+echo ======================================
+echo.
+
+where wsl >nul 2>nul
+if errorlevel 1 (
+  echo ERRORE: WSL non trovato.
+  echo.
+  echo GreenBrain su Windows richiede WSL + Docker Desktop.
+  echo Apro la guida Microsoft per installare WSL...
+  start https://learn.microsoft.com/windows/wsl/install
+  pause
+  exit /b 1
+)
+
+set "SCRIPT_DIR=%~dp0"
+
+for /f "delims=" %%i in ('wsl wslpath -a "%SCRIPT_DIR%"') do set "WSL_DIR=%%i"
+
+echo Avvio installer GreenBrain tramite WSL...
+echo Cartella: %SCRIPT_DIR%
+echo.
+
+wsl bash -lc "cd '%WSL_DIR%' && chmod +x INSTALLA_GREENBRAIN_LINUX.run && ./INSTALLA_GREENBRAIN_LINUX.run"
+
+echo.
+echo Installazione terminata.
+pause
+BAT
+
 if [ -f "$ROOT/deploy/customer-local-template/GreenBrain-Install.desktop" ]; then
   cp "$ROOT/deploy/customer-local-template/GreenBrain-Install.desktop" "$OUT_DIR/GreenBrain-Install.desktop"
   chmod +x "$OUT_DIR/GreenBrain-Install.desktop"
