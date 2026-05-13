@@ -88,7 +88,7 @@ Write-Host "   GreenBrain Installer Windows"
 Write-Host "======================================"
 Write-Host ""
 
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ScriptDir = (Resolve-Path -LiteralPath (Split-Path -Parent $PSCommandPath)).Path
 
 function Open-Url($url) {
   Start-Process $url | Out-Null
@@ -206,11 +206,19 @@ if (-not $usableDistro) {
 
 Write-Host "Distro WSL selezionata: $usableDistro"
 
-$wslDir = (wsl -d "$usableDistro" -- wslpath -a "$ScriptDir").Trim()
+$fullPath = [System.IO.Path]::GetFullPath($ScriptDir)
+$drive = $fullPath.Substring(0,1).ToLower()
+$rest = $fullPath.Substring(2).TrimStart("\") -replace "\\","/"
+$wslDir = "/mnt/$drive/$rest"
+$wslDirEscaped = $wslDir.Replace("'", "'\\''")
 
 Write-Host ""
+Write-Host "Percorso Windows: $ScriptDir"
+Write-Host "Percorso WSL: $wslDir"
+Write-Host ""
 Write-Host "Avvio GreenBrain tramite WSL..."
-wsl -d "$usableDistro" -- bash -lc "cd '$wslDir' && chmod +x INSTALLA_GREENBRAIN_LINUX.run && ./INSTALLA_GREENBRAIN_LINUX.run"
+
+wsl -d "$usableDistro" -- bash -lc "cd '$wslDirEscaped' && chmod +x INSTALLA_GREENBRAIN_LINUX.run && ./INSTALLA_GREENBRAIN_LINUX.run"
 
 if ($LASTEXITCODE -ne 0) {
   Write-Host ""
