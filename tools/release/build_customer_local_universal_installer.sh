@@ -195,23 +195,43 @@ fi
 cat > "$OUT_DIR/LEGGIMI_INSTALLAZIONE.txt" <<TXT
 GREENBRAIN INSTALLER
 
-Su macOS:
-1) Apri questa cartella.
-2) Doppio click su INSTALLA_GREENBRAIN_MAC.command.
-3) Se macOS blocca il file: tasto destro > Apri.
+Scegli il file in base al tuo sistema operativo.
 
-Su Linux:
-1) Doppio click su INSTALLA_GREENBRAIN_LINUX.run
-   oppure da terminale:
+WINDOWS
+1) Doppio click su:
+   INSTALLA_GREENBRAIN_WINDOWS.bat
+
+2) Se Windows chiede conferma, premi Esegui / Sì.
+
+3) Se WSL o Docker Desktop non sono installati, l'installer apre la guida corretta.
+   Dopo installazione/riavvio, rilancia INSTALLA_GREENBRAIN_WINDOWS.bat.
+
+MAC
+1) Doppio click su:
+   INSTALLA_GREENBRAIN_MAC.command
+
+2) Se macOS blocca il file:
+   tasto destro sul file > Apri > Apri.
+
+3) Se Docker Desktop non è installato, l'installer apre la pagina Docker.
+   Dopo installazione, apri Docker Desktop e rilancia il file.
+
+LINUX
+Metodo consigliato:
+1) Doppio click su:
+   GreenBrain-Install.desktop
+
+Oppure da terminale:
    chmod +x INSTALLA_GREENBRAIN_LINUX.run
    ./INSTALLA_GREENBRAIN_LINUX.run
 
-Requisiti:
-- Docker installato
-- Docker Compose disponibile
-- Python 3 disponibile
+REQUISITI
+- Docker Desktop su Windows/Mac
+- Docker Engine + Docker Compose su Linux
+- Connessione internet durante la prima installazione
 
-I dati cliente restano locali.
+DATI CLIENTE
+I dati cliente restano locali sul computer del cliente.
 GreenBrain centrale gestisce login, routing, heartbeat e visualizzazione autorizzata.
 TXT
 
