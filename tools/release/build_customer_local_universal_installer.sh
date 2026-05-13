@@ -60,36 +60,132 @@ cat > "$OUT_DIR/INSTALLA_GREENBRAIN_WINDOWS.bat" <<'BAT'
 @echo off
 setlocal
 
+title GreenBrain Installer Windows
+
 echo ======================================
 echo    GreenBrain Installer Windows
 echo ======================================
 echo.
 
-where wsl >nul 2>nul
+where powershell >nul 2>nul
 if errorlevel 1 (
-  echo ERRORE: WSL non trovato.
-  echo.
-  echo GreenBrain su Windows richiede WSL + Docker Desktop.
-  echo Apro la guida Microsoft per installare WSL...
-  start https://learn.microsoft.com/windows/wsl/install
+  echo ERRORE: PowerShell non trovato.
   pause
   exit /b 1
 )
 
-set "SCRIPT_DIR=%~dp0"
-
-for /f "delims=" %%i in ('wsl wslpath -a "%SCRIPT_DIR%"') do set "WSL_DIR=%%i"
-
-echo Avvio installer GreenBrain tramite WSL...
-echo Cartella: %SCRIPT_DIR%
-echo.
-
-wsl bash -lc "cd '%WSL_DIR%' && chmod +x INSTALLA_GREENBRAIN_LINUX.run && ./INSTALLA_GREENBRAIN_LINUX.run"
+powershell -ExecutionPolicy Bypass -NoProfile -File "%~dp0INSTALLA_GREENBRAIN_WINDOWS.ps1"
 
 echo.
-echo Installazione terminata.
 pause
 BAT
+
+cat > "$OUT_DIR/INSTALLA_GREENBRAIN_WINDOWS.ps1" <<'PS1'
+$ErrorActionPreference = "Stop"
+
+Write-Host "======================================"
+Write-Host "   GreenBrain Installer Windows"
+Write-Host "======================================"
+Write-Host ""
+
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+function Open-Url($url) {
+  Start-Process $url | Out-Null
+}
+
+function Test-Command($cmd) {
+  $null -ne (Get-Command $cmd -ErrorAction SilentlyContinue)
+}
+
+Write-Host "Controllo WSL..."
+if (-not (Test-Command "wsl.exe")) {
+  Write-Host ""
+  Write-Host "WSL non risulta installato."
+  Write-Host "Provo ad avviare installazione WSL..."
+  Write-Host ""
+  try {
+    Start-Process -FilePath "wsl.exe" -ArgumentList "--install" -Verb RunAs -Wait
+    Write-Host ""
+    Write-Host "Se Windows richiede riavvio, riavvia il PC e rilancia questo file."
+  } catch {
+    Write-Host "Non sono riuscito ad avviare automaticamente l'installazione WSL."
+    Write-Host "Apro la guida Microsoft."
+    Open-Url "https://learn.microsoft.com/windows/wsl/install"
+  }
+  exit 1
+}
+
+Write-Host "WSL trovato."
+
+Write-Host ""
+Write-Host "Controllo Docker Desktop..."
+$dockerOk = $false
+try {
+  docker info *> $null
+  $dockerOk = $true
+} catch {
+  $dockerOk = $false
+}
+
+if (-not $dockerOk) {
+  $dockerDesktopPaths = @(
+    "$env:ProgramFiles\Docker\Docker\Docker Desktop.exe",
+    "$env:LocalAppData\Docker\Docker Desktop.exe"
+  )
+
+  $dockerDesktop = $dockerDesktopPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+  if ($dockerDesktop) {
+    Write-Host "Docker Desktop trovato. Lo avvio..."
+    Start-Process $dockerDesktop | Out-Null
+  } else {
+    Write-Host ""
+    Write-Host "Docker Desktop non trovato."
+    Write-Host "GreenBrain richiede Docker Desktop per eseguire database, backend, frontend e ML locali."
+    Write-Host "Apro la pagina ufficiale Docker Desktop."
+    Open-Url "https://www.docker.com/products/docker-desktop/"
+    Write-Host ""
+    Write-Host "Dopo l'installazione:"
+    Write-Host "1) apri Docker Desktop"
+    Write-Host "2) attendi che Docker Engine sia avviato"
+    Write-Host "3) rilancia INSTALLA_GREENBRAIN_WINDOWS.bat"
+    exit 1
+  }
+
+  Write-Host "Attendo Docker Engine..."
+  for ($i = 1; $i -le 180; $i++) {
+    try {
+      docker info *> $null
+      $dockerOk = $true
+      break
+    } catch {
+      if ($i % 15 -eq 0) {
+        Write-Host "Attendo Docker Desktop... ($i/180)"
+      }
+      Start-Sleep -Seconds 2
+    }
+  }
+}
+
+if (-not $dockerOk) {
+  Write-Host ""
+  Write-Host "ERRORE: Docker Desktop è aperto ma Docker Engine non è ancora pronto."
+  Write-Host "Aspetta che Docker Desktop mostri Engine running, poi rilancia questo file."
+  exit 1
+}
+
+Write-Host "Docker pronto."
+
+Write-Host ""
+Write-Host "Avvio GreenBrain tramite WSL..."
+$wslDir = (wsl wslpath -a "$ScriptDir").Trim()
+
+wsl bash -lc "cd '$wslDir' && chmod +x INSTALLA_GREENBRAIN_LINUX.run && ./INSTALLA_GREENBRAIN_LINUX.run"
+
+Write-Host ""
+Write-Host "Installazione GreenBrain completata."
+PS1
 
 if [ -f "$ROOT/deploy/customer-local-template/GreenBrain-Install.desktop" ]; then
   cp "$ROOT/deploy/customer-local-template/GreenBrain-Install.desktop" "$OUT_DIR/GreenBrain-Install.desktop"
