@@ -1,8 +1,79 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: greenbrain_local_postgres
+    restart: unless-stopped
+    env_file:
+      - ./overlay/env/customer-local.env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "55450:5432"
+    volumes:
+      - greenbrain_local_postgres_data:/var/lib/postgresql/data
+      - ./base/client-runtime/sql/init:/docker-entrypoint-initdb.d:ro
+
   backend:
     image: ${GREENBRAIN_BACKEND_IMAGE:-ghcr.io/giovannitoni/greenbrain-customer-backend:${GREENBRAIN_IMAGE_TAG:-latest}}
-    build: null
+    container_name: greenbrain_local_backend
+    restart: unless-stopped
+    env_file:
+      - ./overlay/env/customer-local.env
+    depends_on:
+      - postgres
+    ports:
+      - "${LOCAL_BACKEND_PORT}:8000"
+
+  scheduler:
+    image: alpine:3.20
+    container_name: gb_customer_scheduler
+    restart: unless-stopped
+    env_file:
+      - ./overlay/env/customer-local.env
+    environment:
+      BACKEND_HEALTH_URL: http://backend:8000/health
+      FRONTEND_HEALTH_URL: http://frontend:80
+    depends_on:
+      - backend
+      - frontend
+    volumes:
+      - ./:/workspace:rw
+    command: >
+      sh -lc "apk add --no-cache bash curl python3 postgresql-client docker-cli docker-cli-compose >/dev/null &&
+              mkdir -p /workspace/overlay/logs &&
+              { echo '*/5 * * * * cd /workspace && bash base/scripts/runtime-heartbeat.sh >> overlay/logs/heartbeat.log 2>&1'; echo '5 21 * * * cd /workspace && bash base/scripts/run-local-daily-once.sh >> overlay/logs/daily_sequence_cron.log 2>&1'; } | crontab - &&
+              echo GREENBRAIN_SCHEDULER_START &&
+              crond -f -l 8"
 
   ml-worker:
     image: ${GREENBRAIN_ML_WORKER_IMAGE:-ghcr.io/giovannitoni/greenbrain-customer-ml-worker:${GREENBRAIN_IMAGE_TAG:-latest}}
-    build: null
+    container_name: greenbrain_local_ml_worker
+    restart: "no"
+    env_file:
+      - ./overlay/env/customer-local.env
+    depends_on:
+      - postgres
+    volumes:
+      - ./:/workspace:rw
+    working_dir: /workspace/base/apps/ml-worker
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+
+  frontend:
+    image: nginx:alpine
+    container_name: greenbrain_local_frontend
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./base/frontend-dist:/usr/share/nginx/html:ro
+      - ./overlay/frontend-nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "${LOCAL_FRONTEND_PORT}:80"
+
+volumes:
+  greenbrain_local_postgres_data:
