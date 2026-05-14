@@ -44,7 +44,7 @@ COMPOSE_UP_ARGS=(up -d --build)
 
 if [ "${GREENBRAIN_USE_PREBUILT_IMAGES:-0}" = "1" ]; then
   echo "Using optional prebuilt Docker images"
-  COMPOSE_FILES+=(-f "$ROOT/docker-compose.prebuilt.yml")
+  COMPOSE_FILES=(-f "$ROOT/docker-compose.prebuilt.yml")
   COMPOSE_UP_ARGS=(up -d)
 fi
 
