@@ -7,6 +7,7 @@ _Generata: 2026-05-09 — Bundle corrente: 0.1.24 — Branch: `feat/customer-ops
 
 ### 1.1 Dual environment
 
+
 ```
 CLOUD (www.greenbrain.it)
   ├── React SPA (Vite, TailwindCSS, shadcn/ui)
