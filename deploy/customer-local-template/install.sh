@@ -39,19 +39,29 @@ chmod +x "$ROOT"/base/scripts/*.sh
 
 "$ROOT/base/scripts/provision-local.sh"
 
-COMPOSE_FILES=(-f "$ROOT/docker-compose.local.yml")
-COMPOSE_UP_ARGS=(up -d --build)
+USE_PREBUILT="${GREENBRAIN_USE_PREBUILT_IMAGES:-1}"
 
-if [ "${GREENBRAIN_USE_PREBUILT_IMAGES:-0}" = "1" ]; then
-  echo "Using optional prebuilt Docker images"
-  COMPOSE_FILES=(-f "$ROOT/docker-compose.prebuilt.yml")
-  COMPOSE_UP_ARGS=(up -d)
+if [ "$USE_PREBUILT" = "1" ]; then
+  echo "Using prebuilt Docker images"
+  if ! docker compose \
+    -f "$ROOT/docker-compose.prebuilt.yml" \
+    --env-file "$ROOT/overlay/env/customer-local.env" \
+    up -d; then
+    echo
+    echo "WARN: prebuilt Docker image startup failed"
+    echo "WARN: falling back to local Docker build"
+    docker compose \
+      -f "$ROOT/docker-compose.local.yml" \
+      --env-file "$ROOT/overlay/env/customer-local.env" \
+      up -d --build
+  fi
+else
+  echo "Using local Docker build"
+  docker compose \
+    -f "$ROOT/docker-compose.local.yml" \
+    --env-file "$ROOT/overlay/env/customer-local.env" \
+    up -d --build
 fi
-
-docker compose \
-  "${COMPOSE_FILES[@]}" \
-  --env-file "$ROOT/overlay/env/customer-local.env" \
-  "${COMPOSE_UP_ARGS[@]}"
 
 echo
 echo "== WAIT BACKEND HEALTH =="
@@ -71,7 +81,10 @@ done
 
 if [ "$OK" -ne 1 ]; then
   echo "ERROR: backend not healthy after install"
-  docker compose -f "$ROOT/docker-compose.local.yml" --env-file "$ROOT/overlay/env/customer-local.env" ps
+  if [ "${USE_PREBUILT:-1}" = "1" ] && [ -f "$ROOT/docker-compose.prebuilt.yml" ]; then
+    docker compose -f "$ROOT/docker-compose.prebuilt.yml" --env-file "$ROOT/overlay/env/customer-local.env" ps || true
+  fi
+  docker compose -f "$ROOT/docker-compose.local.yml" --env-file "$ROOT/overlay/env/customer-local.env" ps || true
   exit 20
 fi
 
