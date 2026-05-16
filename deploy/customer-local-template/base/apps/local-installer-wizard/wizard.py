@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_PORT = int(os.environ.get("GREENBRAIN_INSTALLER_WIZARD_PORT", "8099"))
 PORT = DEFAULT_PORT
 LOG_FILE = ROOT / "overlay" / "logs" / "installer_wizard.log"
+STATUS_FILE = ROOT / "overlay" / "logs" / "installer_wizard_status.json"
 
 install_process = None
 install_lock = threading.Lock()
@@ -139,13 +140,40 @@ function payload(){
   };
 }
 async function startInstall(){
+  const btn = document.getElementById('installBtn');
+  btn.disabled = true;
+  btn.textContent = 'Installazione in corso...';
   document.getElementById('log').textContent = 'Installazione avviata...\n';
   await fetch('/api/install', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload())});
   poll();
 }
 async function poll(){
-  const r = await fetch('/api/log');
-  document.getElementById('log').textContent = await r.text();
+  const logResp = await fetch('/api/log');
+  const logText = await logResp.text();
+  const logEl = document.getElementById('log');
+  logEl.textContent = logText;
+  logEl.scrollTop = logEl.scrollHeight;
+
+  let status = {state: 'running'};
+  try {
+    const statusResp = await fetch('/api/status');
+    status = await statusResp.json();
+  } catch(e) {}
+
+  const btn = document.getElementById('installBtn');
+
+  if (status.state === 'completed') {
+    btn.textContent = 'Installazione completata';
+    btn.disabled = true;
+    return;
+  }
+
+  if (status.state === 'failed') {
+    btn.textContent = 'Installazione fallita';
+    btn.disabled = false;
+    return;
+  }
+
   setTimeout(poll, 1500);
 }
 function openGreenBrain(){
@@ -178,6 +206,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self._send(404, "not found")
         elif path == "/api/log":
             self._send(200, LOG_FILE.read_text(errors="ignore") if LOG_FILE.exists() else "Nessun log.")
+        elif path == "/api/status":
+            if STATUS_FILE.exists():
+                self._send(200, STATUS_FILE.read_text(errors="ignore"), "application/json")
+            else:
+                self._send(200, json.dumps({"state": "idle"}), "application/json")
         else:
             self._send(404, "not found")
 
@@ -189,7 +222,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         data = json.loads(self.rfile.read(int(self.headers.get("Content-Length", "0")) or 0) or "{}")
         LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-        LOG_FILE.write_text("GreenBrain installer wizard started\n")
+        LOG_FILE.write_text("GreenBrain installer wizard started\n", encoding="utf-8")
+        STATUS_FILE.write_text(json.dumps({"state": "running", "exit_code": None}), encoding="utf-8")
 
         answers = "\n".join([
             data.get("tenant_code", "cliente_reale"),
@@ -220,6 +254,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 )
                 p.communicate(answers)
                 f.write(f"\nINSTALL_EXIT_CODE={p.returncode}\n")
+                f.flush()
+                state = "completed" if p.returncode == 0 else "failed"
+                STATUS_FILE.write_text(
+                    json.dumps({"state": state, "exit_code": p.returncode}),
+                    encoding="utf-8",
+                )
 
         threading.Thread(target=run, daemon=True).start()
         self._send(200, "started")

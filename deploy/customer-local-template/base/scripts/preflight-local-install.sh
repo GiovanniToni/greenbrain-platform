@@ -112,9 +112,18 @@ if [ "${FREE_KB:-0}" -lt 1048576 ]; then
   warn "less than 1GB free on install filesystem"
 fi
 
-docker compose \
-  -f "$ROOT/docker-compose.local.yml" \
-  --env-file "$ENV" \
-  config >/dev/null
+USE_PREBUILT="${GREENBRAIN_USE_PREBUILT_IMAGES:-1}"
+
+if [ "$USE_PREBUILT" = "1" ] && [ -f "$ROOT/docker-compose.prebuilt.yml" ]; then
+  docker compose \
+    -f "$ROOT/docker-compose.prebuilt.yml" \
+    --env-file "$ENV" \
+    config >/dev/null
+else
+  docker compose \
+    -f "$ROOT/docker-compose.local.yml" \
+    --env-file "$ENV" \
+    config >/dev/null
+fi
 
 echo "PREFLIGHT_LOCAL_INSTALL_OK"
