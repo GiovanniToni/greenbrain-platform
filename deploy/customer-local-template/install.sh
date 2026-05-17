@@ -39,6 +39,9 @@ chmod +x "$ROOT"/base/scripts/*.sh
 
 "$ROOT/base/scripts/provision-local.sh"
 
+export GREENBRAIN_IMAGE_TAG="${GREENBRAIN_IMAGE_TAG:-$(cat "$ROOT/VERSION" 2>/dev/null || echo latest)}"
+echo "Docker image tag: $GREENBRAIN_IMAGE_TAG"
+
 USE_PREBUILT="${GREENBRAIN_USE_PREBUILT_IMAGES:-1}"
 
 if [ "$USE_PREBUILT" = "1" ]; then
