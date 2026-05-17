@@ -52,8 +52,13 @@ HTML = r"""<!doctype html>
     .primary { background: #1f7a3b; color: white; }
     .secondary { background: #e8efe8; color: #17351f; }
     .danger { background: #b42318; color: white; }
-    pre { background: #111; color: #d7ffd7; padding: 16px; border-radius: 12px; min-height: 220px; overflow: auto; white-space: pre-wrap; }
+    pre { background: #111; color: #d7ffd7; padding: 16px; border-radius: 12px; min-height: 220px; overflow: auto; white-space: pre-wrap; display: none; }
     .hint { color: #5a6b5e; line-height: 1.5; }
+    .statusBox { display:none; margin-top:18px; padding:16px; border-radius:14px; background:#eef7ee; border:1px solid #cfe5cf; }
+    .statusTitle { font-weight:bold; margin-bottom:6px; }
+    .spinner { display:inline-block; width:18px; height:18px; border:3px solid #cfe5cf; border-top-color:#1f7a3b; border-radius:50%; animation: spin 1s linear infinite; vertical-align:middle; margin-right:8px; }
+    .detailsBtn { display:none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
@@ -113,10 +118,17 @@ HTML = r"""<!doctype html>
 
     <div id="s5" class="step">
       <h2>Installa</h2>
-      <p class="hint">Premi Installa per avviare il processo. Il log apparirà qui sotto.</p>
+      <p class="hint">Premi Installa per avviare il processo. Durante l'installazione vedrai lo stato di avanzamento.</p>
       <button class="secondary" onclick="go(4)">Indietro</button>
       <button id="installBtn" class="primary" onclick="startInstall()">Installa</button>
       <button class="secondary" onclick="openGreenBrain()">Apri GreenBrain</button>
+
+      <div id="statusBox" class="statusBox">
+        <div class="statusTitle"><span id="spinner" class="spinner"></span><span id="statusText">Pronto.</span></div>
+        <div id="statusHint" class="hint">L'installazione può richiedere alcuni minuti.</div>
+      </div>
+
+      <button id="detailsBtn" class="secondary detailsBtn" onclick="toggleLog()">Mostra dettagli tecnici</button>
       <pre id="log">Pronto.</pre>
     </div>
   </div>
@@ -143,6 +155,10 @@ async function startInstall(){
   const btn = document.getElementById('installBtn');
   btn.disabled = true;
   btn.textContent = 'Installazione in corso...';
+  document.getElementById('statusBox').style.display = 'block';
+  document.getElementById('detailsBtn').style.display = 'inline-block';
+  document.getElementById('statusText').textContent = 'Installazione in corso...';
+  document.getElementById('statusHint').textContent = 'Sto preparando GreenBrain, Docker e i servizi locali.';
   document.getElementById('log').textContent = 'Installazione avviata...\n';
   await fetch('/api/install', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload())});
   poll();
@@ -165,19 +181,37 @@ async function poll(){
   if (status.state === 'completed') {
     btn.textContent = 'Installazione completata';
     btn.disabled = true;
+    document.getElementById('spinner').style.display = 'none';
+    document.getElementById('statusText').textContent = 'Installazione completata';
+    document.getElementById('statusHint').textContent = 'GreenBrain è pronto. Premi Apri GreenBrain per entrare.';
     return;
   }
 
   if (status.state === 'failed') {
     btn.textContent = 'Installazione fallita';
     btn.disabled = false;
+    document.getElementById('spinner').style.display = 'none';
+    document.getElementById('statusText').textContent = 'Installazione fallita';
+    document.getElementById('statusHint').textContent = 'Apri i dettagli tecnici per vedere l\'errore, poi correggi e rilancia.';
+    document.getElementById('detailsBtn').style.display = 'inline-block';
     return;
   }
 
   setTimeout(poll, 1500);
 }
+function toggleLog(){
+  const logEl = document.getElementById('log');
+  const btn = document.getElementById('detailsBtn');
+  if (logEl.style.display === 'block') {
+    logEl.style.display = 'none';
+    btn.textContent = 'Mostra dettagli tecnici';
+  } else {
+    logEl.style.display = 'block';
+    btn.textContent = 'Nascondi dettagli tecnici';
+  }
+}
 function openGreenBrain(){
-  window.open('http://127.0.0.1:' + document.getElementById('frontend_port').value, '_blank');
+  window.open('http://localhost:' + document.getElementById('frontend_port').value, '_blank');
 }
 </script>
 </body>
@@ -292,7 +326,7 @@ def bind_server():
 def main():
     LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
     server = bind_server()
-    url = f"http://127.0.0.1:{PORT}"
+    url = f"http://localhost:{PORT}"
     print(f"GreenBrain installer wizard: {url}")
     threading.Timer(1.0, lambda: open_browser(url)).start()
     server.serve_forever()

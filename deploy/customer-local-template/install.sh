@@ -74,7 +74,7 @@ set +a
 
 OK=0
 for i in $(seq 1 45); do
-  if curl -fsS "http://127.0.0.1:${LOCAL_BACKEND_PORT:-8008}/health" >/dev/null 2>&1; then
+  if curl -fsS "http://localhost:${LOCAL_BACKEND_PORT:-8008}/health" >/dev/null 2>&1; then
     echo "Backend healthy"
     OK=1
     break
@@ -118,7 +118,7 @@ if [ -f "$ROOT/overlay/env/source-db.env" ]; then
 else
   echo "Source DB: not configured"
 fi
-echo "Backend URL: http://127.0.0.1:${LOCAL_BACKEND_PORT:-8008}/health"
-echo "Frontend URL: http://127.0.0.1:${LOCAL_FRONTEND_PORT:-8088}"
+echo "Backend URL: http://localhost:${LOCAL_BACKEND_PORT:-8008}/health"
+echo "Frontend URL: http://localhost:${LOCAL_FRONTEND_PORT:-8088}"
 echo
 echo "INSTALL COMPLETED"

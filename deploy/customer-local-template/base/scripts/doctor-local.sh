@@ -15,11 +15,11 @@ FRONTEND_PORT="${LOCAL_FRONTEND_PORT:-8088}"
 
 echo "== GreenBrain Local Doctor =="
 
-curl -fsS "http://127.0.0.1:${BACKEND_PORT}/health" >/dev/null
-echo "backend: OK http://127.0.0.1:${BACKEND_PORT}/health"
+curl -fsS "http://localhost:${BACKEND_PORT}/health" >/dev/null
+echo "backend: OK http://localhost:${BACKEND_PORT}/health"
 
-curl -fsS "http://127.0.0.1:${FRONTEND_PORT}" >/dev/null
-echo "frontend: OK http://127.0.0.1:${FRONTEND_PORT}"
+curl -fsS "http://localhost:${FRONTEND_PORT}" >/dev/null
+echo "frontend: OK http://localhost:${FRONTEND_PORT}"
 
 docker compose \
   -f "$ROOT/docker-compose.local.yml" \

@@ -95,7 +95,18 @@ check_port() {
   if [ "$gb_match" -eq 1 ]; then
     warn "$label port $port already used by existing GreenBrain stack"
   else
-    fail "$label port $port already used by external service"
+    echo "ERROR: $label port $port already used by external service" >&2
+    if command -v lsof >/dev/null 2>&1; then
+      echo >&2
+      echo "Process using port $port:" >&2
+      lsof -nP -iTCP:"$port" -sTCP:LISTEN >&2 || true
+    fi
+    if [ "$(uname -s)" = "Darwin" ]; then
+      echo >&2
+      echo "On macOS, close the application using the port and retry." >&2
+      echo "If Windsurf is listed, quit Windsurf before installing GreenBrain." >&2
+    fi
+    exit 1
   fi
 }
 
