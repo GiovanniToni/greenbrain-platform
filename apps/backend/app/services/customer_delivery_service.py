@@ -7,6 +7,8 @@ import secrets
 import shutil
 import tarfile
 import tempfile
+import zipfile
+
 
 
 from app.core.config import settings
@@ -96,11 +98,31 @@ def _safe_env_value(value: Any) -> str:
 
 def _render_customer_env(base_env: str, customer_profile: Dict[str, Any], temp_password: str) -> str:
     tenant_code = _safe_env_value(customer_profile.get("tenant_code"))
+    tenant_name = _safe_env_value(
+        customer_profile.get("company_name")
+        or customer_profile.get("contact_name")
+        or tenant_code
+    )
     email = _safe_env_value(customer_profile.get("portal_user_email") or customer_profile.get("contact_email"))
-    full_name = _safe_env_value(customer_profile.get("company_name") or customer_profile.get("contact_name") or email)
+    full_name = _safe_env_value(customer_profile.get("contact_name") or customer_profile.get("company_name") or email)
     home_host = _tenant_public_host(tenant_code)
+    db_name = f"greenbrain_{tenant_code}" if tenant_code else "greenbrain"
+    db_user = f"greenbrain_{tenant_code}" if tenant_code else "greenbrain"
+    db_password = secrets.token_urlsafe(24)
 
     overrides = {
+        "TENANT_CODE": tenant_code,
+        "TENANT_NAME": tenant_name,
+        "TENANT_HOST": home_host,
+        "POSTGRES_DB": db_name,
+        "POSTGRES_USER": db_user,
+        "POSTGRES_PASSWORD": db_password,
+        "POSTGRES_SSLMODE": "disable",
+        "DATABASE_URL": f"postgresql://{db_user}:{db_password}@postgres:5432/{db_name}",
+        "LOCAL_BACKEND_PORT": "8008",
+        "LOCAL_FRONTEND_PORT": "8088",
+        "CENTRAL_AUTH_URL": "https://www.greenbrain.it",
+        "CENTRAL_TENANT_CODE": tenant_code,
         "LOCAL_CUSTOMER_EMAIL": email,
         "LOCAL_CUSTOMER_FULL_NAME": full_name,
         "LOCAL_CUSTOMER_TEMP_PASSWORD": temp_password,
@@ -126,7 +148,6 @@ def _render_customer_env(base_env: str, customer_profile: Dict[str, Any], temp_p
             lines.append(f"{key}={value}")
 
     return "\n".join(lines).rstrip() + "\n"
-
 
 def _replace_or_append_env_value(text: str, key: str, value: str) -> str:
     lines = []
@@ -173,14 +194,21 @@ def _build_personalized_bundle(source_bundle: Path, customer_profile: Dict[str, 
         env_candidates = list(tmp_path.rglob("overlay/env/customer-local.env"))
         if env_candidates:
             env_path = env_candidates[0]
-            env_path.write_text(_render_customer_env(env_path.read_text(), customer_profile, temp_password))
+            base_env_text = env_path.read_text()
+        else:
+            example_candidates = list(tmp_path.rglob("env/customer-local.env.example"))
+            if not example_candidates:
+                raise RuntimeError("customer_env_example_missing")
+            example_path = example_candidates[0]
+            template_root = example_path.parent.parent
+            env_dir = template_root / "overlay" / "env"
+            env_dir.mkdir(parents=True, exist_ok=True)
+            env_path = env_dir / "customer-local.env"
+            base_env_text = example_path.read_text()
 
-        customer_env_candidates = list(tmp_path.rglob("overlay/env/customer-local.env"))
-        if customer_env_candidates:
-            customer_env_path = customer_env_candidates[0]
-            customer_env_text = customer_env_path.read_text()
-            customer_env_text = _replace_or_append_env_value(customer_env_text, "JWT_SECRET", settings.jwt_secret)
-            customer_env_path.write_text(customer_env_text)
+        customer_env_text = _render_customer_env(base_env_text, customer_profile, temp_password)
+        customer_env_text = _replace_or_append_env_value(customer_env_text, "JWT_SECRET", settings.jwt_secret)
+        env_path.write_text(customer_env_text)
 
         runtime_env_candidates = list(tmp_path.rglob("overlay/provisioning/local-runtime.env"))
         if runtime_env_candidates:
@@ -227,6 +255,68 @@ PROVISIONING_TOKEN=
                 tar.add(child, arcname=child.name)
 
     return output_bundle
+
+
+def _source_tar_for_universal_installer(universal_installer: Path) -> Path | None:
+    version = _extract_release_version_from_bundle_path(universal_installer)
+    if not version:
+        return None
+    tar_path = universal_installer.parent / f"customer-local-{version}.tar.gz"
+    if tar_path.exists() and tar_path.is_file():
+        return tar_path
+    return None
+
+
+def _replace_embedded_archive(script_path: Path, personalized_tar: Path) -> None:
+    marker = b"__GREENBRAIN_ARCHIVE_BELOW__\n"
+    data = script_path.read_bytes()
+    pos = data.find(marker)
+    if pos < 0:
+        raise RuntimeError(f"embedded_archive_marker_missing: {script_path.name}")
+    header = data[: pos + len(marker)]
+    script_path.write_bytes(header + personalized_tar.read_bytes())
+    script_path.chmod(0o755)
+
+
+def _build_personalized_universal_installer(
+    universal_installer: Path,
+    customer_profile: Dict[str, Any],
+) -> Path:
+    customer_id = _safe_env_value(customer_profile.get("customer_id"))
+    tenant_code = _safe_env_value(customer_profile.get("tenant_code"))
+
+    if not customer_id or not tenant_code:
+        raise RuntimeError("customer_profile_missing_customer_id_or_tenant_code")
+
+    source_tar = _source_tar_for_universal_installer(universal_installer)
+    if not source_tar:
+        raise RuntimeError(f"source_tar_missing_for_universal_installer: {universal_installer}")
+
+    version = _extract_release_version_from_bundle_path(universal_installer) or "unknown"
+    personalized_tar = _build_personalized_bundle(source_tar, customer_profile)
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    out_root = Path("/tmp/greenbrain-customer-bundles")
+    out_dir = out_root / f"universal-{version}-{tenant_code}-{stamp}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    output_zip = out_root / f"GreenBrain-Installer-{version}-{tenant_code}-{stamp}.zip"
+
+    with zipfile.ZipFile(universal_installer, "r") as zin:
+        zin.extractall(out_dir)
+
+    for script_name in ("INSTALLA_GREENBRAIN_LINUX.run", "INSTALLA_GREENBRAIN_MAC.command"):
+        script_path = out_dir / script_name
+        if script_path.exists() and script_path.is_file():
+            _replace_embedded_archive(script_path, personalized_tar)
+
+    with zipfile.ZipFile(output_zip, "w", compression=zipfile.ZIP_DEFLATED) as zout:
+        for child in sorted(out_dir.iterdir()):
+            if child.is_file():
+                zout.write(child, arcname=child.name)
+
+    shutil.rmtree(out_dir, ignore_errors=True)
+    return output_zip
+
 
 def record_bundle_download(customer_profile: Dict[str, Any], bundle: Dict[str, Any]) -> Dict[str, Any]:
     customer_id = (customer_profile.get("customer_id") or "").strip()
@@ -312,11 +402,12 @@ def resolve_bundle_download(customer_profile: Dict[str, Any], user_agent: str = 
             }
     if latest_bundle and latest_bundle.exists() and latest_bundle.is_file():
         latest_version = _extract_release_version_from_bundle_path(latest_bundle)
+        personalized_bundle = _build_personalized_universal_installer(latest_bundle, customer_profile)
         return {
-            "bundle_path": str(latest_bundle),
+            "bundle_path": str(personalized_bundle),
             "filename": "GreenBrain-Installer.zip",
-            "internal_filename": latest_bundle.name,
-            "source": "universal_installer_latest_release",
+            "internal_filename": personalized_bundle.name,
+            "source": "personalized_universal_installer_latest_release",
             "assigned_release_version": latest_version,
         }
 
