@@ -321,7 +321,10 @@ def _build_personalized_universal_installer(
 def record_bundle_download(customer_profile: Dict[str, Any], bundle: Dict[str, Any]) -> Dict[str, Any]:
     customer_id = (customer_profile.get("customer_id") or "").strip()
     bundle_path = Path(bundle["bundle_path"])
-    version = _extract_release_version_from_bundle_path(bundle_path)
+    version = (
+        (bundle.get("assigned_release_version") or "").strip()
+        or _extract_release_version_from_bundle_path(bundle_path)
+    )
     if not customer_id or not version:
         return {
             "customer_id": customer_id or None,
