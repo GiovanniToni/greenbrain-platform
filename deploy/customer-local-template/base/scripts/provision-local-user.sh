@@ -33,7 +33,13 @@ echo "email: $EMAIL"
 echo "tenant: $TENANT"
 echo "home: https://$HOME_HOST$HOME_PATH"
 
-docker compose --env-file "$ENV" -f "$COMPOSE_FILE" exec -T backend python - <<'PY'
+docker compose --env-file "$ENV" -f "$COMPOSE_FILE" exec -T \
+  -e AUTH_DB_HOST=postgres \
+  -e AUTH_DB_PORT=5432 \
+  -e AUTH_DB_NAME="${POSTGRES_DB}" \
+  -e AUTH_DB_USER="${POSTGRES_USER}" \
+  -e AUTH_DB_PASSWORD="${POSTGRES_PASSWORD}" \
+  backend python - <<'PY'
 import os
 from app.services.customer_auth_user_service import provision_customer_auth_user
 
