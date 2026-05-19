@@ -79,6 +79,8 @@ def provision_customer_auth_user(
         payload["home_path"] = home_path
     if "user_role" in cols:
         payload["user_role"] = user_role
+    if "can_access_app" in cols:
+        payload["can_access_app"] = True
 
     with engine.begin() as conn:
         existing = conn.execute(

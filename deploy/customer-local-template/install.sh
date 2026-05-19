@@ -91,6 +91,8 @@ if [ "$OK" -ne 1 ]; then
   exit 20
 fi
 
+"$ROOT/base/scripts/provision-local-user.sh"
+
 "$ROOT/base/scripts/doctor-local.sh"
 
 echo
