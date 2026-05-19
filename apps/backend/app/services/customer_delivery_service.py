@@ -408,7 +408,7 @@ def resolve_bundle_download(customer_profile: Dict[str, Any], user_agent: str = 
         personalized_bundle = _build_personalized_universal_installer(latest_bundle, customer_profile)
         return {
             "bundle_path": str(personalized_bundle),
-            "filename": "GreenBrain-Installer.zip",
+            "filename": personalized_bundle.name,
             "internal_filename": personalized_bundle.name,
             "source": "personalized_universal_installer_latest_release",
             "assigned_release_version": latest_version,
