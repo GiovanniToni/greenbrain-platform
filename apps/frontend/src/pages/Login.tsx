@@ -8,6 +8,12 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth, type AuthUser } from "@/hooks/useAuth";
 import { ApiError, apiPost } from "@/lib/apiClient";
 
+function isLocalRuntimeHost() {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1";
+}
+
 function redirectAfterLogin(user: AuthUser, navigate: ReturnType<typeof useNavigate>) {
   const currentHost = window.location.host;
   const targetHost = user.home_host?.trim();
@@ -25,7 +31,7 @@ function redirectAfterLogin(user: AuthUser, navigate: ReturnType<typeof useNavig
 
   const targetPath = user.home_path?.trim() || defaultPath;
 
-  if (targetHost && targetHost !== currentHost) {
+  if (!isLocalRuntimeHost() && targetHost && targetHost !== currentHost) {
     window.location.href = `https://${targetHost}${targetPath}`;
     return;
   }
@@ -46,6 +52,7 @@ export default function Login() {
 
   const currentHost = window.location.host;
   const isCentralHost = currentHost === "www.greenbrain.it" || currentHost === "greenbrain.it";
+  const isLocalRuntime = isLocalRuntimeHost();
   const isSsoBridge = Boolean(searchParams.get("sso")) && !isCentralHost;
 
   useEffect(() => {
@@ -104,7 +111,7 @@ export default function Login() {
         } catch {
           // Non cliente/SSO non applicabile: continua con login standard dev/admin.
         }
-      } else {
+      } else if (!isLocalRuntime) {
         window.location.href = "https://www.greenbrain.it/login";
         return;
       }

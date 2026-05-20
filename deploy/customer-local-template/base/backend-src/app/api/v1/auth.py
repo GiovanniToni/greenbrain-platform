@@ -23,6 +23,7 @@ from app.db.users import (
     get_user_by_email,
     update_last_login,
 )
+from app.repositories.customer_portal_repository import get_runtime_connection_by_tenant_code
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -225,6 +226,12 @@ def sso_start(body: LoginRequest, db: Session = Depends(get_db)):
             detail="Missing home_host for user",
         )
 
+    if home_host in {"www.greenbrain.it", "greenbrain.it"}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="SSO not required for same-cloud user",
+        )
+
     ticket = _build_sso_ticket(user)
     redirect_url = f"https://{home_host}/login?sso={ticket}"
 
@@ -240,7 +247,7 @@ def sso_start(body: LoginRequest, db: Session = Depends(get_db)):
 def sso_exchange(body: SsoExchangeRequest, request: Request, db: Session = Depends(get_db)):
     try:
         unverified = jwt.get_unverified_claims(body.ticket)
-        expected_audience = unverified.get("aud") or request.headers.get("host", "").split(":")[0]
+        expected_audience = unverified.get("aud")
         payload = jwt.decode(
             body.ticket,
             settings.jwt_secret,
@@ -282,9 +289,24 @@ def sso_exchange(body: SsoExchangeRequest, request: Request, db: Session = Depen
 
 @router.get("/me", response_model=UserResponse)
 def me(user: dict = Depends(get_current_user)):
-    role = str(user.get("user_role") or "").strip()
-    is_internal = role in {"super_admin", "greenbrain_admin"} or bool(user.get("is_admin") and not user.get("tenant_code"))
-    is_customer_runtime = role in {"customer_admin", "customer_user", "tenant_admin"}
+    tenant_code = (user.get("tenant_code") or "").strip()
+    runtime = get_runtime_connection_by_tenant_code(tenant_code) if tenant_code else None
+    runtime = runtime or {}
+
+    role = _user_role(user)
+    is_internal = role in INTERNAL_ADMIN_ROLES or bool(user.get("is_admin") and not user.get("tenant_code"))
+    runtime_health = runtime.get("runtime_health")
+    runtime_public_backend_url = runtime.get("public_backend_url")
+    runtime_installation_id = runtime.get("installation_id")
+
+    platform_enabled = bool(
+        is_internal
+        or (
+            runtime_health == "healthy"
+            and runtime_public_backend_url
+            and runtime_installation_id
+        )
+    )
 
     return UserResponse(
         id=str(user["id"]),
@@ -295,10 +317,10 @@ def me(user: dict = Depends(get_current_user)):
         home_host=user.get("home_host"),
         home_path=user.get("home_path"),
         user_role=user.get("user_role"),
-        platform_enabled=bool(is_internal or is_customer_runtime),
-        runtime_health="healthy" if is_customer_runtime else None,
-        runtime_public_backend_url=user.get("home_host"),
-        runtime_installation_id=None,
+        platform_enabled=platform_enabled,
+        runtime_health=runtime_health,
+        runtime_public_backend_url=runtime_public_backend_url,
+        runtime_installation_id=runtime_installation_id,
     )
 
 
