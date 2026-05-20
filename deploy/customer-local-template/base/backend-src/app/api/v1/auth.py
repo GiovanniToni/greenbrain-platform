@@ -303,12 +303,16 @@ def me(user: dict = Depends(get_current_user)):
 
     role = _user_role(user)
     is_internal = role in INTERNAL_ADMIN_ROLES or bool(user.get("is_admin") and not user.get("tenant_code"))
-    runtime_health = runtime.get("runtime_health")
-    runtime_public_backend_url = runtime.get("public_backend_url")
+    local_access_enabled = bool(user.get("can_access_app"))
+    local_home_host = user.get("home_host")
+
+    runtime_health = runtime.get("runtime_health") or ("healthy" if local_access_enabled else None)
+    runtime_public_backend_url = runtime.get("public_backend_url") or local_home_host
     runtime_installation_id = runtime.get("installation_id")
 
     platform_enabled = bool(
         is_internal
+        or local_access_enabled
         or (
             runtime_health == "healthy"
             and runtime_public_backend_url
