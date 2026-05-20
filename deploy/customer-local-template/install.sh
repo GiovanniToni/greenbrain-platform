@@ -42,6 +42,65 @@ chmod +x "$ROOT"/base/scripts/*.sh
 export GREENBRAIN_IMAGE_TAG="${GREENBRAIN_IMAGE_TAG:-$(cat "$ROOT/VERSION" 2>/dev/null || echo latest)}"
 echo "Docker image tag: $GREENBRAIN_IMAGE_TAG"
 
+
+preserve_existing_local_secrets() {
+  OLD_ENV="$ROOT/overlay/env/customer-local.env"
+  NEW_ENV="$ROOT/overlay/env/customer-local.env"
+
+  # If the env already exists, preserve DB/JWT secrets so update mode does not break Postgres volumes.
+  if [ -f "$OLD_ENV" ]; then
+    for key in POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD DATABASE_URL JWT_SECRET; do
+      old_line="$(grep -E "^${key}=" "$OLD_ENV" | tail -1 || true)"
+      if [ -n "$old_line" ]; then
+        if grep -qE "^${key}=" "$NEW_ENV"; then
+          tmp_file="${NEW_ENV}.tmp"
+          awk -v k="$key" -v line="$old_line" '
+            BEGIN { done=0 }
+            $0 ~ "^" k "=" { print line; done=1; next }
+            { print }
+            END { if (!done) print line }
+          ' "$NEW_ENV" > "$tmp_file"
+          mv "$tmp_file" "$NEW_ENV"
+        else
+          printf "%s\n" "$old_line" >> "$NEW_ENV"
+        fi
+      fi
+    done
+    echo "Existing local DB/JWT secrets preserved for update mode"
+  fi
+}
+
+fresh_reset_existing_stack() {
+  echo "Fresh reset requested: removing existing GreenBrain local stack and data volume"
+  if [ -f "$ROOT/docker-compose.prebuilt.yml" ]; then
+    compose_safe -f "$ROOT/docker-compose.prebuilt.yml" --env-file "$ROOT/overlay/env/customer-local.env" down -v --remove-orphans || true
+  fi
+  if [ -f "$ROOT/docker-compose.local.yml" ]; then
+    compose_safe -f "$ROOT/docker-compose.local.yml" --env-file "$ROOT/overlay/env/customer-local.env" down -v --remove-orphans || true
+  fi
+  docker rm -f greenbrain_local_backend greenbrain_local_frontend greenbrain_local_postgres greenbrain_local_ml_worker gb_customer_scheduler 2>/dev/null || true
+  docker volume ls --format '{{.Name}}' | grep -Ei 'greenbrain|customer-local|customer-local-template' | while read -r v; do
+    docker volume rm "$v" || true
+  done
+}
+
+handle_existing_installation_mode() {
+  MODE="${GREENBRAIN_INSTALL_MODE:-update}"
+
+  if docker ps -a --format '{{.Names}}' | grep -Eq '^(greenbrain_local_backend|greenbrain_local_postgres|greenbrain_local_frontend)$'; then
+    echo "Existing GreenBrain local installation detected"
+    echo "Install mode: $MODE"
+
+    if [ "$MODE" = "fresh-reset" ]; then
+      fresh_reset_existing_stack
+    else
+      preserve_existing_local_secrets
+    fi
+  fi
+}
+
+
+
 USE_PREBUILT="${GREENBRAIN_USE_PREBUILT_IMAGES:-1}"
 
 compose_safe() {
@@ -68,6 +127,8 @@ compose_safe() {
 }
 
 
+
+handle_existing_installation_mode
 
 if [ "$USE_PREBUILT" = "1" ]; then
   echo "Using prebuilt Docker images"
