@@ -94,7 +94,13 @@ echo "== STEP 5: validazione template =="
 [ -f "$TEMPLATE/tunnel/docker-compose.tunnel.yml" ] || fail "tunnel/docker-compose.tunnel.yml template mancante"
 [ -f "$TEMPLATE/base/base-manifest.yml" ] || fail "base/base-manifest.yml template mancante"
 [ -f "$TEMPLATE/overlay/meta/overlay-manifest.yml" ] || fail "overlay/meta/overlay-manifest.yml template mancante"
-[ -f "$TEMPLATE/overlay/env/customer-local.env" ] || fail "overlay/env/customer-local.env template mancante"
+if [ -f "$TEMPLATE/overlay/env/customer-local.env" ]; then
+  ok "overlay/env/customer-local.env presente"
+elif [ -f "$TEMPLATE/env/customer-local.env.example" ]; then
+  ok "env/customer-local.env.example presente; overlay/env/customer-local.env sarà generato/personalizzato a runtime"
+else
+  fail "customer-local env template mancante: atteso overlay/env/customer-local.env oppure env/customer-local.env.example"
+fi
 [ -f "$TEMPLATE/overlay/tunnel/cloudflared/cloudflared.env" ] || fail "overlay tunnel env template mancante"
 
 docker compose \
