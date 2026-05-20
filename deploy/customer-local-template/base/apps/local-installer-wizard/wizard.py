@@ -58,6 +58,8 @@ HTML = r"""<!doctype html>
     .statusTitle { font-weight:bold; margin-bottom:6px; }
     .spinner { display:inline-block; width:18px; height:18px; border:3px solid #cfe5cf; border-top-color:#1f7a3b; border-radius:50%; animation: spin 1s linear infinite; vertical-align:middle; margin-right:8px; }
     .detailsBtn { display:none; }
+    .credBox { margin-top:12px; padding:12px; border-radius:12px; background:#fff; border:1px solid #cfe5cf; }
+    code { background:#eef7ee; padding:2px 6px; border-radius:6px; }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
@@ -183,7 +185,7 @@ async function poll(){
     btn.disabled = true;
     document.getElementById('spinner').style.display = 'none';
     document.getElementById('statusText').textContent = 'Installazione completata';
-    document.getElementById('statusHint').textContent = 'GreenBrain è pronto. Premi Apri GreenBrain per entrare.';
+    loadLocalCredentials();
     return;
   }
 
@@ -210,6 +212,38 @@ function toggleLog(){
     btn.textContent = 'Nascondi dettagli tecnici';
   }
 }
+
+async function loadLocalCredentials(){
+  try {
+    const r = await fetch('/api/local-credentials');
+    const data = await r.json();
+    if (data && data.email && data.password) {
+      document.getElementById('statusHint').innerHTML =
+        'GreenBrain locale pronto.<br>' +
+        '<div class="credBox">' +
+        '<b>Cliente:</b> ' + escapeHtml(data.customer_name || data.tenant || '-') + '<br>' +
+        '<b>Email locale:</b> ' + escapeHtml(data.email) + '<br>' +
+        '<b>Password temporanea:</b> <code>' + escapeHtml(data.password) + '</code><br>' +
+        '<b>Tenant:</b> ' + escapeHtml(data.tenant || '-') + '<br>' +
+        '<b>Versione:</b> ' + escapeHtml(data.version || '-') +
+        '</div>' +
+        'Usa queste credenziali per entrare su GreenBrain locale. La password del portale cloud resta separata.';
+      return;
+    }
+  } catch (e) {}
+  document.getElementById('statusHint').textContent =
+    'GreenBrain è pronto. Premi Apri GreenBrain per entrare.';
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
 function openGreenBrain(){
   window.open('http://localhost:' + document.getElementById('frontend_port').value, '_blank');
 }
@@ -217,6 +251,27 @@ function openGreenBrain(){
 </body>
 </html>
 """
+
+
+def _read_file(path):
+    try:
+        return Path(path).read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return ""
+
+def _read_env_file(path):
+    data = {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                data[k.strip()] = v.strip().strip('"').strip("'")
+    except FileNotFoundError:
+        pass
+    return data
 
 class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, *args):
@@ -240,6 +295,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self._send(404, "not found")
         elif path == "/api/log":
             self._send(200, LOG_FILE.read_text(errors="ignore") if LOG_FILE.exists() else "Nessun log.")
+        elif path == "/api/local-credentials":
+            env = _read_env_file(ROOT / "overlay" / "env" / "customer-local.env")
+            payload = {
+                "email": env.get("LOCAL_CUSTOMER_EMAIL", ""),
+                "password": env.get("LOCAL_CUSTOMER_TEMP_PASSWORD", ""),
+                "tenant": env.get("LOCAL_CUSTOMER_TENANT_CODE") or env.get("TENANT_CODE", ""),
+                "customer_name": env.get("LOCAL_CUSTOMER_FULL_NAME") or env.get("TENANT_NAME", ""),
+                "version": _read_file(ROOT / "VERSION").strip(),
+            }
+            self._send(200, json.dumps(payload), "application/json")
         elif path == "/api/status":
             if STATUS_FILE.exists():
                 self._send(200, STATUS_FILE.read_text(errors="ignore"), "application/json")

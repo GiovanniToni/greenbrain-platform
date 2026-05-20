@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Download, CreditCard, CheckCircle2, AlertCircle,
   Package, Building2, Clock, Calendar,
@@ -19,6 +19,7 @@ import {
 } from "@/lib/customerPortalApi";
 import { planDisplayName, planDisplayPrice } from "@/lib/planConfig";
 import { createSetupSession } from "@/lib/customerBillingApi";
+import { useAuth } from "@/hooks/useAuth";
 
 type LifecyclePhase =
   | "loading"
@@ -119,9 +120,99 @@ function getLifecyclePhase(data: CustomerPortalProfile | null): LifecyclePhase {
   return "no_payment";
 }
 
+
+function isLocalRuntimeHost() {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1";
+}
+
+function LocalRuntimeAccount() {
+  const { user } = useAuth();
+
+  const dashboardPath = user?.home_path?.trim() || "/dashboard";
+  const cloudAccountUrl = "https://www.greenbrain.it/account";
+
+  return (
+    <div className="space-y-6">
+      <Card className="p-6">
+        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Il mio account locale</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Questo profilo è usato da GreenBrain Customer Local su questo computer.
+            </p>
+          </div>
+          {user?.platform_enabled && (
+            <Button asChild>
+              <Link to={dashboardPath}>Vai alla Dashboard</Link>
+            </Button>
+          )}
+        </div>
+
+        <Separator className="my-5" />
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <p className="text-sm text-muted-foreground">Email locale</p>
+            <p className="font-medium">{user?.email ?? "—"}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Nome</p>
+            <p className="font-medium">{user?.full_name ?? "—"}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Tenant</p>
+            <p className="font-medium">{user?.tenant_code ?? "—"}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Ruolo</p>
+            <p className="font-medium">{user?.user_role ?? "—"}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Piattaforma locale</p>
+            <p className="font-medium">
+              {user?.platform_enabled ? "Attiva" : "Non attiva"}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Pagina iniziale</p>
+            <p className="font-medium">{dashboardPath}</p>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <h2 className="text-xl font-semibold">Dettagli abbonamento</h2>
+        <p className="text-sm text-muted-foreground mt-2">
+          Abbonamento, pagamenti, download del bundle e gestione account rimangono
+          nel portale cloud GreenBrain.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Button variant="outline" asChild>
+            <a href={cloudAccountUrl} target="_blank" rel="noreferrer">
+              Apri account cloud GreenBrain
+            </a>
+          </Button>
+          {user?.platform_enabled && (
+            <Button asChild>
+              <Link to={dashboardPath}>Torna alla piattaforma locale</Link>
+            </Button>
+          )}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+
 // ── main component ────────────────────────────────────────────────────────────
 
 export default function CustomerPortalDashboard() {
+  if (isLocalRuntimeHost()) {
+    return <LocalRuntimeAccount />;
+  }
+
   const [searchParams] = useSearchParams();
   const setupStatus = searchParams.get("setup");
   const billingStatus = searchParams.get("billing");
