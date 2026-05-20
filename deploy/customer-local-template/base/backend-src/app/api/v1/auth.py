@@ -290,7 +290,15 @@ def sso_exchange(body: SsoExchangeRequest, request: Request, db: Session = Depen
 @router.get("/me", response_model=UserResponse)
 def me(user: dict = Depends(get_current_user)):
     tenant_code = (user.get("tenant_code") or "").strip()
-    runtime = get_runtime_connection_by_tenant_code(tenant_code) if tenant_code else None
+    runtime = None
+    if tenant_code:
+        try:
+            runtime = get_runtime_connection_by_tenant_code(tenant_code)
+        except RuntimeError as exc:
+            if "Supabase is not configured" not in str(exc):
+                raise
+        except Exception:
+            runtime = None
     runtime = runtime or {}
 
     role = _user_role(user)

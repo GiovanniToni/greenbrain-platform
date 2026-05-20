@@ -52,7 +52,8 @@ def _find_user_table(engine) -> tuple[str, set[str]]:
 def provision_customer_auth_user(
     *,
     email: str,
-    password: str,
+    password: str | None = None,
+    password_hash: str | None = None,
     full_name: str | None,
     tenant_code: str,
     home_host: str,
@@ -62,9 +63,19 @@ def provision_customer_auth_user(
     engine = _build_auth_engine()
     table_name, cols = _find_user_table(engine)
 
+    clean_password_hash = (password_hash or "").strip()
+    clean_password = (password or "").strip()
+
+    if clean_password_hash:
+        hashed_password = clean_password_hash
+    elif clean_password:
+        hashed_password = hash_password(clean_password)
+    else:
+        raise RuntimeError("missing_password_or_hash")
+
     payload: Dict[str, Any] = {
         "email": email.strip().lower(),
-        "hashed_password": hash_password(password),
+        "hashed_password": hashed_password,
         "full_name": (full_name or "").strip() or None,
         "is_active": True,
     }

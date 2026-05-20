@@ -217,17 +217,25 @@ async function loadLocalCredentials(){
   try {
     const r = await fetch('/api/local-credentials');
     const data = await r.json();
-    if (data && data.email && data.password) {
+    if (data && data.email) {
+      const passwordLine = data.mode === 'cloud_password'
+        ? '<b>Password:</b> usa la stessa password del portale GreenBrain<br>'
+        : '<b>Password temporanea:</b> <code>' + escapeHtml(data.password || '') + '</code><br>';
+
+      const hintLine = data.mode === 'cloud_password'
+        ? 'Usa le stesse credenziali del portale cloud per entrare su GreenBrain locale.'
+        : 'Usa queste credenziali per entrare su GreenBrain locale. La password del portale cloud resta separata.';
+
       document.getElementById('statusHint').innerHTML =
         'GreenBrain locale pronto.<br>' +
         '<div class="credBox">' +
         '<b>Cliente:</b> ' + escapeHtml(data.customer_name || data.tenant || '-') + '<br>' +
         '<b>Email locale:</b> ' + escapeHtml(data.email) + '<br>' +
-        '<b>Password temporanea:</b> <code>' + escapeHtml(data.password) + '</code><br>' +
+        passwordLine +
         '<b>Tenant:</b> ' + escapeHtml(data.tenant || '-') + '<br>' +
         '<b>Versione:</b> ' + escapeHtml(data.version || '-') +
         '</div>' +
-        'Usa queste credenziali per entrare su GreenBrain locale. La password del portale cloud resta separata.';
+        hintLine;
       return;
     }
   } catch (e) {}
@@ -300,6 +308,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             payload = {
                 "email": env.get("LOCAL_CUSTOMER_EMAIL", ""),
                 "password": env.get("LOCAL_CUSTOMER_TEMP_PASSWORD", ""),
+                "mode": env.get("LOCAL_CUSTOMER_PASSWORD_MODE", ""),
                 "tenant": env.get("LOCAL_CUSTOMER_TENANT_CODE") or env.get("TENANT_CODE", ""),
                 "customer_name": env.get("LOCAL_CUSTOMER_FULL_NAME") or env.get("TENANT_NAME", ""),
                 "version": _read_file(ROOT / "VERSION").strip(),

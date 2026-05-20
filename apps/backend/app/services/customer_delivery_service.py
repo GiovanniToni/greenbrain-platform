@@ -12,6 +12,7 @@ import zipfile
 
 
 from app.core.config import settings
+from app.integrations.supabase_client import get_supabase_client
 from app.repositories.customer_delivery_repository import (
     get_customer_by_id,
     get_delivery_row,
@@ -96,6 +97,35 @@ def _safe_env_value(value: Any) -> str:
     return str(value or "").replace("\n", " ").replace("\r", " ").strip()
 
 
+
+
+def _get_cloud_password_hash_for_customer(customer_profile: Dict[str, Any]) -> str:
+    email = (
+        customer_profile.get("portal_user_email")
+        or customer_profile.get("contact_email")
+        or customer_profile.get("email")
+        or ""
+    ).strip().lower()
+
+    if not email:
+        return ""
+
+    try:
+        client = get_supabase_client()
+        result = (
+            client.table("greenbrain_users")
+            .select("hashed_password")
+            .eq("email", email)
+            .limit(1)
+            .execute()
+        )
+        rows = result.data or []
+        if not rows:
+            return ""
+        return (rows[0].get("hashed_password") or "").strip()
+    except Exception:
+        return ""
+
 def _render_customer_env(base_env: str, customer_profile: Dict[str, Any], temp_password: str) -> str:
     tenant_code = _safe_env_value(customer_profile.get("tenant_code"))
     tenant_name = _safe_env_value(
@@ -126,6 +156,8 @@ def _render_customer_env(base_env: str, customer_profile: Dict[str, Any], temp_p
         "LOCAL_CUSTOMER_EMAIL": email,
         "LOCAL_CUSTOMER_FULL_NAME": full_name,
         "LOCAL_CUSTOMER_TEMP_PASSWORD": temp_password,
+        "LOCAL_CUSTOMER_PASSWORD_HASH": (customer_profile.get("local_customer_password_hash") or ""),
+        "LOCAL_CUSTOMER_PASSWORD_MODE": (customer_profile.get("local_customer_password_mode") or ("temporary_password" if temp_password else "cloud_password")),
         "LOCAL_CUSTOMER_TENANT_CODE": tenant_code,
         "LOCAL_CUSTOMER_HOME_HOST": home_host,
         "LOCAL_CUSTOMER_HOME_PATH": "/dashboard",
@@ -182,7 +214,20 @@ def _build_personalized_bundle(source_bundle: Path, customer_profile: Dict[str, 
     )
     provisioning_token = token_result["token"]
 
-    temp_password = secrets.token_urlsafe(18)
+    cloud_password_hash = _get_cloud_password_hash_for_customer(customer_profile)
+    if cloud_password_hash:
+        customer_profile = {
+            **customer_profile,
+            "local_customer_password_hash": cloud_password_hash,
+            "local_customer_password_mode": "cloud_password",
+        }
+        temp_password = ""
+    else:
+        customer_profile = {
+            **customer_profile,
+            "local_customer_password_mode": "temporary_password",
+        }
+        temp_password = secrets.token_urlsafe(18)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     output_bundle = out_dir / f"customer-local-{version}-{tenant_code}-{stamp}.tar.gz"
 

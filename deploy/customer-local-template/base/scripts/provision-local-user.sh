@@ -18,8 +18,8 @@ HOME_HOST="${LOCAL_CUSTOMER_HOME_HOST:-${TENANT}.greenbrain.it}"
 HOME_PATH="${LOCAL_CUSTOMER_HOME_PATH:-/dashboard}"
 USER_ROLE="${LOCAL_CUSTOMER_USER_ROLE:-customer_admin}"
 
-if [ -z "$EMAIL" ] || [ -z "$PASSWORD" ] || [ -z "$TENANT" ]; then
-  echo "LOCAL_USER_PROVISION_SKIPPED missing LOCAL_CUSTOMER_EMAIL/LOCAL_CUSTOMER_TEMP_PASSWORD/TENANT"
+if [ -z "$EMAIL" ] || [ -z "$TENANT" ] || { [ -z "$PASSWORD" ] && [ -z "$PASSWORD_HASH" ]; }; then
+  echo "LOCAL_USER_PROVISION_SKIPPED missing LOCAL_CUSTOMER_EMAIL/(LOCAL_CUSTOMER_TEMP_PASSWORD or LOCAL_CUSTOMER_PASSWORD_HASH)/TENANT"
   exit 0
 fi
 
@@ -45,18 +45,20 @@ from app.services.customer_auth_user_service import provision_customer_auth_user
 
 email = os.environ.get("LOCAL_CUSTOMER_EMAIL", "").strip().lower()
 password = os.environ.get("LOCAL_CUSTOMER_TEMP_PASSWORD", "").strip()
+password_hash = os.environ.get("LOCAL_CUSTOMER_PASSWORD_HASH", "").strip()
 full_name = os.environ.get("LOCAL_CUSTOMER_FULL_NAME", "").strip() or None
 tenant = (os.environ.get("LOCAL_CUSTOMER_TENANT_CODE") or os.environ.get("TENANT_CODE") or "").strip()
 home_host = (os.environ.get("LOCAL_CUSTOMER_HOME_HOST") or (tenant + ".greenbrain.it")).strip()
 home_path = (os.environ.get("LOCAL_CUSTOMER_HOME_PATH") or "/dashboard").strip()
 user_role = (os.environ.get("LOCAL_CUSTOMER_USER_ROLE") or "customer_admin").strip()
 
-if not email or not password or not tenant:
+if not email or not tenant or (not password and not password_hash):
     raise SystemExit("LOCAL_USER_PROVISION_FAILED missing env")
 
 row = provision_customer_auth_user(
     email=email,
-    password=password,
+    password=password or None,
+    password_hash=password_hash or None,
     full_name=full_name,
     tenant_code=tenant,
     home_host=home_host,
