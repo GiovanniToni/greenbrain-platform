@@ -44,23 +44,48 @@ echo "Docker image tag: $GREENBRAIN_IMAGE_TAG"
 
 USE_PREBUILT="${GREENBRAIN_USE_PREBUILT_IMAGES:-1}"
 
+compose_safe() {
+  env \
+    -u POSTGRES_DB \
+    -u POSTGRES_USER \
+    -u POSTGRES_PASSWORD \
+    -u POSTGRES_HOST \
+    -u POSTGRES_PORT \
+    -u POSTGRES_SSLMODE \
+    -u DATABASE_URL \
+    -u TENANT_CODE \
+    -u TENANT_NAME \
+    -u TENANT_HOST \
+    -u LOCAL_CUSTOMER_EMAIL \
+    -u LOCAL_CUSTOMER_FULL_NAME \
+    -u LOCAL_CUSTOMER_TEMP_PASSWORD \
+    -u LOCAL_CUSTOMER_PASSWORD_HASH \
+    -u LOCAL_CUSTOMER_PASSWORD_MODE \
+    -u LOCAL_CUSTOMER_TENANT_CODE \
+    -u LOCAL_CUSTOMER_HOME_HOST \
+    -u LOCAL_CUSTOMER_HOME_PATH \
+    docker compose "$@"
+}
+
+
+
 if [ "$USE_PREBUILT" = "1" ]; then
   echo "Using prebuilt Docker images"
-  if ! docker compose \
+  if ! compose_safe \
     -f "$ROOT/docker-compose.prebuilt.yml" \
     --env-file "$ROOT/overlay/env/customer-local.env" \
     up -d; then
     echo
     echo "WARN: prebuilt Docker image startup failed"
     echo "WARN: falling back to local Docker build"
-    docker compose \
+    compose_safe \
       -f "$ROOT/docker-compose.local.yml" \
       --env-file "$ROOT/overlay/env/customer-local.env" \
       up -d --build
   fi
 else
   echo "Using local Docker build"
-  docker compose \
+  compose_safe \
     -f "$ROOT/docker-compose.local.yml" \
     --env-file "$ROOT/overlay/env/customer-local.env" \
     up -d --build
@@ -85,9 +110,9 @@ done
 if [ "$OK" -ne 1 ]; then
   echo "ERROR: backend not healthy after install"
   if [ "${USE_PREBUILT:-1}" = "1" ] && [ -f "$ROOT/docker-compose.prebuilt.yml" ]; then
-    docker compose -f "$ROOT/docker-compose.prebuilt.yml" --env-file "$ROOT/overlay/env/customer-local.env" ps || true
+    compose_safe -f "$ROOT/docker-compose.prebuilt.yml" --env-file "$ROOT/overlay/env/customer-local.env" ps || true
   fi
-  docker compose -f "$ROOT/docker-compose.local.yml" --env-file "$ROOT/overlay/env/customer-local.env" ps || true
+  compose_safe -f "$ROOT/docker-compose.local.yml" --env-file "$ROOT/overlay/env/customer-local.env" ps || true
   exit 20
 fi
 
