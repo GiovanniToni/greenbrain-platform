@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Tuple
 import secrets
+import shlex
 import shutil
 import tarfile
 import tempfile
@@ -125,6 +126,12 @@ def _get_cloud_password_hash_for_customer(customer_profile: Dict[str, Any]) -> s
         return (rows[0].get("hashed_password") or "").strip()
     except Exception:
         return ""
+
+
+
+def _quote_env_value(value: Any) -> str:
+    raw = "" if value is None else str(value)
+    return shlex.quote(raw)
 
 def _render_customer_env(base_env: str, customer_profile: Dict[str, Any], temp_password: str) -> str:
     tenant_code = _safe_env_value(customer_profile.get("tenant_code"))
