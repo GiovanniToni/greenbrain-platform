@@ -94,10 +94,14 @@ echo "== STEP 5: validazione template =="
 [ -f "$TEMPLATE/tunnel/docker-compose.tunnel.yml" ] || fail "tunnel/docker-compose.tunnel.yml template mancante"
 [ -f "$TEMPLATE/base/base-manifest.yml" ] || fail "base/base-manifest.yml template mancante"
 [ -f "$TEMPLATE/overlay/meta/overlay-manifest.yml" ] || fail "overlay/meta/overlay-manifest.yml template mancante"
+TEMP_CUSTOMER_ENV_CREATED=0
 if [ -f "$TEMPLATE/overlay/env/customer-local.env" ]; then
   ok "overlay/env/customer-local.env presente"
 elif [ -f "$TEMPLATE/env/customer-local.env.example" ]; then
-  ok "env/customer-local.env.example presente; overlay/env/customer-local.env sarà generato/personalizzato a runtime"
+  ok "env/customer-local.env.example presente; creo overlay/env/customer-local.env temporaneo per validazione compose"
+  mkdir -p "$TEMPLATE/overlay/env"
+  cp "$TEMPLATE/env/customer-local.env.example" "$TEMPLATE/overlay/env/customer-local.env"
+  TEMP_CUSTOMER_ENV_CREATED=1
 else
   fail "customer-local env template mancante: atteso overlay/env/customer-local.env oppure env/customer-local.env.example"
 fi
@@ -107,6 +111,10 @@ docker compose \
   --env-file "$TEMPLATE/overlay/env/customer-local.env" \
   -f "$TEMPLATE/docker-compose.local.yml" \
   config >/dev/null
+
+if [ "$TEMP_CUSTOMER_ENV_CREATED" = "1" ]; then
+  rm -f "$TEMPLATE/overlay/env/customer-local.env"
+fi
 
 docker compose \
   -f "$TEMPLATE/tunnel/docker-compose.tunnel.yml" \
