@@ -1,119 +1,20 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/bash
+OVERLAY_ENV="overlay/env/customer-local.env"
+mkdir -p "$(dirname "$OVERLAY_ENV")"
 
-ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-OUT="$ROOT/overlay/env/customer-local.env"
-EXAMPLE="$ROOT/env/customer-local.env.example"
-
-fail(){ echo "ERROR: $1" >&2; exit 1; }
-
-[ -f "$EXAMPLE" ] || fail "missing $EXAMPLE"
-
-mkdir -p "$(dirname "$OUT")"
-
-ask() {
-  local label="$1"
-  local default="${2:-}"
-  local value=""
-
-  if [ -n "$default" ]; then
-    read -rp "$label [$default]: " value || true
-    value="${value:-$default}"
-  else
-    read -rp "$label: " value || true
-  fi
-
-  echo "$value"
-}
-
-normalize_tenant_code() {
-  echo "$1" \
-    | tr '[:upper:]' '[:lower:]' \
-    | sed 's/[^a-z0-9]/_/g' \
-    | sed 's/__*/_/g' \
-    | sed 's/^_//;s/_$//'
-}
-
-validate_tenant_code() {
-  echo "$1" | grep -Eq '^[a-z0-9_]+$'
-}
-
-echo "== GreenBrain Customer Env Wizard =="
-
-TENANT_CODE_RAW="$(ask "Tenant code" "cliente_reale")"
-TENANT_CODE="$(normalize_tenant_code "$TENANT_CODE_RAW")"
-
-if ! validate_tenant_code "$TENANT_CODE"; then
-  echo "ERROR: invalid tenant code after normalization: $TENANT_CODE_RAW"
-  exit 1
-fi
-
-echo "Normalized tenant code: $TENANT_CODE"
-
-TENANT_NAME="$(ask "Tenant name" "Cliente Reale")"
-TENANT_HOST="$(ask "Tenant public host" "${TENANT_CODE//_/-}.greenbrain.it")"
-POSTGRES_DB="$(ask "Local Postgres DB" "greenbrain_${TENANT_CODE}")"
-POSTGRES_USER="$(ask "Local Postgres user" "greenbrain_${TENANT_CODE}")"
-POSTGRES_PASSWORD="$(ask "Local Postgres password" "CHANGE_ME_DB_PASSWORD")"
-LOCAL_BACKEND_PORT="$(ask "Local backend port" "8008")"
-LOCAL_FRONTEND_PORT="$(ask "Local frontend port" "8088")"
-JWT_SECRET_DEFAULT="${GREENBRAIN_LOCAL_JWT_SECRET:-${JWT_SECRET:-CHANGE_ME_LOCAL_JWT_SECRET}}"
-JWT_SECRET="$(ask "JWT secret" "$JWT_SECRET_DEFAULT")"
-
-export TENANT_CODE TENANT_NAME TENANT_HOST POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD LOCAL_BACKEND_PORT LOCAL_FRONTEND_PORT JWT_SECRET
-
-python3 - "$EXAMPLE" "$OUT" <<PY
-from pathlib import Path
-import sys
-
-example = Path(sys.argv[1])
-out = Path(sys.argv[2])
-
-import os
-
-values = {
-    "TENANT_CODE": os.environ["TENANT_CODE"],
-    "TENANT_NAME": os.environ["TENANT_NAME"],
-    "TENANT_HOST": os.environ["TENANT_HOST"],
-    "POSTGRES_DB": os.environ["POSTGRES_DB"],
-    "POSTGRES_USER": os.environ["POSTGRES_USER"],
-    "POSTGRES_PASSWORD": os.environ["POSTGRES_PASSWORD"],
-    "POSTGRES_SSLMODE": "disable",
-    "DATABASE_URL": f"postgresql://{os.environ['POSTGRES_USER']}:{os.environ['POSTGRES_PASSWORD']}@postgres:5432/{os.environ['POSTGRES_DB']}",
-    "LOCAL_BACKEND_PORT": os.environ["LOCAL_BACKEND_PORT"],
-    "LOCAL_FRONTEND_PORT": os.environ["LOCAL_FRONTEND_PORT"],
-    "JWT_SECRET": os.environ["JWT_SECRET"],
-    "CENTRAL_TENANT_CODE": os.environ["TENANT_CODE"],
-    "LOCAL_CUSTOMER_TENANT_CODE": os.environ["TENANT_CODE"],
-}
-
-def quote(v: str) -> str:
-    if " " in v or "#" in v:
-        return '"' + v.replace('"', '\\"') + '"'
-    return v
-
-lines = []
-seen = set()
-
-for line in example.read_text().splitlines():
-    if not line.strip() or line.lstrip().startswith("#") or "=" not in line:
-        lines.append(line)
-        continue
-
-    k, old = line.split("=", 1)
-    if k in values:
-        lines.append(f"{k}={quote(str(values[k]))}")
-        seen.add(k)
-    else:
-        lines.append(line)
-
-for k, v in values.items():
-    if k not in seen:
-        lines.append(f"{k}={quote(str(v))}")
-
-out.write_text("\\n".join(lines) + "\\n")
-PY
-
+read -p "Enter customer email: " CUSTOMER_EMAIL
+read -sp "Enter customer password: " CUSTOMER_PASSWORD
 echo
-echo "Customer env generated:"
-echo "  $OUT"
+PASSWORD_HASH=$(python3 -c "import bcrypt; print(bcrypt.hashpw(b'$CUSTOMER_PASSWORD', bcrypt.gensalt()).decode())")
+JWT_SECRET=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))")
+TENANT_CODE="${CUSTOMER_EMAIL%@*}"
+cat > "$OVERLAY_ENV" <<EOL
+LOCAL_CUSTOMER_EMAIL=$CUSTOMER_EMAIL
+LOCAL_CUSTOMER_PASSWORD_HASH=$PASSWORD_HASH
+LOCAL_CUSTOMER_TENANT_CODE=$TENANT_CODE
+JWT_SECRET=$JWT_SECRET
+POSTGRES_DB=customer_local_db
+POSTGRES_USER=customer_local_user
+POSTGRES_PASSWORD=customer_local_pass
+EOL
+echo "Overlay env creato in $OVERLAY_ENV"
