@@ -87,6 +87,10 @@ fresh_reset_existing_stack() {
 handle_existing_installation_mode() {
   MODE="${GREENBRAIN_INSTALL_MODE:-update}"
 
+  if [ "${GREENBRAIN_FORCE_FRESH_INSTALL:-0}" = "1" ]; then
+    MODE="fresh-reset"
+  fi
+
   if docker ps -a --format '{{.Names}}' | grep -Eq '^(greenbrain_local_backend|greenbrain_local_postgres|greenbrain_local_frontend)$'; then
     echo "Existing GreenBrain local installation detected"
     echo "Install mode: $MODE"
@@ -176,6 +180,38 @@ if [ "$OK" -ne 1 ]; then
   compose_safe -f "$ROOT/docker-compose.local.yml" --env-file "$ROOT/overlay/env/customer-local.env" ps || true
   exit 20
 fi
+
+verify_local_db_credentials() {
+  echo
+  echo "== VERIFY LOCAL DB CREDENTIALS =="
+
+  set -a
+  source "$ROOT/overlay/env/customer-local.env"
+  set +a
+
+  if ! docker exec -e PGPASSWORD="$POSTGRES_PASSWORD" greenbrain_local_postgres \
+    psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "select 1;" >/dev/null 2>&1; then
+    echo
+    echo "ERROR: il database locale esiste ma le credenziali non sono compatibili con questo bundle."
+    echo
+    echo "Probabile causa:"
+    echo "  - è presente una vecchia installazione GreenBrain locale;"
+    echo "  - il volume Postgres è già stato inizializzato con credenziali diverse;"
+    echo "  - Postgres non aggiorna POSTGRES_PASSWORD su un volume già esistente."
+    echo
+    echo "Soluzione per reinstallazione pulita:"
+    echo "  GREENBRAIN_FORCE_FRESH_INSTALL=1 GREENBRAIN_CONFIGURE_SOURCE_DB=no bash install.sh"
+    echo
+    echo "Oppure:"
+    echo "  GREENBRAIN_INSTALL_MODE=fresh-reset GREENBRAIN_CONFIGURE_SOURCE_DB=no bash install.sh"
+    echo
+    exit 31
+  fi
+
+  echo "LOCAL_DB_CREDENTIALS_OK"
+}
+
+verify_local_db_credentials
 
 "$ROOT/base/scripts/provision-local-user.sh"
 
