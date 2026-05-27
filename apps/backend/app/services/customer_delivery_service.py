@@ -148,18 +148,24 @@ def _render_customer_env(base_env: str, customer_profile: Dict[str, Any], temp_p
     db_password = secrets.token_urlsafe(24)
 
     overrides = {
+        "APP_ENV": "client-local",
         "TENANT_CODE": tenant_code,
         "TENANT_NAME": tenant_name,
         "TENANT_HOST": home_host,
+        "POSTGRES_HOST": "postgres",
+        "POSTGRES_PORT": "5432",
         "POSTGRES_DB": db_name,
         "POSTGRES_USER": db_user,
         "POSTGRES_PASSWORD": db_password,
         "POSTGRES_SSLMODE": "disable",
         "DATABASE_URL": f"postgresql://{db_user}:{db_password}@postgres:5432/{db_name}",
+        "JWT_EXPIRE_MINUTES": "60",
         "LOCAL_BACKEND_PORT": "8008",
         "LOCAL_FRONTEND_PORT": "8088",
         "CENTRAL_AUTH_URL": "https://www.greenbrain.it",
         "CENTRAL_TENANT_CODE": tenant_code,
+        "REMOTE_ACCESS_MODE": "reverse-tunnel",
+        "TUNNEL_ENABLED": "true",
         "LOCAL_CUSTOMER_EMAIL": email,
         "LOCAL_CUSTOMER_FULL_NAME": full_name,
         "LOCAL_CUSTOMER_TEMP_PASSWORD": temp_password,
@@ -168,6 +174,7 @@ def _render_customer_env(base_env: str, customer_profile: Dict[str, Any], temp_p
         "LOCAL_CUSTOMER_TENANT_CODE": tenant_code,
         "LOCAL_CUSTOMER_HOME_HOST": home_host,
         "LOCAL_CUSTOMER_HOME_PATH": "/dashboard",
+        "LOCAL_CUSTOMER_USER_ROLE": "customer_admin",
     }
 
     lines = []
@@ -368,6 +375,24 @@ def _build_personalized_universal_installer(
 
     shutil.rmtree(out_dir, ignore_errors=True)
     return output_zip
+
+
+def generate_test_bundle_for_customer(customer_id: str) -> Dict[str, Any]:
+    """Genera un bundle personalizzato per un cliente senza verificare
+    il gate pagamento/slot. Usato solo da endpoint ops (admin)."""
+    customer = get_customer_by_id(customer_id)
+    if not customer.get("portal_user_email"):
+        customer["portal_user_email"] = customer.get("contact_email", "")
+    latest_bundle = _find_latest_release_bundle()
+    if not latest_bundle:
+        raise RuntimeError("no_release_bundle_available")
+    personalized = _build_personalized_universal_installer(latest_bundle, customer)
+    version = _extract_release_version_from_bundle_path(latest_bundle) or "unknown"
+    return {
+        "bundle_path": str(personalized),
+        "filename": personalized.name,
+        "version": version,
+    }
 
 
 def record_bundle_download(customer_profile: Dict[str, Any], bundle: Dict[str, Any]) -> Dict[str, Any]:

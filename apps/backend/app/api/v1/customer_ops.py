@@ -3,10 +3,12 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from app.api.v1.auth import require_internal_admin
 from app.schemas.customer_ops import CustomerCompanyCreate
+from app.services.customer_delivery_service import generate_test_bundle_for_customer
 from app.services.customer_ops_service import (
     confirm_customer_setup_slot,
     create_customer,
@@ -177,6 +179,29 @@ def activate_subscription_route(
         raise HTTPException(status_code=500, detail=f"activate_subscription_failed: {exc}")
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"activate_subscription_failed: {exc}")
+
+
+@router.get("/customers/{customer_id}/download-bundle")
+def download_test_bundle_route(
+    customer_id: str,
+    _: dict = Depends(require_internal_admin),
+):
+    """Genera e scarica un bundle personalizzato per il cliente indicato.
+    Bypassa il gate pagamento/slot — solo per uso interno/test."""
+    try:
+        bundle = generate_test_bundle_for_customer(customer_id)
+        return FileResponse(
+            path=bundle["bundle_path"],
+            filename=bundle["filename"],
+            media_type="application/octet-stream",
+        )
+    except RuntimeError as exc:
+        msg = str(exc)
+        if "customer_not_found" in msg:
+            raise HTTPException(status_code=404, detail=msg)
+        raise HTTPException(status_code=500, detail=f"generate_test_bundle_failed: {exc}")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"generate_test_bundle_failed: {exc}")
 
 
 @router.post("/customers/{customer_id}/force-activate-subscription")

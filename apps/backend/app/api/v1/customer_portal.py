@@ -119,7 +119,7 @@ def customer_portal_download_bundle(request: Request, email: str = Depends(get_p
         return FileResponse(
             path=bundle["bundle_path"],
             filename=bundle["filename"],
-            media_type="application/gzip",
+            media_type="application/octet-stream",
         )
     except HTTPException:
         raise
