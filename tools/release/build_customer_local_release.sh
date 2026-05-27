@@ -81,12 +81,21 @@ rm -rf "$PKG/backend-src" \
        "$PKG/systemd" \
        "$PKG/frontend-nginx"
 
-find "$PKG" -type d -name "__pycache__" -prune -exec rm -rf {} +
-find "$PKG" -type f -name "*.pyc" -delete
+# rimuovi file/cache/backup/test non desiderati dal package staging
+find "$PKG" -type d -name "__pycache__" -prune -exec rm -rf {} + 2>/dev/null || true
+find "$PKG" -type f -name "*.pyc" -delete 2>/dev/null || true
+find "$PKG" -type f \( -name "*.bak" -o -name "*.bak_*" -o -name "*~" \) -delete 2>/dev/null || true
+
+rm -rf "$PKG/venv" 2>/dev/null || true
+rm -rf "$PKG/overlay/logs" 2>/dev/null || true
 
 rm -f "$PKG/overlay/env/customer-local.env"
+rm -f "$PKG/overlay/provisioning/local-runtime.env"
 rm -f "$PKG/base/backend-src/.env"
 rm -f "$PKG/overlay/tunnel/cloudflared/cloudflared.env"
+
+mkdir -p "$PKG/overlay/env"
+mkdir -p "$PKG/overlay/provisioning"
 
 cat > "$OUTDIR/BUILD-INFO.txt" <<BUILDINFO
 release_version=$VERSION
