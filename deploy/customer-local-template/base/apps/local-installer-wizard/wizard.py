@@ -1,264 +1,25 @@
 #!/usr/bin/env python3
-import http.server
-import json
-import os
-import subprocess
-import threading
-import webbrowser
+import os, json, threading, subprocess, webbrowser, secrets as _sec
 from pathlib import Path
 from urllib.parse import urlparse
+import http.server
 
 ROOT = Path(__file__).resolve().parents[3]
+LOG_FILE = ROOT / "overlay/logs/installer_wizard.log"
+STATUS_FILE = ROOT / "overlay/logs/installer_wizard_status.json"
 DEFAULT_PORT = int(os.environ.get("GREENBRAIN_INSTALLER_WIZARD_PORT", "8099"))
-PORT = DEFAULT_PORT
-LOG_FILE = ROOT / "overlay" / "logs" / "installer_wizard.log"
-STATUS_FILE = ROOT / "overlay" / "logs" / "installer_wizard_status.json"
 
-install_process = None
-install_lock = threading.Lock()
 
-HTML = r"""<!doctype html>
-<html lang="it">
-<head>
-  <meta charset="utf-8">
-  <title>GreenBrain Installer</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 0; background: #f3f7f2; color: #17351f; }
-    .wrap { max-width: 880px; margin: 40px auto; background: white; border-radius: 18px; padding: 32px; box-shadow: 0 8px 30px rgba(0,0,0,.12); }
-    .brand { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
-    .logoBox {
-      width: 64px;
-      height: 64px;
-      border-radius: 18px;
-      background: #1f7a3b;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      flex-shrink:0;
-      box-shadow: 0 4px 12px rgba(31,122,59,.28);
-    }
-
-    .logoBox svg {
-      width: 34px;
-      height: 34px;
-      color: white;
-    }
-    h1 { margin: 0; font-size: 30px; }
-    .step { display: none; }
-    .step.active { display: block; }
-    label { display:block; margin-top: 14px; font-weight: bold; }
-    input, select { width: 100%; padding: 12px; margin-top: 6px; border: 1px solid #cfd8cf; border-radius: 10px; font-size: 15px; }
-    button { border: 0; border-radius: 10px; padding: 12px 18px; margin: 18px 8px 0 0; font-weight: bold; cursor: pointer; }
-    .primary { background: #1f7a3b; color: white; }
-    .secondary { background: #e8efe8; color: #17351f; }
-    .danger { background: #b42318; color: white; }
-    pre { background: #111; color: #d7ffd7; padding: 16px; border-radius: 12px; min-height: 220px; overflow: auto; white-space: pre-wrap; display: none; }
-    .hint { color: #5a6b5e; line-height: 1.5; }
-    .statusBox { display:none; margin-top:18px; padding:16px; border-radius:14px; background:#eef7ee; border:1px solid #cfe5cf; }
-    .statusTitle { font-weight:bold; margin-bottom:6px; }
-    .spinner { display:inline-block; width:18px; height:18px; border:3px solid #cfe5cf; border-top-color:#1f7a3b; border-radius:50%; animation: spin 1s linear infinite; vertical-align:middle; margin-right:8px; }
-    .detailsBtn { display:none; }
-    .credBox { margin-top:12px; padding:12px; border-radius:12px; background:#fff; border:1px solid #cfe5cf; }
-    code { background:#eef7ee; padding:2px 6px; border-radius:6px; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="brand">
-      <div class="logoBox">
-        <svg xmlns="http://www.w3.org/2000/svg"
-             fill="none"
-             viewBox="0 0 24 24"
-             stroke="currentColor"
-             stroke-width="2">
-          <path stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M11 20A7 7 0 0 1 4 13C4 7 9 4 20 4c0 11-3 16-9 16Zm0 0v-7m0 0c0-2 2-4 5-4"/>
-        </svg>
-      </div>
-      <div>
-        <h1>GreenBrain</h1>
-        <div class="hint">Customer Local Installer</div>
-      </div>
-    </div>
-
-    <div id="s1" class="step active">
-      <h2>Benvenuto</h2>
-      <p class="hint">Questo wizard installerà GreenBrain sul computer locale del cliente.</p>
-      <button class="primary" onclick="go(2)">Inizia</button>
-    </div>
-
-    <div id="s2" class="step">
-      <h2>Dati cliente</h2>
-      <label>Tenant code</label><input id="tenant_code" value="cliente_reale">
-      <label>Tenant name</label><input id="tenant_name" value="Cliente Reale">
-      <label>Host pubblico</label><input id="tenant_host" value="cliente-reale.greenbrain.it">
-      <button class="secondary" onclick="go(1)">Indietro</button>
-      <button class="primary" onclick="go(3)">Avanti</button>
-    </div>
-
-    <div id="s3" class="step">
-      <h2>Database locale</h2>
-      <label>Postgres DB</label><input id="postgres_db" value="greenbrain_cliente_reale">
-      <label>Postgres user</label><input id="postgres_user" value="greenbrain_cliente_reale">
-      <label>Postgres password</label><input id="postgres_password" value="CHANGE_ME_DB_PASSWORD">
-      <label>Backend port</label><input id="backend_port" value="8008">
-      <label>Frontend port</label><input id="frontend_port" value="8088">
-      <button class="secondary" onclick="go(2)">Indietro</button>
-      <button class="primary" onclick="go(4)">Avanti</button>
-    </div>
-
-    <div id="s4" class="step">
-      <h2>Source DB</h2>
-      <p class="hint">Per ora puoi saltare il collegamento SQL Server e configurarlo dopo.</p>
-      <label>Configurare Source DB ora?</label>
-      <select id="source_db"><option value="no">No, salta</option><option value="yes">Sì</option></select>
-      <button class="secondary" onclick="go(3)">Indietro</button>
-      <button class="primary" onclick="go(5)">Avanti</button>
-    </div>
-
-    <div id="s5" class="step">
-      <h2>Installa</h2>
-      <p class="hint">Premi Installa per avviare il processo. Durante l'installazione vedrai lo stato di avanzamento.</p>
-      <button class="secondary" onclick="go(4)">Indietro</button>
-      <button id="installBtn" class="primary" onclick="startInstall()">Installa</button>
-      <button class="secondary" onclick="openGreenBrain()">Apri GreenBrain</button>
-
-      <div id="statusBox" class="statusBox">
-        <div class="statusTitle"><span id="spinner" class="spinner"></span><span id="statusText">Pronto.</span></div>
-        <div id="statusHint" class="hint">L'installazione può richiedere alcuni minuti.</div>
-      </div>
-
-      <button id="detailsBtn" class="secondary detailsBtn" onclick="toggleLog()">Mostra dettagli tecnici</button>
-      <pre id="log">Pronto.</pre>
-    </div>
-  </div>
-
-<script>
-function go(n){
-  document.querySelectorAll('.step').forEach(x => x.classList.remove('active'));
-  document.getElementById('s'+n).classList.add('active');
-}
-function payload(){
-  return {
-    tenant_code: document.getElementById('tenant_code').value,
-    tenant_name: document.getElementById('tenant_name').value,
-    tenant_host: document.getElementById('tenant_host').value,
-    postgres_db: document.getElementById('postgres_db').value,
-    postgres_user: document.getElementById('postgres_user').value,
-    postgres_password: document.getElementById('postgres_password').value,
-    backend_port: document.getElementById('backend_port').value,
-    frontend_port: document.getElementById('frontend_port').value,
-    source_db: document.getElementById('source_db').value
-  };
-}
-async function startInstall(){
-  const btn = document.getElementById('installBtn');
-  btn.disabled = true;
-  btn.textContent = 'Installazione in corso...';
-  document.getElementById('statusBox').style.display = 'block';
-  document.getElementById('detailsBtn').style.display = 'inline-block';
-  document.getElementById('statusText').textContent = 'Installazione in corso...';
-  document.getElementById('statusHint').textContent = 'Sto preparando GreenBrain, Docker e i servizi locali.';
-  document.getElementById('log').textContent = 'Installazione avviata...\n';
-  await fetch('/api/install', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload())});
-  poll();
-}
-async function poll(){
-  const logResp = await fetch('/api/log');
-  const logText = await logResp.text();
-  const logEl = document.getElementById('log');
-  logEl.textContent = logText;
-  logEl.scrollTop = logEl.scrollHeight;
-
-  let status = {state: 'running'};
-  try {
-    const statusResp = await fetch('/api/status');
-    status = await statusResp.json();
-  } catch(e) {}
-
-  const btn = document.getElementById('installBtn');
-
-  if (status.state === 'completed') {
-    btn.textContent = 'Installazione completata';
-    btn.disabled = true;
-    document.getElementById('spinner').style.display = 'none';
-    document.getElementById('statusText').textContent = 'Installazione completata';
-    loadLocalCredentials();
-    return;
-  }
-
-  if (status.state === 'failed') {
-    btn.textContent = 'Installazione fallita';
-    btn.disabled = false;
-    document.getElementById('spinner').style.display = 'none';
-    document.getElementById('statusText').textContent = 'Installazione fallita';
-    document.getElementById('statusHint').textContent = 'Apri i dettagli tecnici per vedere l\'errore, poi correggi e rilancia.';
-    document.getElementById('detailsBtn').style.display = 'inline-block';
-    return;
-  }
-
-  setTimeout(poll, 1500);
-}
-function toggleLog(){
-  const logEl = document.getElementById('log');
-  const btn = document.getElementById('detailsBtn');
-  if (logEl.style.display === 'block') {
-    logEl.style.display = 'none';
-    btn.textContent = 'Mostra dettagli tecnici';
-  } else {
-    logEl.style.display = 'block';
-    btn.textContent = 'Nascondi dettagli tecnici';
-  }
-}
-
-async function loadLocalCredentials(){
-  try {
-    const r = await fetch('/api/local-credentials');
-    const data = await r.json();
-    if (data && data.email) {
-      const passwordLine = data.mode === 'cloud_password'
-        ? '<b>Password:</b> usa la stessa password del portale GreenBrain<br>'
-        : '<b>Password temporanea:</b> <code>' + escapeHtml(data.password || '') + '</code><br>';
-
-      const hintLine = data.mode === 'cloud_password'
-        ? 'Usa le stesse credenziali del portale cloud per entrare su GreenBrain locale.'
-        : 'Usa queste credenziali per entrare su GreenBrain locale. La password del portale cloud resta separata.';
-
-      document.getElementById('statusHint').innerHTML =
-        'GreenBrain locale pronto.<br>' +
-        '<div class="credBox">' +
-        '<b>Cliente:</b> ' + escapeHtml(data.customer_name || data.tenant || '-') + '<br>' +
-        '<b>Email locale:</b> ' + escapeHtml(data.email) + '<br>' +
-        passwordLine +
-        '<b>Tenant:</b> ' + escapeHtml(data.tenant || '-') + '<br>' +
-        '<b>Versione:</b> ' + escapeHtml(data.version || '-') +
-        '</div>' +
-        hintLine;
-      return;
-    }
-  } catch (e) {}
-  document.getElementById('statusHint').textContent =
-    'GreenBrain è pronto. Premi Apri GreenBrain per entrare.';
-}
-
-function escapeHtml(value) {
-  return String(value || '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
-}
-
-function openGreenBrain(){
-  window.open('http://localhost:' + document.getElementById('frontend_port').value, '_blank');
-}
-</script>
-</body>
-</html>
-"""
+def _read_env_file(path):
+    data = {}
+    try:
+        for line in Path(path).read_text(encoding="utf-8").splitlines():
+            if "=" in line and not line.strip().startswith("#"):
+                k, v = line.split("=", 1)
+                data[k.strip()] = v.strip().strip('"').strip("'")
+    except FileNotFoundError:
+        pass
+    return data
 
 
 def _read_file(path):
@@ -267,21 +28,65 @@ def _read_file(path):
     except FileNotFoundError:
         return ""
 
-def _read_env_file(path):
-    data = {}
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                k, v = line.split("=", 1)
-                data[k.strip()] = v.strip().strip('"').strip("'")
-    except FileNotFoundError:
-        pass
-    return data
 
-class Handler(http.server.BaseHTTPRequestHandler):
+def _write_customer_env_if_missing(data):
+    """Scrive overlay/env/customer-local.env dal form wizard se non esiste già.
+    Se il file esiste (bundle cloud personalizzato) non viene toccato."""
+    env_path = ROOT / "overlay/env/customer-local.env"
+    if env_path.exists():
+        return
+    example_path = ROOT / "env/customer-local.env.example"
+    env_path.parent.mkdir(parents=True, exist_ok=True)
+    tc = "".join(c if c.isalnum() or c == "_" else "_"
+                 for c in data.get("tenant_code", "cliente").lower()).strip("_") or "cliente"
+    tn = data.get("tenant_name", tc)
+    th = data.get("tenant_host", f"{tc.replace('_','-')}.greenbrain.it")
+    pg_db = data.get("postgres_db",   f"greenbrain_{tc}")
+    pg_u  = data.get("postgres_user", f"greenbrain_{tc}")
+    pg_p  = data.get("postgres_password", "").strip() or _sec.token_urlsafe(18)
+    bp    = data.get("backend_port",  "8008")
+    fp    = data.get("frontend_port", "8088")
+    ce    = data.get("customer_email",    "").strip()
+    cn    = data.get("customer_name",     tn).strip()
+    cp    = data.get("customer_password", "").strip()
+    jwt   = _sec.token_urlsafe(32)
+    pm    = "temporary_password" if cp else "cloud_password"
+    ov = {
+        "APP_ENV": "client-local", "TENANT_CODE": tc, "TENANT_NAME": tn, "TENANT_HOST": th,
+        "POSTGRES_HOST": "postgres", "POSTGRES_PORT": "5432",
+        "POSTGRES_DB": pg_db, "POSTGRES_USER": pg_u, "POSTGRES_PASSWORD": pg_p,
+        "POSTGRES_SSLMODE": "disable",
+        "DATABASE_URL": f"postgresql://{pg_u}:{pg_p}@postgres:5432/{pg_db}",
+        "JWT_SECRET": jwt, "JWT_EXPIRE_MINUTES": "60",
+        "LOCAL_BACKEND_PORT": bp, "LOCAL_FRONTEND_PORT": fp,
+        "CENTRAL_AUTH_URL": "https://www.greenbrain.it", "CENTRAL_TENANT_CODE": tc,
+        "REMOTE_ACCESS_MODE": "reverse-tunnel", "TUNNEL_ENABLED": "true",
+        "LOCAL_CUSTOMER_EMAIL": ce, "LOCAL_CUSTOMER_FULL_NAME": cn,
+        "LOCAL_CUSTOMER_TEMP_PASSWORD": cp, "LOCAL_CUSTOMER_PASSWORD_HASH": "",
+        "LOCAL_CUSTOMER_PASSWORD_MODE": pm, "LOCAL_CUSTOMER_TENANT_CODE": tc,
+        "LOCAL_CUSTOMER_HOME_HOST": th, "LOCAL_CUSTOMER_HOME_PATH": "/dashboard",
+        "LOCAL_CUSTOMER_USER_ROLE": "customer_admin",
+    }
+    q = lambda v: f'"{v}"' if (" " in str(v) or "#" in str(v)) else str(v)
+    lines, seen = [], set()
+    base = example_path.read_text().splitlines() if example_path.exists() else []
+    for raw in base:
+        if "=" in raw and not raw.lstrip().startswith("#"):
+            k = raw.split("=", 1)[0].strip()
+            if k in ov:
+                lines.append(f"{k}={q(ov[k])}")
+                seen.add(k)
+            else:
+                lines.append(raw)
+        else:
+            lines.append(raw)
+    for k, v in ov.items():
+        if k not in seen:
+            lines.append(f"{k}={q(v)}")
+    env_path.write_text("\n".join(lines) + "\n")
+
+
+class WizardHandler(http.server.BaseHTTPRequestHandler):
     def log_message(self, *args):
         return
 
@@ -293,74 +98,132 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = urlparse(self.path).path
+
         if path == "/":
-            self._send(200, HTML, "text/html")
-        elif path == "/favicon.ico":
-            ico = ROOT / "base" / "frontend-dist" / "favicon.ico"
-            if ico.exists():
-                self._send(200, ico.read_bytes(), "image/x-icon")
+            f = ROOT / "base/frontend-dist/wizard_index.html"
+            if f.exists():
+                self._send(200, f.read_bytes(), "text/html; charset=utf-8")
             else:
-                self._send(404, "not found")
+                self._send(200, b"<h1>GreenBrain Installer</h1><p>wizard_index.html not found</p>", "text/html")
+
+        elif path == "/favicon.ico":
+            ico = ROOT / "base/frontend-dist/favicon.ico"
+            self._send(200, ico.read_bytes() if ico.exists() else b"", "image/x-icon")
+
+        elif path == "/api/precompiled-info":
+            env = _read_env_file(ROOT / "overlay/env/customer-local.env")
+            tc = (env.get("TENANT_CODE") or env.get("LOCAL_CUSTOMER_TENANT_CODE") or env.get("CENTRAL_TENANT_CODE") or "")
+            self._send(200, json.dumps({
+                "is_personalized": bool(
+                    env.get("LOCAL_CUSTOMER_EMAIL")
+                    or (tc and tc.lower() not in ("", "cliente_reale"))
+                ),
+                "customer_email":    env.get("LOCAL_CUSTOMER_EMAIL", ""),
+                "customer_name":     env.get("LOCAL_CUSTOMER_FULL_NAME") or env.get("TENANT_NAME", ""),
+                "tenant_code":       tc,
+                "tenant_name":       env.get("TENANT_NAME", ""),
+                "postgres_db":       env.get("POSTGRES_DB", ""),
+                "postgres_user":     env.get("POSTGRES_USER", ""),
+                "postgres_password": env.get("POSTGRES_PASSWORD", ""),
+                "backend_port":      env.get("LOCAL_BACKEND_PORT", "8008"),
+                "frontend_port":     env.get("LOCAL_FRONTEND_PORT", "8088"),
+                "version":           _read_file(ROOT / "VERSION").strip(),
+            }), "application/json")
+
+        elif path == "/api/local-credentials":
+            env = _read_env_file(ROOT / "overlay/env/customer-local.env")
+            self._send(200, json.dumps({
+                "email":         env.get("LOCAL_CUSTOMER_EMAIL", ""),
+                "password":      env.get("LOCAL_CUSTOMER_TEMP_PASSWORD", ""),
+                "mode":          env.get("LOCAL_CUSTOMER_PASSWORD_MODE", ""),
+                "tenant":        env.get("LOCAL_CUSTOMER_TENANT_CODE") or env.get("TENANT_CODE", ""),
+                "customer_name": env.get("LOCAL_CUSTOMER_FULL_NAME") or env.get("TENANT_NAME", ""),
+                "version":       _read_file(ROOT / "VERSION").strip(),
+                "frontend_port": env.get("LOCAL_FRONTEND_PORT", "8088"),
+            }), "application/json")
+
         elif path == "/api/log":
             self._send(200, LOG_FILE.read_text(errors="ignore") if LOG_FILE.exists() else "Nessun log.")
-        elif path == "/api/local-credentials":
-            env = _read_env_file(ROOT / "overlay" / "env" / "customer-local.env")
-            payload = {
-                "email": env.get("LOCAL_CUSTOMER_EMAIL", ""),
-                "password": env.get("LOCAL_CUSTOMER_TEMP_PASSWORD", ""),
-                "mode": env.get("LOCAL_CUSTOMER_PASSWORD_MODE", ""),
-                "tenant": env.get("LOCAL_CUSTOMER_TENANT_CODE") or env.get("TENANT_CODE", ""),
-                "customer_name": env.get("LOCAL_CUSTOMER_FULL_NAME") or env.get("TENANT_NAME", ""),
-                "version": _read_file(ROOT / "VERSION").strip(),
-            }
-            self._send(200, json.dumps(payload), "application/json")
+
         elif path == "/api/status":
-            if STATUS_FILE.exists():
-                self._send(200, STATUS_FILE.read_text(errors="ignore"), "application/json")
-            else:
-                self._send(200, json.dumps({"state": "idle"}), "application/json")
+            self._send(200,
+                       STATUS_FILE.read_text(errors="ignore") if STATUS_FILE.exists()
+                       else json.dumps({"state": "idle"}),
+                       "application/json")
+
         else:
             self._send(404, "not found")
 
     def do_POST(self):
-        global install_process
-        if urlparse(self.path).path != "/api/install":
+        parsed = urlparse(self.path).path
+        body = self.rfile.read(int(self.headers.get("Content-Length", "0")) or 0)
+        data = json.loads(body or "{}")
+
+        if parsed == "/api/test-source-db":
+            host = data.get("host", "").strip()
+            port = str(data.get("port", 1433))
+            if not host:
+                self._send(200, json.dumps({"ok": False, "message": "Host mancante"}), "application/json")
+                return
+            try:
+                r = subprocess.run(
+                    ["bash", "-c", f"timeout 5 bash -c '</dev/tcp/{host}/{port}' 2>&1"],
+                    capture_output=True, text=True, timeout=10,
+                )
+                ok = r.returncode == 0
+                self._send(200, json.dumps({
+                    "ok": ok,
+                    "message": "Connessione TCP riuscita" if ok else f"Connessione fallita ({host}:{port})",
+                }), "application/json")
+            except Exception as exc:
+                self._send(200, json.dumps({"ok": False, "message": str(exc)}), "application/json")
+            return
+
+        if parsed == "/api/save-source-db":
+            p = ROOT / "overlay/env/source-db.env"
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text("\n".join([
+                f"SOURCE_DB_HOST={data.get('host', '')}",
+                f"SOURCE_DB_PORT={data.get('port', 1433)}",
+                f"SOURCE_DB_DATABASE={data.get('database', '')}",
+                f"SOURCE_DB_USER={data.get('username', '')}",
+                f"SOURCE_DB_PASSWORD={data.get('password', '')}",
+                "SOURCE_DB_DRIVER=ODBC Driver 18 for SQL Server",
+            ]) + "\n")
+            self._send(200, json.dumps({"ok": True}), "application/json")
+            return
+
+        if parsed != "/api/install":
             self._send(404, "not found")
             return
 
-        data = json.loads(self.rfile.read(int(self.headers.get("Content-Length", "0")) or 0) or "{}")
         LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
         LOG_FILE.write_text("GreenBrain installer wizard started\n", encoding="utf-8")
         STATUS_FILE.write_text(json.dumps({"state": "running", "exit_code": None}), encoding="utf-8")
 
-        answers = "\n".join([
-            data.get("tenant_code", "cliente_reale"),
-            data.get("tenant_name", "Cliente Reale"),
-            data.get("tenant_host", "cliente-reale.greenbrain.it"),
-            data.get("postgres_db", "greenbrain_cliente_reale"),
-            data.get("postgres_user", "greenbrain_cliente_reale"),
-            data.get("postgres_password", "CHANGE_ME_DB_PASSWORD"),
-            data.get("backend_port", "8008"),
-            data.get("frontend_port", "8088"),
-            ""
-        ])
+        _write_customer_env_if_missing(data)
 
         env = os.environ.copy()
-        env["GREENBRAIN_CONFIGURE_SOURCE_DB"] = data.get("source_db", "no")
-        env.setdefault("GREENBRAIN_PROVISIONING_TOKEN", "dev_test_token")
+        env["GREENBRAIN_CONFIGURE_SOURCE_DB"] = "no"
+        rt = ROOT / "overlay/provisioning/local-runtime.env"
+        if rt.exists():
+            rv = _read_env_file(rt)
+            if rv.get("PROVISIONING_TOKEN"):
+                env["GREENBRAIN_PROVISIONING_TOKEN"] = rv["PROVISIONING_TOKEN"]
+        env.setdefault("GREENBRAIN_PROVISIONING_TOKEN", "dev_wizard_token")
 
         def run():
             with LOG_FILE.open("a") as f:
                 p = subprocess.Popen(
                     ["bash", "install.sh"],
                     cwd=str(ROOT),
-                    stdin=subprocess.PIPE,
+                    stdin=subprocess.DEVNULL,
                     stdout=f,
                     stderr=subprocess.STDOUT,
                     text=True,
                     env=env,
                 )
-                p.communicate(answers)
+                p.wait()
                 f.write(f"\nINSTALL_EXIT_CODE={p.returncode}\n")
                 f.flush()
                 state = "completed" if p.returncode == 0 else "failed"
@@ -372,37 +235,22 @@ class Handler(http.server.BaseHTTPRequestHandler):
         threading.Thread(target=run, daemon=True).start()
         self._send(200, "started")
 
-def open_browser(url: str) -> None:
-    for cmd in (["gio", "open", url], ["xdg-open", url], ["sensible-browser", url]):
-        try:
-            subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            return
-        except Exception:
-            pass
-    try:
-        webbrowser.open(url)
-    except Exception:
-        pass
-
 
 def bind_server():
-    global PORT
     for port in [DEFAULT_PORT, DEFAULT_PORT + 1, DEFAULT_PORT + 2, 8110]:
         try:
-            server = http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler)
-            PORT = port
-            return server
+            return http.server.ThreadingHTTPServer(("0.0.0.0", port), WizardHandler), port
         except OSError:
             continue
-    raise RuntimeError("No available local wizard port")
+    raise RuntimeError("No available wizard port")
 
 
 def main():
     LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    server = bind_server()
-    url = f"http://localhost:{PORT}"
+    server, port = bind_server()
+    url = f"http://localhost:{port}"
     print(f"GreenBrain installer wizard: {url}")
-    threading.Timer(1.0, lambda: open_browser(url)).start()
+    threading.Timer(1.0, lambda: webbrowser.open(url)).start()
     server.serve_forever()
 
 
