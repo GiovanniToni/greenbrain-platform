@@ -27,6 +27,7 @@
     button:disabled{opacity:.5;cursor:not-allowed}
     .primary{background:#1f7a3b;color:#fff}
     .secondary{background:#e8f0e8;color:#17351f}
+    .danger{background:#b42318;color:#fff}
     .note{margin-bottom:16px;padding:12px 16px;border-radius:12px;background:#eef7ee;border:1px solid #c6e0c8;font-size:14px;color:#1f5c2e}
     .note b{color:#1a6b33}
     .credBox{padding:16px;border-radius:12px;background:#f3f7f2;border:1px solid #c6e0c8;font-size:14px;line-height:1.9}
@@ -149,7 +150,8 @@
     <p class="desc">Premi <b>Installa</b> per avviare la stack GreenBrain locale. Docker scaricherà le immagini e avvierà tutti i servizi.</p>
     <div class="btn-row">
       <button class="secondary" onclick="go(4)">← Indietro</button>
-      <button id="installBtn" class="primary" onclick="startInstall()">Installa GreenBrain</button>
+      <button id="installBtn" class="primary" onclick="startInstall(false)">Installa GreenBrain</button>
+      <button id="freshResetBtn" class="danger" onclick="startFreshReset()" style="display:none">Reinstalla da zero</button>
       <button id="openBtn" class="secondary" onclick="openLocal()" style="display:none">Apri runtime locale</button>
     </div>
     <div id="statusBox" class="statusBox">
@@ -189,14 +191,35 @@ function esc(v){
   return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-async function startInstall(){
+async function startInstall(forceFresh){
   var btn = document.getElementById('installBtn');
-  btn.disabled = true; btn.textContent = 'Installazione in corso...';
+  var freshBtn = document.getElementById('freshResetBtn');
+  btn.disabled = true;
+  freshBtn.style.display = 'none';
+  btn.textContent = forceFresh ? 'Reinstallazione in corso...' : 'Installazione in corso...';
+  document.getElementById('spinner').style.display='inline-block';
   document.getElementById('statusBox').style.display = 'block';
   document.getElementById('logBtn').style.display = 'inline-block';
-  document.getElementById('statusText').textContent = 'Avvio installazione...';
-  await fetch('/api/install',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload())});
+  document.getElementById('statusText').textContent = forceFresh ? 'Reinstallazione da zero...' : 'Avvio installazione...';
+  document.getElementById('statusHint').textContent = forceFresh
+    ? 'Sto rimuovendo la vecchia installazione locale GreenBrain e ricreando il database.'
+    : 'Sto preparando GreenBrain. Docker scaricherà le immagini necessarie.';
+
+  var data = payload();
+  if(forceFresh){ data.force_fresh_install = true; }
+
+  await fetch('/api/install',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
   poll();
+}
+
+function startFreshReset(){
+  var ok = confirm(
+    'Reinstallare GreenBrain da zero?\n\n' +
+    'Questa operazione rimuove il vecchio database locale GreenBrain presente su questo computer e ricrea l\'installazione usando il bundle scaricato.\n\n' +
+    'Procedere solo se vuoi sostituire la vecchia installazione locale.'
+  );
+  if(!ok){ return; }
+  startInstall(true);
 }
 
 async function poll(){
@@ -216,8 +239,25 @@ async function poll(){
   if(st.state==='failed'){
     document.getElementById('spinner').style.display='none';
     document.getElementById('statusText').textContent='Installazione fallita ✗';
-    document.getElementById('statusHint').innerHTML='<b style="color:#b42318">Errore.</b> Apri il log tecnico per i dettagli, correggi e rilancia.';
-    var btn=document.getElementById('installBtn'); btn.disabled=false; btn.textContent='Riprova';
+
+    var isDbCompatError =
+      (typeof lt === 'string') &&
+      (lt.indexOf('LOCAL_DB_CREDENTIALS_FAILED') >= 0 || lt.indexOf('INSTALL_EXIT_CODE=31') >= 0);
+
+    var btn=document.getElementById('installBtn');
+    btn.disabled=false;
+    btn.textContent='Riprova';
+
+    if(isDbCompatError){
+      document.getElementById('statusHint').innerHTML =
+        '<b style="color:#b42318">Vecchia installazione locale non compatibile.</b><br>' +
+        'GreenBrain ha trovato un database locale già esistente, ma le credenziali non sono compatibili con questo bundle.<br><br>' +
+        '<b>Puoi reinstallare da zero</b>: questa operazione rimuove il vecchio database locale GreenBrain e ricrea l\'installazione con i dati del bundle scaricato.';
+      document.getElementById('freshResetBtn').style.display='inline-block';
+    } else {
+      document.getElementById('statusHint').innerHTML='<b style="color:#b42318">Errore.</b> Apri il log tecnico per i dettagli, correggi e rilancia.';
+      document.getElementById('freshResetBtn').style.display='none';
+    }
     return;
   }
   setTimeout(poll,1500);

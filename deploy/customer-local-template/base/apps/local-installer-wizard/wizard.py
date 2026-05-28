@@ -203,8 +203,12 @@ class WizardHandler(http.server.BaseHTTPRequestHandler):
 
         _write_customer_env_if_missing(data)
 
+        force_fresh_install = bool(data.get("force_fresh_install"))
+
         env = os.environ.copy()
         env["GREENBRAIN_CONFIGURE_SOURCE_DB"] = "no"
+        if force_fresh_install:
+            env["GREENBRAIN_FORCE_FRESH_INSTALL"] = "1"
         rt = ROOT / "overlay/provisioning/local-runtime.env"
         if rt.exists():
             rv = _read_env_file(rt)
@@ -214,6 +218,10 @@ class WizardHandler(http.server.BaseHTTPRequestHandler):
 
         def run():
             with LOG_FILE.open("a") as f:
+                if force_fresh_install:
+                    f.write("\nGREENBRAIN_FORCE_FRESH_INSTALL=1\n")
+                    f.write("Fresh reset requested from installer wizard\n")
+                    f.flush()
                 p = subprocess.Popen(
                     ["bash", "install.sh"],
                     cwd=str(ROOT),
