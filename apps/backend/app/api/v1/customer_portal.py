@@ -11,6 +11,8 @@ from app.core.security import decode_token
 from app.services.customer_delivery_service import (
     resolve_bundle_download,
     record_bundle_download,
+    bundle_download_headers,
+    log_bundle_download,
 )
 from app.services.customer_portal_service import (
     book_customer_setup_slot,
@@ -115,11 +117,13 @@ def customer_portal_download_bundle(request: Request, email: str = Depends(get_p
         user_agent = request.headers.get("user-agent", "")
         bundle = resolve_bundle_download(profile, user_agent=user_agent)
         record_bundle_download(profile, bundle)
+        log_bundle_download(actor="customer_portal", customer_profile=profile, bundle=bundle)
 
         return FileResponse(
             path=bundle["bundle_path"],
             filename=bundle["filename"],
             media_type="application/octet-stream",
+            headers=bundle_download_headers(bundle),
         )
     except HTTPException:
         raise

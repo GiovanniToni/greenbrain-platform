@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Tuple
+import logging
+import os
 import secrets
 import shlex
 import shutil
@@ -23,6 +25,14 @@ from app.repositories.customer_portal_repository import update_customer_last_dow
 from app.services.customer_runtime_service import create_provisioning_token
 
 RELEASES_ROOT = Path("/opt/greenbrain-platform/releases/customer-local")
+CUSTOMER_BUNDLE_OUTPUT_DIR = Path(
+    os.getenv(
+        "GREENBRAIN_CUSTOMER_BUNDLE_OUTPUT_DIR",
+        "/opt/greenbrain-platform/runtime-reports/customer-bundles",
+    )
+)
+
+logger = logging.getLogger("greenbrain.customer_delivery")
 
 
 def _version_key(version_name: str) -> Tuple[int, ...]:
@@ -218,7 +228,7 @@ def _build_personalized_bundle(source_bundle: Path, customer_profile: Dict[str, 
         raise RuntimeError("customer_profile_missing_customer_id_or_tenant_code")
 
     version = _extract_release_version_from_bundle_path(source_bundle) or "unknown"
-    out_dir = Path("/tmp/greenbrain-customer-bundles")
+    out_dir = CUSTOMER_BUNDLE_OUTPUT_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
 
     token_result = create_provisioning_token(
@@ -355,7 +365,8 @@ def _build_personalized_universal_installer(
     personalized_tar = _build_personalized_bundle(source_tar, customer_profile)
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-    out_root = Path("/tmp/greenbrain-customer-bundles")
+    out_root = CUSTOMER_BUNDLE_OUTPUT_DIR
+    out_root.mkdir(parents=True, exist_ok=True)
     out_dir = out_root / f"universal-{version}-{tenant_code}-{stamp}"
     out_dir.mkdir(parents=True, exist_ok=True)
     output_zip = out_root / f"GreenBrain-Installer-{version}-{tenant_code}-{stamp}.zip"
@@ -416,6 +427,54 @@ def record_bundle_download(customer_profile: Dict[str, Any], bundle: Dict[str, A
         last_downloaded_at=ts,
     )
     return row
+
+def bundle_download_headers(bundle: Dict[str, Any]) -> Dict[str, str]:
+    version = (bundle.get("assigned_release_version") or bundle.get("version") or "").strip()
+    source = (bundle.get("source") or "").strip()
+    filename = (bundle.get("filename") or Path(bundle.get("bundle_path", "")).name or "GreenBrain-Installer.zip").strip()
+
+    headers = {
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        "Pragma": "no-cache",
+        "Expires": "0",
+        "X-Accel-Buffering": "no",
+        "X-GreenBrain-Bundle-Filename": filename,
+    }
+
+    if version:
+        headers["X-GreenBrain-Bundle-Version"] = version
+    if source:
+        headers["X-GreenBrain-Bundle-Source"] = source
+
+    return headers
+
+
+def log_bundle_download(
+    *,
+    actor: str,
+    customer_profile: Dict[str, Any],
+    bundle: Dict[str, Any],
+) -> None:
+    bundle_path = Path(bundle["bundle_path"])
+    try:
+        size_bytes = bundle_path.stat().st_size
+    except OSError:
+        size_bytes = None
+
+    logger.info(
+        "customer_bundle_download actor=%s customer_id=%s email=%s tenant_code=%s "
+        "release_version=%s source=%s filename=%s path=%s size_bytes=%s",
+        actor,
+        customer_profile.get("customer_id"),
+        customer_profile.get("portal_user_email") or customer_profile.get("contact_email") or customer_profile.get("email"),
+        customer_profile.get("tenant_code"),
+        bundle.get("assigned_release_version") or bundle.get("version"),
+        bundle.get("source"),
+        bundle.get("filename") or bundle_path.name,
+        str(bundle_path),
+        size_bytes,
+    )
+
 
 def prepare_delivery_plan(customer_id: str) -> Dict[str, Any]:
     customer = get_customer_by_id(customer_id)

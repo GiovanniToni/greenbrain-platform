@@ -8,7 +8,12 @@ from pydantic import BaseModel
 
 from app.api.v1.auth import require_internal_admin
 from app.schemas.customer_ops import CustomerCompanyCreate
-from app.services.customer_delivery_service import generate_test_bundle_for_customer
+from app.services.customer_delivery_service import (
+    generate_test_bundle_for_customer,
+    bundle_download_headers,
+    log_bundle_download,
+)
+from app.repositories.customer_delivery_repository import get_customer_by_id
 from app.services.customer_ops_service import (
     confirm_customer_setup_slot,
     create_customer,
@@ -190,10 +195,13 @@ def download_test_bundle_route(
     Bypassa il gate pagamento/slot — solo per uso interno/test."""
     try:
         bundle = generate_test_bundle_for_customer(customer_id)
+        customer_profile = get_customer_by_id(customer_id)
+        log_bundle_download(actor="customer_ops", customer_profile=customer_profile, bundle=bundle)
         return FileResponse(
             path=bundle["bundle_path"],
             filename=bundle["filename"],
             media_type="application/octet-stream",
+            headers=bundle_download_headers(bundle),
         )
     except RuntimeError as exc:
         msg = str(exc)
