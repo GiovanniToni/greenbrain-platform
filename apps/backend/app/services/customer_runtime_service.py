@@ -187,11 +187,42 @@ def heartbeat_runtime(payload: Dict[str, Any]) -> Dict[str, Any]:
         or "unknown"
     )
 
+    customer = get_customer_by_tenant_code(tenant_code)
+    customer_id = customer.get("customer_id") if customer else None
+
+    version = (payload.get("version") or payload.get("installed_release_version") or "").strip() or None
+    connection_mode = payload.get("connection_mode") or "reverse-tunnel"
+    data_mode = payload.get("data_mode") or "local-db-via-tunnel"
+    public_backend_url = (payload.get("public_backend_url") or "").strip() or None
+    local_backend_url = (payload.get("local_backend_url") or "").strip() or None
+    tunnel_public_host = (payload.get("tunnel_public_host") or "").strip() or None
+
+    tenant = upsert_tenant({
+        "tenant_code": tenant_code,
+        "tenant_name": payload.get("tenant_name") or (customer or {}).get("company_name") or tenant_code,
+        "access_mode": "local-runtime",
+        "status": "active",
+        "login_host": "www.greenbrain.it",
+        "app_host": tunnel_public_host or f"{tenant_code}.greenbrain.it",
+        "backend_base_url": public_backend_url,
+        "runtime_origin": "customer-local",
+        "data_mode": data_mode,
+        "notes": "Auto-created/updated from customer-local heartbeat",
+    })
+
     installation = upsert_runtime_installation({
         "installation_id": installation_id,
+        "customer_id": customer_id,
         "tenant_code": tenant_code,
-        "installed_release_version": payload.get("version"),
-        "local_agent_version": payload.get("version"),
+        "installation_label": payload.get("installation_label") or "default",
+        "runtime_mode": "customer-local",
+        "connection_mode": connection_mode,
+        "data_mode": data_mode,
+        "installed_release_version": version,
+        "local_agent_version": version,
+        "local_backend_url": local_backend_url,
+        "public_backend_url": public_backend_url,
+        "tunnel_public_host": tunnel_public_host,
         "runtime_health": runtime_health,
         "last_heartbeat_at": now_iso,
         "last_heartbeat_payload": payload,
@@ -201,26 +232,31 @@ def heartbeat_runtime(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     runtime_connection = upsert_runtime_connection({
         "tenant_code": tenant_code,
-        "connection_mode": payload.get("connection_mode") or "reverse-tunnel",
+        "connection_mode": connection_mode,
+        "sync_enabled": bool(payload.get("sync_enabled", False)),
+        "sync_frequency_minutes": payload.get("sync_frequency_minutes"),
         "last_sync_status": payload.get("last_sync_status"),
-        "local_agent_version": payload.get("version"),
+        "local_agent_version": version,
         "runtime_health": runtime_health,
         "installation_id": installation_id,
+        "public_backend_url": public_backend_url,
+        "local_backend_url": local_backend_url,
         "last_heartbeat_at": now_iso,
         "last_heartbeat_payload": payload,
+        "notes": "Runtime heartbeat",
     })
 
-    customer = get_customer_by_tenant_code(tenant_code)
-    if customer:
-        update_customer_runtime_fields(customer["customer_id"], {
+    if customer_id:
+        update_customer_runtime_fields(customer_id, {
             "runtime_connection_status": runtime_health,
             "latest_installation_id": installation_id,
             "last_runtime_heartbeat_at": now_iso,
-            "installed_release_version": payload.get("version"),
+            "installed_release_version": version,
         })
 
     return {
         "status": "heartbeat_received",
+        "tenant": tenant,
         "installation": installation,
         "runtime_connection": runtime_connection,
     }

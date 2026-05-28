@@ -320,6 +320,10 @@ def me(user: dict = Depends(get_current_user)):
         )
     )
 
+    home_path = user.get("home_path")
+    if platform_enabled and role in {"customer_admin", "customer_user", "tenant_admin"} and (not home_path or home_path == "/account"):
+        home_path = "/dashboard"
+
     return UserResponse(
         id=str(user["id"]),
         email=user["email"],
@@ -327,7 +331,7 @@ def me(user: dict = Depends(get_current_user)):
         is_admin=bool(user["is_admin"]),
         tenant_code=user.get("tenant_code"),
         home_host=user.get("home_host"),
-        home_path=user.get("home_path"),
+        home_path=home_path,
         user_role=user.get("user_role"),
         platform_enabled=platform_enabled,
         runtime_health=runtime_health,
