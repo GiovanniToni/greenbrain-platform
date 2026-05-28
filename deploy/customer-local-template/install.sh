@@ -189,7 +189,7 @@ verify_local_db_credentials() {
   source "$ROOT/overlay/env/customer-local.env"
   set +a
 
-  if ! docker exec \
+  if ! docker exec -i \
     -e AUTH_DB_HOST=postgres \
     -e AUTH_DB_PORT=5432 \
     -e AUTH_DB_NAME="$POSTGRES_DB" \
