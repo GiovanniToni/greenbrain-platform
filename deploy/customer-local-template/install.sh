@@ -79,9 +79,11 @@ fresh_reset_existing_stack() {
     compose_safe -f "$ROOT/docker-compose.local.yml" --env-file "$ROOT/overlay/env/customer-local.env" down -v --remove-orphans || true
   fi
   docker rm -f greenbrain_local_backend greenbrain_local_frontend greenbrain_local_postgres greenbrain_local_ml_worker gb_customer_scheduler 2>/dev/null || true
-  docker volume ls --format '{{.Name}}' | grep -Ei 'greenbrain|customer-local|customer-local-template' | while read -r v; do
-    docker volume rm "$v" || true
-  done
+  docker volume ls --format '{{.Name}}' \
+    | grep -Ei 'greenbrain|customer-local|customer-local-template' \
+    | while read -r v; do
+        docker volume rm "$v" || true
+      done || true
 }
 
 handle_existing_installation_mode() {
