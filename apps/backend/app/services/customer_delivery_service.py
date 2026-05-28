@@ -461,19 +461,21 @@ def log_bundle_download(
     except OSError:
         size_bytes = None
 
-    logger.info(
-        "customer_bundle_download actor=%s customer_id=%s email=%s tenant_code=%s "
-        "release_version=%s source=%s filename=%s path=%s size_bytes=%s",
-        actor,
-        customer_profile.get("customer_id"),
-        customer_profile.get("portal_user_email") or customer_profile.get("contact_email") or customer_profile.get("email"),
-        customer_profile.get("tenant_code"),
-        bundle.get("assigned_release_version") or bundle.get("version"),
-        bundle.get("source"),
-        bundle.get("filename") or bundle_path.name,
-        str(bundle_path),
-        size_bytes,
+    message = (
+        "customer_bundle_download "
+        f"actor={actor} "
+        f"customer_id={customer_profile.get('customer_id')} "
+        f"email={customer_profile.get('portal_user_email') or customer_profile.get('contact_email') or customer_profile.get('email')} "
+        f"tenant_code={customer_profile.get('tenant_code')} "
+        f"release_version={bundle.get('assigned_release_version') or bundle.get('version')} "
+        f"source={bundle.get('source')} "
+        f"filename={bundle.get('filename') or bundle_path.name} "
+        f"path={str(bundle_path)} "
+        f"size_bytes={size_bytes}"
     )
+
+    logger.info(message)
+    logging.getLogger("uvicorn.error").warning(message)
 
 
 def prepare_delivery_plan(customer_id: str) -> Dict[str, Any]:
