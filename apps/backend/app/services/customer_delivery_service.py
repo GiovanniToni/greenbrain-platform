@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Tuple
+import hashlib
 import logging
 import os
 import secrets
@@ -31,6 +32,8 @@ CUSTOMER_BUNDLE_OUTPUT_DIR = Path(
         "/opt/greenbrain-platform/runtime-reports/customer-bundles",
     )
 )
+CUSTOMER_BUNDLE_RETENTION_DAYS = int(os.getenv("GREENBRAIN_CUSTOMER_BUNDLE_RETENTION_DAYS", "14"))
+CUSTOMER_BUNDLE_RETENTION_MIN_KEEP = int(os.getenv("GREENBRAIN_CUSTOMER_BUNDLE_RETENTION_MIN_KEEP", "20"))
 
 logger = logging.getLogger("greenbrain.customer_delivery")
 
@@ -82,6 +85,85 @@ def _find_latest_release_bundle() -> Path | None:
     return candidates[0][1]
 
 
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _write_sha256_file(path: Path) -> str:
+    sha256 = _sha256_file(path)
+    checksum_path = path.with_name(path.name + ".sha256")
+    checksum_path.write_text(f"{sha256}  {path.name}\n")
+    return sha256
+
+
+def _safe_customer_bundle_output_files() -> list[Path]:
+    if not CUSTOMER_BUNDLE_OUTPUT_DIR.exists():
+        return []
+
+    patterns = (
+        "GreenBrain-Installer-*.zip",
+        "GreenBrain-Installer-*.zip.sha256",
+        "customer-local-*.tar.gz",
+        "customer-local-*.tar.gz.sha256",
+    )
+
+    files: list[Path] = []
+    for pattern in patterns:
+        files.extend(
+            p for p in CUSTOMER_BUNDLE_OUTPUT_DIR.glob(pattern)
+            if p.is_file() and p.parent == CUSTOMER_BUNDLE_OUTPUT_DIR
+        )
+
+    return sorted(set(files), key=lambda item: item.stat().st_mtime, reverse=True)
+
+
+def cleanup_customer_bundle_output_dir() -> dict[str, int]:
+    CUSTOMER_BUNDLE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    files = _safe_customer_bundle_output_files()
+    now_ts = datetime.now(timezone.utc).timestamp()
+    max_age_seconds = max(CUSTOMER_BUNDLE_RETENTION_DAYS, 1) * 86400
+    min_keep = max(CUSTOMER_BUNDLE_RETENTION_MIN_KEEP, 0)
+
+    removed = 0
+    kept = 0
+
+    for idx, file_path in enumerate(files):
+        age_seconds = now_ts - file_path.stat().st_mtime
+        keep_by_count = idx < min_keep
+        keep_by_age = age_seconds <= max_age_seconds
+
+        if keep_by_count or keep_by_age:
+            kept += 1
+            continue
+
+        try:
+            file_path.unlink()
+            removed += 1
+        except OSError as exc:
+            logging.getLogger("uvicorn.error").warning(
+                "customer_bundle_cleanup_failed path=%s error=%s",
+                str(file_path),
+                exc,
+            )
+
+    if removed:
+        logging.getLogger("uvicorn.error").warning(
+            "customer_bundle_cleanup removed=%s kept=%s retention_days=%s min_keep=%s dir=%s",
+            removed,
+            kept,
+            CUSTOMER_BUNDLE_RETENTION_DAYS,
+            min_keep,
+            str(CUSTOMER_BUNDLE_OUTPUT_DIR),
+        )
+
+    return {"removed": removed, "kept": kept}
 
 
 def _extract_release_version_from_bundle_path(bundle_path: Path) -> str | None:
@@ -230,6 +312,7 @@ def _build_personalized_bundle(source_bundle: Path, customer_profile: Dict[str, 
     version = _extract_release_version_from_bundle_path(source_bundle) or "unknown"
     out_dir = CUSTOMER_BUNDLE_OUTPUT_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
+    cleanup_customer_bundle_output_dir()
 
     token_result = create_provisioning_token(
         customer_id=customer_id,
@@ -323,6 +406,7 @@ PROVISIONING_TOKEN=
             for child in tmp_path.iterdir():
                 tar.add(child, arcname=child.name)
 
+    _write_sha256_file(output_bundle)
     return output_bundle
 
 
@@ -384,6 +468,7 @@ def _build_personalized_universal_installer(
             if child.is_file():
                 zout.write(child, arcname=child.name)
 
+    _write_sha256_file(output_zip)
     shutil.rmtree(out_dir, ignore_errors=True)
     return output_zip
 
@@ -446,6 +531,10 @@ def bundle_download_headers(bundle: Dict[str, Any]) -> Dict[str, str]:
     if source:
         headers["X-GreenBrain-Bundle-Source"] = source
 
+    bundle_path = Path(bundle.get("bundle_path", ""))
+    if bundle_path.exists() and bundle_path.is_file():
+        headers["X-GreenBrain-Bundle-SHA256"] = _sha256_file(bundle_path)
+
     return headers
 
 
@@ -461,6 +550,11 @@ def log_bundle_download(
     except OSError:
         size_bytes = None
 
+    try:
+        sha256 = _sha256_file(bundle_path)
+    except OSError:
+        sha256 = None
+
     message = (
         "customer_bundle_download "
         f"actor={actor} "
@@ -471,7 +565,8 @@ def log_bundle_download(
         f"source={bundle.get('source')} "
         f"filename={bundle.get('filename') or bundle_path.name} "
         f"path={str(bundle_path)} "
-        f"size_bytes={size_bytes}"
+        f"size_bytes={size_bytes} "
+        f"sha256={sha256}"
     )
 
     logger.info(message)
