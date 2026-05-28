@@ -189,8 +189,41 @@ verify_local_db_credentials() {
   source "$ROOT/overlay/env/customer-local.env"
   set +a
 
-  if ! docker exec -e PGPASSWORD="$POSTGRES_PASSWORD" greenbrain_local_postgres \
-    psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "select 1;" >/dev/null 2>&1; then
+  if ! docker exec \
+    -e AUTH_DB_HOST=postgres \
+    -e AUTH_DB_PORT=5432 \
+    -e AUTH_DB_NAME="$POSTGRES_DB" \
+    -e AUTH_DB_USER="$POSTGRES_USER" \
+    -e AUTH_DB_PASSWORD="$POSTGRES_PASSWORD" \
+    greenbrain_local_backend python - <<'PY_DB_CHECK'
+import os
+import sys
+import psycopg
+
+host = os.environ.get("AUTH_DB_HOST", "postgres")
+port = int(os.environ.get("AUTH_DB_PORT", "5432"))
+dbname = os.environ.get("AUTH_DB_NAME", "")
+user = os.environ.get("AUTH_DB_USER", "")
+password = os.environ.get("AUTH_DB_PASSWORD", "")
+
+try:
+    with psycopg.connect(
+        host=host,
+        port=port,
+        dbname=dbname,
+        user=user,
+        password=password,
+        connect_timeout=5,
+    ) as conn:
+        with conn.cursor() as cur:
+            cur.execute("select current_user, current_database()")
+            row = cur.fetchone()
+            print(f"LOCAL_DB_CREDENTIALS_OK user={row[0]} db={row[1]}")
+except Exception as exc:
+    print(f"LOCAL_DB_CREDENTIALS_FAILED: {type(exc).__name__}: {exc}", file=sys.stderr)
+    sys.exit(31)
+PY_DB_CHECK
+  then
     echo
     echo "ERROR: il database locale esiste ma le credenziali non sono compatibili con questo bundle."
     echo
@@ -207,8 +240,6 @@ verify_local_db_credentials() {
     echo
     exit 31
   fi
-
-  echo "LOCAL_DB_CREDENTIALS_OK"
 }
 
 verify_local_db_credentials
