@@ -97,19 +97,24 @@ function PipelineBar({ item }: { item: CustomerOpsItem }) {
 
 function ProcessMiniChecklist({ item }: { item: CustomerOpsItem }) {
   const slotDone = Boolean(item.setup_slot_confirmed_at || item.setup_slot_scheduled_for);
-  const installationStatus = item.data_validated_at
-    ? "completed"
-    : item.onboarding_status === "setup_in_progress"
-    ? "in progress"
-    : slotDone
-    ? "scheduled"
-    : null;
+  const platformReady = Boolean(item.platform_ready);
+  const installationStatus = item.installation_status_label || (
+    item.installation_status === "downloaded"
+      ? "Bundle scaricato"
+      : item.installation_status === "registered"
+      ? "Runtime registrato"
+      : item.onboarding_status === "setup_in_progress"
+      ? "Setup in corso"
+      : slotDone
+      ? "Slot confermato"
+      : null
+  );
 
   const steps = [
     { label: "Pagamento", done: Boolean(item.payment_method_saved), detail: item.payment_method_saved ? "salvato" : null },
     { label: "Slot", done: slotDone, detail: slotDone ? "confermato" : item.setup_slot_requested_at ? "richiesto" : null },
     { label: "Download", done: Boolean(item.last_downloaded_at), detail: item.last_downloaded_release_version || null },
-    { label: "Installazione", done: Boolean(installationStatus), detail: installationStatus },
+    { label: "Installazione", done: platformReady, detail: installationStatus },
     { label: "Validazione", done: Boolean(item.data_validated_at), detail: item.data_validated_at ? "ok" : null },
     { label: "Abbonamento", done: (item.subscription_status || "").toLowerCase() === "active", detail: item.subscription_status || null },
   ];

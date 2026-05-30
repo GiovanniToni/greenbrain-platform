@@ -401,6 +401,11 @@ export default function CustomerPortalDashboard() {
   const subscriptionActivatedAt = data?.subscription_activated_at || null;
   const isSubscriptionActive = (data?.subscription_status || "").toLowerCase() === "active";
 
+  const platformReady = Boolean(data?.platform_ready);
+  const installationStatusLabel = data?.installation_status_label || (
+    platformReady ? "Piattaforma attiva" : "Installazione non ancora completata"
+  );
+
   const hasUpdateAvailable = Boolean(
     latestAvailableVersion &&
     lastDownloadedVersion &&
@@ -461,14 +466,11 @@ export default function CustomerPortalDashboard() {
       detail: "Il bundle si scarica dopo la conferma dello slot e serve per procedere al setup.",
     },
     {
-      done: Boolean(
-        data?.installed_release_version ||
-        data?.delivery?.install_status === "installed" ||
-        data?.data_validated_at ||
-        isSubscriptionActive
-      ),
+      done: platformReady,
       label: "Setup e installazione",
-      detail: "Durante la sessione remota viene configurato l'ambiente cliente.",
+      detail: platformReady
+        ? installationStatusLabel
+        : "Completa il wizard locale: la piattaforma sarà attiva dopo il primo heartbeat healthy.",
     },
     {
       done: Boolean(data?.data_validated_at),
@@ -489,12 +491,7 @@ export default function CustomerPortalDashboard() {
     {
       key: "setup",
       label: "Setup",
-      done: Boolean(
-        data?.installed_release_version ||
-        data?.delivery?.install_status === "installed" ||
-        data?.data_validated_at ||
-        isSubscriptionActive
-      ),
+      done: platformReady,
     },
     { key: "data", label: "Dati confermati", done: Boolean(data?.data_validated_at) },
     { key: "subscription", label: "Abbonamento", done: isSubscriptionActive },

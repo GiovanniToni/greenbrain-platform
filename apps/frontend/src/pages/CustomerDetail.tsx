@@ -243,15 +243,19 @@ export default function CustomerDetail() {
       ? "scheduled"
       : item.install_status;
 
-  const installationProcessStatus = item.data_validated_at
-    ? "completed"
-    : item.onboarding_status === "setup_in_progress"
-    ? "in progress"
-    : slotAlreadyConfirmed
-    ? "scheduled"
-    : null;
+  const installationProcessStatus = item.installation_status_label || (
+    item.installation_status === "downloaded"
+      ? "Bundle scaricato, installazione non ancora collegata"
+      : item.installation_status === "registered"
+      ? "Runtime registrato, in attesa stato healthy"
+      : item.onboarding_status === "setup_in_progress"
+      ? "Setup in corso"
+      : slotAlreadyConfirmed
+      ? "Slot confermato"
+      : null
+  );
 
-  const installationProcessDone = Boolean(installationProcessStatus);
+  const installationProcessDone = Boolean(item.platform_ready);
 
   const effectiveInstalledRelease =
     item.installed_release_version ||
@@ -621,10 +625,13 @@ export default function CustomerDetail() {
 
 
           <Section title="Runtime locale">
+            <Row label="Stato piattaforma" value={item.installation_status_label || (item.platform_ready ? "Piattaforma attiva" : "Non ancora attiva")} />
             <Row label="Stato connessione" value={badge(item.runtime_connection_status)} />
             <Row label="Ultimo heartbeat" value={fmtDt(item.last_runtime_heartbeat_at, "datetime")} />
             <Row label="Installation ID" value={item.latest_installation_id ? <code style={{ fontSize: 11 }}>{item.latest_installation_id}</code> : "Non registrata"} />
             <Row label="Release installata" value={item.installed_release_version || effectiveInstalledRelease || null} />
+            <Row label="Runtime pubblico" value={item.runtime_public_backend_url || null} />
+            <Row label="Agent locale" value={item.runtime_local_agent_version || null} />
           </Section>
 
           <Section title="Download e release">
