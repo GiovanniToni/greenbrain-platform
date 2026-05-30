@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   Download, CreditCard, CheckCircle2, AlertCircle,
-  Package, Building2, Clock, Calendar,
+  Package, Building2, Clock, Calendar, RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -231,6 +231,7 @@ export default function CustomerPortalDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
 
@@ -250,6 +251,7 @@ export default function CustomerPortalDashboard() {
     try {
       const profile = await getCustomerPortalMe();
       setData(profile);
+      setLastRefreshedAt(new Date().toISOString());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Errore caricamento");
     } finally {
@@ -265,6 +267,40 @@ export default function CustomerPortalDashboard() {
     const t = setTimeout(() => doFetch(true), 2500);
     return () => clearTimeout(t);
   }, [setupStatus, billingStatus, doFetch]);
+
+  useEffect(() => {
+    if (!data?.platform_ready) return;
+
+    const installed = (data.installed_release_version || "").trim();
+    const downloaded = (data.last_downloaded_release_version || "").trim();
+
+    if (!installed || !downloaded || installed === downloaded) return;
+
+    let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 18; // 18 * 5s = 90s
+
+    const interval = window.setInterval(async () => {
+      if (cancelled) return;
+
+      attempts += 1;
+      await doFetch(true);
+
+      if (attempts >= maxAttempts) {
+        window.clearInterval(interval);
+      }
+    }, 5000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [
+    data?.platform_ready,
+    data?.installed_release_version,
+    data?.last_downloaded_release_version,
+    doFetch,
+  ]);
 
   async function handleSavePaymentMethod() {
     try {
@@ -1049,7 +1085,26 @@ export default function CustomerPortalDashboard() {
 
       {/* Runtime status */}
       <Card className="p-6 border-primary/10">
-        <h2 className="font-semibold mb-4">Runtime locale</h2>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+          <div>
+            <h2 className="font-semibold">Runtime locale</h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              {lastRefreshedAt
+                ? `Ultimo controllo: ${fmtDateTime(lastRefreshedAt)}`
+                : "Stato letto dal cloud GreenBrain"}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => doFetch(true)}
+            disabled={refreshing}
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Aggiornamento..." : "Aggiorna stato installazione"}
+          </Button>
+        </div>
         <div className="grid sm:grid-cols-3 gap-3">
           <div className="rounded-xl border bg-muted/20 p-4">
             <p className="text-xs text-muted-foreground mb-1">Stato piattaforma</p>
