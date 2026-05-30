@@ -55,6 +55,16 @@ interface CustomerPortalProfile {
   runtime_connection_status?: string | null;
   latest_installation_id?: string | null;
   last_runtime_heartbeat_at?: string | null;
+  runtime_public_backend_url?: string | null;
+  runtime_local_backend_url?: string | null;
+  runtime_local_agent_version?: string | null;
+  runtime_connection_mode?: string | null;
+  runtime_last_sync_status?: string | null;
+  runtime_last_sync_at?: string | null;
+  platform_ready?: boolean;
+  installation_status?: string | null;
+  installation_status_label?: string | null;
+  installation_next_action?: string | null;
   first_downloaded_release_version?: string | null;
   first_downloaded_at?: string | null;
   last_downloaded_release_version?: string | null;
