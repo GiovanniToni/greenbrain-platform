@@ -391,6 +391,7 @@ export default function CustomerPortalDashboard() {
   const planPrice = planDisplayPrice(data?.subscription_plan);
 
   const latestAvailableVersion = data?.latest_available_release_version || null;
+  const installedVersion = data?.installed_release_version || null;
   const firstDownloadedVersion = data?.first_downloaded_release_version || null;
   const firstDownloadedAt = data?.first_downloaded_at || null;
   const lastDownloadedVersion = data?.last_downloaded_release_version || null;
@@ -502,7 +503,9 @@ export default function CustomerPortalDashboard() {
   const activeStepIndex = firstIncompleteStepIndex === -1 ? compactSteps.length - 1 : firstIncompleteStepIndex;
 
   const nextActionTitle =
-    phase === "no_payment"
+    platformReady
+      ? "Apri la piattaforma"
+    : phase === "no_payment"
       ? "Salva il metodo di pagamento"
       : phase === "payment_saved"
       ? "Prenota la sessione di setup"
@@ -523,7 +526,9 @@ export default function CustomerPortalDashboard() {
       : "Attendi l'attivazione";
 
   const nextActionDescription =
-    phase === "no_payment"
+    platformReady
+      ? "La tua installazione locale è collegata correttamente. Puoi accedere alle sezioni operative GreenBrain."
+    : phase === "no_payment"
       ? "La carta viene salvata in modo sicuro. L'abbonamento non viene ancora attivato."
       : phase === "payment_saved"
       ? "Indica data e fascia oraria preferite per la configurazione remota."
@@ -661,7 +666,16 @@ export default function CustomerPortalDashboard() {
               <p className="text-xs text-muted-foreground mt-1">{nextActionDescription}</p>
             </div>
 
-            {phase === "no_payment" && (
+            {platformReady && (
+              <Button asChild>
+                <Link to="/dashboard">
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  Apri GreenBrain
+                </Link>
+              </Button>
+            )}
+
+            {!platformReady && phase === "no_payment" && (
               <Button onClick={handleSavePaymentMethod}>
                 <CreditCard className="w-4 h-4 mr-2" />
                 Salva metodo di pagamento
@@ -685,7 +699,7 @@ export default function CustomerPortalDashboard() {
               </Button>
             )}
 
-            {bundleDownloadEnabled && (phase === "slot_confirmed" || phase === "active") && (
+            {!platformReady && bundleDownloadEnabled && (phase === "slot_confirmed" || phase === "active") && (
               <Button
                 variant={bundleButtonIsPrimary ? "default" : "outline"}
                 onClick={handleDownloadBundle}
@@ -945,16 +959,28 @@ export default function CustomerPortalDashboard() {
               {planPrice && <span className="text-xs text-muted-foreground ml-1.5">{planPrice}</span>}
             </div>
           </div>
-          {data?.assigned_release_version && (
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Versione assegnata</span>
-              <span>{data.assigned_release_version}</span>
-            </div>
-          )}
-          {data?.installed_release_version && (
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">Stato piattaforma</span>
+            <Badge variant={platformReady ? "default" : "outline"}>
+              {installationStatusLabel}
+            </Badge>
+          </div>
+          {installedVersion && (
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">Versione installata</span>
-              <span>{data.installed_release_version}</span>
+              <span>{installedVersion}</span>
+            </div>
+          )}
+          {latestAvailableVersion && (
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Versione disponibile</span>
+              <span>{latestAvailableVersion}</span>
+            </div>
+          )}
+          {lastDownloadedVersion && (
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Ultima scaricata</span>
+              <span>{lastDownloadedVersion}</span>
             </div>
           )}
         </div>
@@ -1019,6 +1045,12 @@ export default function CustomerPortalDashboard() {
         <h2 className="font-semibold mb-4">Runtime locale</h2>
         <div className="grid sm:grid-cols-3 gap-3">
           <div className="rounded-xl border bg-muted/20 p-4">
+            <p className="text-xs text-muted-foreground mb-1">Stato piattaforma</p>
+            <Badge variant={platformReady ? "default" : "outline"}>
+              {installationStatusLabel}
+            </Badge>
+          </div>
+          <div className="rounded-xl border bg-muted/20 p-4">
             <p className="text-xs text-muted-foreground mb-1">Stato connessione</p>
             <Badge variant={data?.runtime_connection_status === "healthy" ? "default" : "outline"}>
               {data?.runtime_connection_status || "Non collegato"}
@@ -1029,6 +1061,14 @@ export default function CustomerPortalDashboard() {
             <p className="font-semibold text-sm">
               {data?.last_runtime_heartbeat_at ? fmtDateTime(data.last_runtime_heartbeat_at) : "Mai ricevuto"}
             </p>
+          </div>
+          <div className="rounded-xl border bg-muted/20 p-4">
+            <p className="text-xs text-muted-foreground mb-1">Versione installata</p>
+            <p className="font-semibold text-sm">{installedVersion || "Non registrata"}</p>
+          </div>
+          <div className="rounded-xl border bg-muted/20 p-4">
+            <p className="text-xs text-muted-foreground mb-1">Agent locale</p>
+            <p className="font-semibold text-sm">{data?.runtime_local_agent_version || "—"}</p>
           </div>
           <div className="rounded-xl border bg-muted/20 p-4">
             <p className="text-xs text-muted-foreground mb-1">Installazione</p>
@@ -1065,7 +1105,9 @@ export default function CustomerPortalDashboard() {
             <p className="text-xs text-muted-foreground mb-1">Versione disponibile</p>
             <p className="font-semibold text-sm">{latestAvailableVersion || "In preparazione"}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Release GreenBrain pronta per il setup o per l’aggiornamento.
+              {platformReady
+                ? "Bundle disponibile per reinstallare o aggiornare GreenBrain quando necessario."
+                : "Release GreenBrain pronta per completare setup e installazione."}
             </p>
           </div>
 
@@ -1107,7 +1149,9 @@ export default function CustomerPortalDashboard() {
 
         {bundleDownloadEnabled && (
           <p className="text-xs text-muted-foreground text-center mt-3">
-            Usa questo file durante la sessione remota di setup o per aggiornare GreenBrain.
+            {platformReady
+              ? "Scarica di nuovo il bundle solo se devi reinstallare o aggiornare GreenBrain."
+              : "Usa questo file durante la sessione remota di setup per completare GreenBrain."}
           </p>
         )}
       </Card>
