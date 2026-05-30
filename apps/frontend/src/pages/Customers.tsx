@@ -203,20 +203,38 @@ function deliveryStatusBadge(ds: string | null | undefined) {
   );
 }
 
+function availableReleaseOf(item: CustomerOpsItem): string {
+  return item.latest_available_release_version || LATEST_RELEASE;
+}
+
+function downloadedButNotInstalled(item: CustomerOpsItem): boolean {
+  return Boolean(
+    item.platform_ready &&
+    item.installed_release_version &&
+    item.last_downloaded_release_version &&
+    item.installed_release_version !== item.last_downloaded_release_version
+  );
+}
+
 function customerPriorityScore(item: CustomerOpsItem): number {
   const action = nextCustomerAction(item);
+  const availableRelease = availableReleaseOf(item);
 
   if (action.kind === "slot") return 1;
   if (item.onboarding_status === "data_validation_pending") return 2;
   if (!item.payment_method_saved) return 3;
   if (action.kind === "subscription") return 4;
-  if ((item.last_downloaded_release_version || "") !== LATEST_RELEASE) return 5;
-  if (item.cancellation_requested) return 6;
+  if (!item.last_downloaded_release_version) return 5;
+  if (item.last_downloaded_release_version !== availableRelease) return 5;
+  if (downloadedButNotInstalled(item)) return 6;
+  if (item.cancellation_requested) return 7;
 
   return 20;
 }
 
 function releaseStatusBadge(item: CustomerOpsItem) {
+  const availableRelease = availableReleaseOf(item);
+
   if (!item.last_downloaded_release_version) {
     return (
       <span style={{ fontSize: 10, fontWeight: 700, color: "#6b7280", background: "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: 4, padding: "2px 7px" }}>
@@ -225,10 +243,18 @@ function releaseStatusBadge(item: CustomerOpsItem) {
     );
   }
 
-  if (item.last_downloaded_release_version !== LATEST_RELEASE) {
+  if (item.last_downloaded_release_version !== availableRelease) {
     return (
       <span style={{ fontSize: 10, fontWeight: 700, color: "#92400e", background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 4, padding: "2px 7px" }}>
-        Da aggiornare
+        Nuova versione da scaricare
+      </span>
+    );
+  }
+
+  if (downloadedButNotInstalled(item)) {
+    return (
+      <span style={{ fontSize: 10, fontWeight: 700, color: "#92400e", background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 4, padding: "2px 7px" }}>
+        Scaricata, da installare
       </span>
     );
   }
@@ -277,6 +303,7 @@ export default function Customers() {
         for (const item of nextItems) {
           if (!next[item.customer_id]) {
             next[item.customer_id] =
+              item.latest_available_release_version ||
               item.assigned_release_version ||
               item.delivery_assigned_release_version ||
               defaultRelease;
@@ -414,7 +441,9 @@ export default function Customers() {
     try {
       setBusyCustomerId(customerId);
       setActionMessage(null);
-      const r = await sendRelease(customerId, LATEST_RELEASE);
+      const item = items.find((x) => x.customer_id === customerId);
+      const version = releaseByCustomer[customerId] || (item ? availableReleaseOf(item) : LATEST_RELEASE);
+      const r = await sendRelease(customerId, version);
       const label = DELIVERY_STATUS_LABELS[r.delivery_status] ?? r.delivery_status;
       setActionMessage(`Release ${r.assigned_release_version} inviata — delivery: ${label}`);
       await load();
@@ -679,11 +708,15 @@ export default function Customers() {
                 <td style={td}>
                   <div style={{ fontSize: 11, marginBottom: 2 }}>
                     <span style={{ color: "#6b7280" }}>Disponibile: </span>
-                    <strong>{LATEST_RELEASE}</strong>
+                    <strong>{availableReleaseOf(item)}</strong>
                   </div>
                   <div style={{ fontSize: 11 }}>
                     <span style={{ color: "#6b7280" }}>Scaricata: </span>
                     <strong>{item.last_downloaded_release_version || "—"}</strong>
+                  </div>
+                  <div style={{ fontSize: 11, marginTop: 2 }}>
+                    <span style={{ color: "#6b7280" }}>Installata: </span>
+                    <strong>{item.installed_release_version || "—"}</strong>
                   </div>
                   <div style={{ marginTop: 5 }}>
                     {releaseStatusBadge(item)}
