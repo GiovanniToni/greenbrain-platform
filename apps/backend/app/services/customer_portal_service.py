@@ -22,6 +22,39 @@ _SLOT_STATES_ALREADY_BOOKED = {
 }
 
 
+def derive_customer_installation_state(profile: Dict[str, Any]) -> Dict[str, Any]:
+    runtime_status = (profile.get("runtime_connection_status") or "").strip().lower()
+    installation_id = profile.get("latest_installation_id")
+    heartbeat = profile.get("last_runtime_heartbeat_at")
+    downloaded = bool(profile.get("last_downloaded_at"))
+
+    platform_ready = bool(runtime_status == "healthy" and installation_id and heartbeat)
+
+    if platform_ready:
+        status = "healthy"
+        label = "Piattaforma attiva"
+        next_action = "open_platform"
+    elif installation_id:
+        status = "registered"
+        label = "Runtime registrato, in attesa stato healthy"
+        next_action = "check_runtime"
+    elif downloaded:
+        status = "downloaded"
+        label = "Bundle scaricato, installazione non ancora collegata"
+        next_action = "complete_installation"
+    else:
+        status = "not_started"
+        label = "Installazione non ancora iniziata"
+        next_action = "download_bundle"
+
+    return {
+        "platform_ready": platform_ready,
+        "installation_status": status,
+        "installation_status_label": label,
+        "installation_next_action": next_action,
+    }
+
+
 def build_customer_portal_profile(user_email: str) -> Dict[str, Any]:
     row = get_customer_by_portal_email(user_email)
     if not row:
@@ -34,7 +67,7 @@ def build_customer_portal_profile(user_email: str) -> Dict[str, Any]:
     runtime = get_runtime_connection_by_tenant_code(tenant_code) if tenant_code else None
     runtime = runtime or {}
 
-    return {
+    profile = {
         "customer_id": row.get("customer_id"),
         "tenant_code": row.get("tenant_code"),
         "company_name": row.get("company_name"),
@@ -95,6 +128,8 @@ def build_customer_portal_profile(user_email: str) -> Dict[str, Any]:
             "updated_at": delivery.get("updated_at"),
         },
     }
+    profile.update(derive_customer_installation_state(profile))
+    return profile
 
 
 def cancel_customer_portal_subscription(user_email: str) -> Dict[str, Any]:
