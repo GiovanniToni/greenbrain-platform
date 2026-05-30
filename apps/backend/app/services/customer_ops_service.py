@@ -114,7 +114,15 @@ def send_release(customer_id: str, release_version: str) -> Dict[str, Any]:
 
 
 def list_customers(limit: int = 100) -> List[Dict[str, Any]]:
-    return list_customer_companies(limit=limit)
+    """Return ops list items enriched with the same release/runtime state used by detail."""
+    latest_available = get_latest_available_release_version()
+    items = list_customer_companies(limit=limit)
+
+    for item in items:
+        item["delivery_status"] = normalize_delivery_state(item)
+        item["latest_available_release_version"] = latest_available
+
+    return items
 
 
 def create_customer(payload: Dict[str, Any]) -> Dict[str, Any]:
