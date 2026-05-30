@@ -228,7 +228,14 @@ export default function CustomerDetail() {
   const canCancel = ["active", "trialing", "past_due", "incomplete"].includes(
     (item.subscription_status || "").toLowerCase(),
   );
-  const releaseAligned = item.assigned_release_version === LATEST_RELEASE;
+  const availableRelease = item.latest_available_release_version || LATEST_RELEASE;
+  const releaseAligned = Boolean(item.last_downloaded_release_version && item.last_downloaded_release_version === availableRelease);
+  const downloadedButNotInstalled = Boolean(
+    item.platform_ready &&
+    item.installed_release_version &&
+    item.last_downloaded_release_version &&
+    item.installed_release_version !== item.last_downloaded_release_version
+  );
   const effectiveDbIntegrationStatus =
     item.db_integration_status === "not_started" && item.data_validated_at
       ? "validated"
@@ -455,14 +462,14 @@ export default function CustomerDetail() {
           {!releaseAligned && !canShowConfirmSlot && !nextStatus && (
             <button
               onClick={() => run(async () => {
-                const res = await sendRelease(item.customer_id, LATEST_RELEASE);
+                const res = await sendRelease(item.customer_id, availableRelease);
                 const label = DELIVERY_STATUS_LABELS[res.delivery_status] ?? res.delivery_status;
                 return `Release ${res.assigned_release_version} inviata — delivery: ${label}`;
               })}
               disabled={busy}
               style={busy ? btnDisabled : btnPrimary}
             >
-              Invia release {LATEST_RELEASE}
+              Invia release {availableRelease}
             </button>
           )}
         </div>
@@ -648,13 +655,32 @@ export default function CustomerDetail() {
                   borderRadius: 5,
                   padding: "3px 10px",
                 }}>
-                  {item.latest_available_release_version || LATEST_RELEASE}
+                  {availableRelease}
                 </span>
               }
             />
-            {((item.latest_available_release_version || LATEST_RELEASE) !== item.last_downloaded_release_version) && (
+            {!item.last_downloaded_release_version && (
               <Row
-                label="Aggiornamento"
+                label="Stato aggiornamento"
+                value={
+                  <span style={{
+                    display: "inline-block",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: "#6b7280",
+                    background: "#f3f4f6",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 5,
+                    padding: "3px 10px",
+                  }}>
+                    Mai scaricato
+                  </span>
+                }
+              />
+            )}
+            {item.last_downloaded_release_version && item.last_downloaded_release_version !== availableRelease && (
+              <Row
+                label="Stato aggiornamento"
                 value={
                   <span style={{
                     display: "inline-block",
@@ -666,11 +692,50 @@ export default function CustomerDetail() {
                     borderRadius: 5,
                     padding: "3px 10px",
                   }}>
-                    Da aggiornare
+                    Nuova versione da scaricare
                   </span>
                 }
               />
             )}
+            {downloadedButNotInstalled && (
+              <Row
+                label="Stato aggiornamento"
+                value={
+                  <span style={{
+                    display: "inline-block",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: "#92400e",
+                    background: "#fef3c7",
+                    border: "1px solid #fcd34d",
+                    borderRadius: 5,
+                    padding: "3px 10px",
+                  }}>
+                    Scaricata, da installare
+                  </span>
+                }
+              />
+            )}
+            {item.last_downloaded_release_version === availableRelease && !downloadedButNotInstalled && (
+              <Row
+                label="Stato aggiornamento"
+                value={
+                  <span style={{
+                    display: "inline-block",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: "#166534",
+                    background: "#dcfce7",
+                    border: "1px solid #86efac",
+                    borderRadius: 5,
+                    padding: "3px 10px",
+                  }}>
+                    Aggiornata
+                  </span>
+                }
+              />
+            )}
+            <Row label="Release installata" value={item.installed_release_version || effectiveInstalledRelease || null} />
             <Row label="Prima scaricata" value={item.first_downloaded_release_version} />
             <Row label="Primo download il" value={fmtDt(item.first_downloaded_at, "datetime")} />
             <Row label="Ultima scaricata" value={item.last_downloaded_release_version} />
