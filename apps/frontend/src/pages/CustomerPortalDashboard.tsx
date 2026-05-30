@@ -413,6 +413,13 @@ export default function CustomerPortalDashboard() {
     latestAvailableVersion !== lastDownloadedVersion
   );
 
+  const downloadedButNotInstalled = Boolean(
+    platformReady &&
+    installedVersion &&
+    lastDownloadedVersion &&
+    installedVersion !== lastDownloadedVersion
+  );
+
   const bundleButtonIsPrimary = Boolean(
     bundleDownloadEnabled && (hasNeverDownloaded || hasUpdateAvailable)
   );
@@ -1123,6 +1130,16 @@ export default function CustomerPortalDashboard() {
             )}
           </div>
         </div>
+
+        {downloadedButNotInstalled && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 mb-4">
+            <p className="font-semibold">Aggiornamento scaricato ma non installato</p>
+            <p className="mt-1 text-xs">
+              Hai scaricato la versione {lastDownloadedVersion}, ma il runtime locale risulta ancora alla versione {installedVersion}.
+              Completa l’aggiornamento dal computer dove è installato GreenBrain.
+            </p>
+          </div>
+        )}
 
         {firstDownloadedAt && (
           <div className="rounded-xl border border-primary/10 bg-primary/5 px-4 py-3 text-xs text-muted-foreground mb-4">
