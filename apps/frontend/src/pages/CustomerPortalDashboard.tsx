@@ -460,6 +460,24 @@ export default function CustomerPortalDashboard() {
     bundleDownloadEnabled && (hasNeverDownloaded || hasUpdateAvailable)
   );
 
+  const nextActionIsDownloadUpdate = Boolean(
+    bundleDownloadEnabled &&
+    hasUpdateAvailable &&
+    latestAvailableVersion
+  );
+
+  const nextActionIsDownloadedPendingInstall = Boolean(
+    bundleDownloadEnabled &&
+    downloadedButNotInstalled &&
+    lastDownloadedVersion
+  );
+
+  const nextActionUpdateButtonLabel = nextActionIsDownloadedPendingInstall && lastDownloadedVersion
+    ? `Aggiorna ora alla versione ${lastDownloadedVersion}`
+    : latestAvailableVersion
+    ? `Scarica versione ${latestAvailableVersion}`
+    : "Scarica aggiornamento";
+
   const bundleSubtitle = !data?.payment_method_saved
     ? "Il download si attiverà dopo il salvataggio del metodo di pagamento"
     : !data?.setup_slot_requested_at
@@ -546,7 +564,11 @@ export default function CustomerPortalDashboard() {
   const activeStepIndex = firstIncompleteStepIndex === -1 ? compactSteps.length - 1 : firstIncompleteStepIndex;
 
   const nextActionTitle =
-    platformReady
+    nextActionIsDownloadedPendingInstall
+      ? "Aggiorna GreenBrain"
+    : nextActionIsDownloadUpdate
+      ? "Scarica aggiornamento"
+    : platformReady
       ? "Apri la piattaforma"
     : phase === "no_payment"
       ? "Salva il metodo di pagamento"
@@ -569,7 +591,11 @@ export default function CustomerPortalDashboard() {
       : "Attendi l'attivazione";
 
   const nextActionDescription =
-    platformReady
+    nextActionIsDownloadedPendingInstall
+      ? `Hai già scaricato la versione ${lastDownloadedVersion}. Completa l'aggiornamento dal computer dove è installato GreenBrain.`
+    : nextActionIsDownloadUpdate
+      ? `È disponibile la versione ${latestAvailableVersion}. Scarica il nuovo bundle per aggiornare GreenBrain.`
+    : platformReady
       ? "La tua installazione locale è collegata correttamente. Puoi accedere alle sezioni operative GreenBrain."
     : phase === "no_payment"
       ? "La carta viene salvata in modo sicuro. L'abbonamento non viene ancora attivato."
@@ -709,7 +735,18 @@ export default function CustomerPortalDashboard() {
               <p className="text-xs text-muted-foreground mt-1">{nextActionDescription}</p>
             </div>
 
-            {platformReady && (
+            {(nextActionIsDownloadUpdate || nextActionIsDownloadedPendingInstall) && (
+              <Button
+                variant="default"
+                onClick={handleDownloadBundle}
+                disabled={!bundleDownloadEnabled || downloading}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                {downloading ? "Download in corso..." : nextActionUpdateButtonLabel}
+              </Button>
+            )}
+
+            {platformReady && !nextActionIsDownloadUpdate && !nextActionIsDownloadedPendingInstall && (
               <Button asChild>
                 <Link to="/dashboard">
                   <CheckCircle2 className="w-4 h-4 mr-2" />
