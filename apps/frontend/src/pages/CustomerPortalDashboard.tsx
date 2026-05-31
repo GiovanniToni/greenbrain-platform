@@ -47,6 +47,9 @@ interface CustomerPortalProfile {
   customer_id?: string | null;
   tenant_code?: string | null;
   company_name?: string | null;
+  vat_number?: string | null;
+  address_line?: string | null;
+  billing_email?: string | null;
   portal_user_email?: string | null;
   onboarding_status?: string | null;
   onboarding_step?: string | null;
