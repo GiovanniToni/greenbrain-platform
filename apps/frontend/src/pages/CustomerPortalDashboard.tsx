@@ -32,6 +32,21 @@ type LifecyclePhase =
   | "payment_saved"
   | "no_payment";
 
+type AccountTab =
+  | "overview"
+  | "profile"
+  | "billing"
+  | "installation"
+  | "security";
+
+const ACCOUNT_TABS: Array<{ key: AccountTab; label: string }> = [
+  { key: "overview", label: "Panoramica" },
+  { key: "profile", label: "Anagrafica" },
+  { key: "billing", label: "Pagamento e abbonamento" },
+  { key: "installation", label: "Installazione GreenBrain" },
+  { key: "security", label: "Sicurezza" },
+];
+
 interface CustomerDeliveryProfile {
   assigned_release_version?: string | null;
   bundle_generated_at?: string | null;
@@ -231,6 +246,7 @@ export default function CustomerPortalDashboard() {
   const billingStatus = searchParams.get("billing");
 
   const [data, setData] = useState<CustomerPortalProfile | null>(null);
+  const [activeTab, setActiveTab] = useState<AccountTab>("overview");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -674,6 +690,123 @@ export default function CustomerPortalDashboard() {
         </div>
       )}
 
+      <div className="rounded-2xl border bg-card p-2 shadow-sm">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+          {ACCOUNT_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={`rounded-xl px-3 py-2 text-xs md:text-sm font-medium transition-colors ${
+                activeTab === tab.key
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {activeTab === "profile" && (
+        <Card className="p-6 border-primary/10">
+          <div className="flex items-start gap-3 mb-5">
+            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Building2 className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-lg leading-tight">Anagrafica</h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                Dati account e aziendali salvati nel cloud GreenBrain.
+              </p>
+            </div>
+          </div>
+
+          <Separator className="my-4" />
+
+          <div className="grid md:grid-cols-2 gap-4 text-sm">
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <p className="text-xs text-muted-foreground mb-1">Azienda</p>
+              <p className="font-semibold">{data?.company_name || "—"}</p>
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <p className="text-xs text-muted-foreground mb-1">Partita IVA</p>
+              <p className="font-semibold">{data?.vat_number || "Non indicata"}</p>
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-4 md:col-span-2">
+              <p className="text-xs text-muted-foreground mb-1">Indirizzo</p>
+              <p className="font-semibold">{data?.address_line || "Non indicato"}</p>
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <p className="text-xs text-muted-foreground mb-1">Città</p>
+              <p className="font-semibold">{data?.city || "—"}</p>
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <p className="text-xs text-muted-foreground mb-1">Paese</p>
+              <p className="font-semibold">{data?.country || "—"}</p>
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <p className="text-xs text-muted-foreground mb-1">Referente</p>
+              <p className="font-semibold">{data?.contact_name || "—"}</p>
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <p className="text-xs text-muted-foreground mb-1">Telefono referente</p>
+              <p className="font-semibold">{data?.contact_phone || "Non indicato"}</p>
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <p className="text-xs text-muted-foreground mb-1">Email referente</p>
+              <p className="font-semibold break-all">{data?.contact_email || "—"}</p>
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <p className="text-xs text-muted-foreground mb-1">Email account</p>
+              <p className="font-semibold break-all">{data?.portal_user_email || "—"}</p>
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <p className="text-xs text-muted-foreground mb-1">Email fatturazione</p>
+              <p className="font-semibold break-all">{data?.billing_email || "Non indicata"}</p>
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <p className="text-xs text-muted-foreground mb-1">Tenant</p>
+              <p className="font-mono text-xs break-all">{data?.tenant_code || "—"}</p>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-dashed bg-muted/20 px-4 py-3 text-xs text-muted-foreground mt-5">
+            La modifica dei dati anagrafici verrà abilitata nel prossimo step con salvataggio sicuro su Supabase cloud.
+          </div>
+        </Card>
+      )}
+
+      {activeTab === "billing" && (
+        <Card className="p-6 border-primary/10">
+          <h2 className="font-semibold mb-2">Pagamento e abbonamento</h2>
+          <p className="text-sm text-muted-foreground">
+            I dettagli pagamento restano visibili nella Panoramica e verranno spostati qui nel prossimo micro-step.
+          </p>
+        </Card>
+      )}
+
+      {activeTab === "installation" && (
+        <Card className="p-6 border-primary/10">
+          <h2 className="font-semibold mb-2">Installazione GreenBrain</h2>
+          <p className="text-sm text-muted-foreground">
+            Runtime locale, bundle e aggiornamenti verranno spostati qui nel prossimo micro-step mantenendo le logiche già validate.
+          </p>
+        </Card>
+      )}
+
+      {activeTab === "security" && (
+        <Card className="p-6 border-primary/10">
+          <h2 className="font-semibold mb-2">Sicurezza</h2>
+          <p className="text-sm text-muted-foreground">
+            Cambio password e gestione credenziali saranno aggiunti dopo l&apos;analisi dell&apos;endpoint auth dedicato.
+          </p>
+        </Card>
+      )}
+
+      {activeTab === "overview" && (
+      <>
       {/* Hero / prossima azione */}
       <Card className="p-6 border-primary/20 bg-gradient-to-br from-primary/5 to-background">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
@@ -1358,6 +1491,9 @@ export default function CustomerPortalDashboard() {
           )}
         </div>
       </Card>
+      )}
+
+      </>
       )}
 
       {/* Error */}
