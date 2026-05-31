@@ -779,12 +779,126 @@ export default function CustomerPortalDashboard() {
       )}
 
       {activeTab === "billing" && (
-        <Card className="p-6 border-primary/10">
-          <h2 className="font-semibold mb-2">Pagamento e abbonamento</h2>
-          <p className="text-sm text-muted-foreground">
-            I dettagli pagamento restano visibili nella Panoramica e verranno spostati qui nel prossimo micro-step.
-          </p>
-        </Card>
+        <div className="space-y-5">
+          {/* Gestione abbonamento */}
+          <Card className="p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+                <CreditCard className="w-5 h-5 text-primary" />
+              </div>
+              <h2 className="font-semibold">Gestione abbonamento</h2>
+            </div>
+            <Separator className="my-4" />
+            <div className="grid sm:grid-cols-2 gap-y-3 gap-x-6 text-sm mb-5">
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Piano</span>
+                <div className="text-right">
+                  <span>{planLabel}</span>
+                  {planPrice && <span className="text-xs text-muted-foreground ml-1.5">{planPrice}</span>}
+                </div>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Stato abbonamento</span>
+                <Badge variant={data?.subscription_status === "active" ? "default" : "outline"}>
+                  {data?.subscription_status || "—"}
+                </Badge>
+              </div>
+              {data?.payment_method_saved && data?.payment_method_last4 && (
+                <div className="flex justify-between items-center col-span-full">
+                  <span className="text-muted-foreground">Metodo di pagamento</span>
+                  <span className="flex items-center gap-1.5 text-xs">
+                    <CreditCard className="w-3.5 h-3.5" />
+                    {data.payment_method_brand ? `${data.payment_method_brand.toUpperCase()} ` : ""}
+                    ••••&nbsp;{data.payment_method_last4}
+                  </span>
+                </div>
+              )}
+            </div>
+            <Separator className="my-4" />
+            <div className="mt-3 text-xs text-muted-foreground text-center space-y-1">
+              {subscriptionActivatedAt && (
+                <p>Abbonamento attivato il: {fmtDateTime(subscriptionActivatedAt)}</p>
+              )}
+              {subscriptionCurrentPeriodEnd && subscriptionCancelAtPeriodEnd && (
+                <p>Servizio disponibile fino al: {fmtDateTime(subscriptionCurrentPeriodEnd)}</p>
+              )}
+              {subscriptionCurrentPeriodEnd && !subscriptionCancelAtPeriodEnd && (
+                <p>Prossimo addebito: {fmtDateTime(subscriptionCurrentPeriodEnd)}</p>
+              )}
+              {subscriptionCancelAtPeriodEnd && (
+                <p>Rinnovo automatico disattivato</p>
+              )}
+            </div>
+          </Card>
+
+          {(isSubscriptionActive || data?.cancellation_requested) && (
+            <Card className="p-6">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <h2 className="font-semibold">Disdetta abbonamento</h2>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Puoi disattivare il rinnovo automatico solo dopo l&apos;attivazione dell&apos;abbonamento.
+                  </p>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {subscriptionCurrentPeriodEnd && (
+                    <div>Prossimo addebito: {fmtDate(subscriptionCurrentPeriodEnd)}</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-4">
+                {data?.cancellation_requested ? (
+                  <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 text-center">
+                    <p className="font-semibold">Disdetta richiesta il {fmtDate(data.cancellation_requested_at)}</p>
+                    <p className="text-xs text-amber-700 mt-1">Potrai usare il servizio fino al termine del periodo già pagato</p>
+                  </div>
+                ) : showCancelConfirm ? (
+                  <div className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-4 text-sm space-y-3">
+                    <p className="font-semibold text-destructive">Conferma disdetta abbonamento</p>
+                    <p className="text-muted-foreground text-xs">
+                      Potrai usare il servizio fino al termine del periodo già pagato. L&apos;accesso non verrà interrotto immediatamente.
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="flex-1"
+                        onClick={handleCancelSubscription}
+                        disabled={cancelBusy || !isSubscriptionActive}
+                      >
+                        {cancelBusy ? "Disdetta in corso..." : "Conferma disdetta"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => setShowCancelConfirm(false)}
+                        disabled={cancelBusy}
+                      >
+                        Annulla
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    variant={isSubscriptionActive ? "destructive" : "outline"}
+                    className="w-full"
+                    onClick={() => setShowCancelConfirm(true)}
+                    disabled={cancelBusy || !isSubscriptionActive}
+                  >
+                    Disdici abbonamento
+                  </Button>
+                )}
+                {!isSubscriptionActive && !data?.cancellation_requested && (
+                  <p className="text-xs text-muted-foreground mt-2 text-center">
+                    Il tasto si attiva quando l&apos;abbonamento passa in stato attivo.
+                  </p>
+                )}
+              </div>
+            </Card>
+          )}
+        </div>
       )}
 
       {activeTab === "installation" && (
@@ -1202,56 +1316,6 @@ export default function CustomerPortalDashboard() {
         </div>
       </Card>
 
-      {/* Gestione abbonamento */}
-      <Card className="p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-            <CreditCard className="w-5 h-5 text-primary" />
-          </div>
-          <h2 className="font-semibold">Gestione abbonamento</h2>
-        </div>
-        <Separator className="my-4" />
-        <div className="grid sm:grid-cols-2 gap-y-3 gap-x-6 text-sm mb-5">
-          <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">Piano</span>
-            <div className="text-right">
-              <span>{planLabel}</span>
-              {planPrice && <span className="text-xs text-muted-foreground ml-1.5">{planPrice}</span>}
-            </div>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">Stato abbonamento</span>
-            <Badge variant={data?.subscription_status === "active" ? "default" : "outline"}>
-              {data?.subscription_status || "—"}
-            </Badge>
-          </div>
-          {data?.payment_method_saved && data?.payment_method_last4 && (
-            <div className="flex justify-between items-center col-span-full">
-              <span className="text-muted-foreground">Metodo di pagamento</span>
-              <span className="flex items-center gap-1.5 text-xs">
-                <CreditCard className="w-3.5 h-3.5" />
-                {data.payment_method_brand ? `${data.payment_method_brand.toUpperCase()} ` : ""}
-                ••••&nbsp;{data.payment_method_last4}
-              </span>
-            </div>
-          )}
-        </div>
-        <Separator className="my-4" />
-        <div className="mt-3 text-xs text-muted-foreground text-center space-y-1">
-          {subscriptionActivatedAt && (
-            <p>Abbonamento attivato il: {fmtDateTime(subscriptionActivatedAt)}</p>
-          )}
-          {subscriptionCurrentPeriodEnd && subscriptionCancelAtPeriodEnd && (
-            <p>Servizio disponibile fino al: {fmtDateTime(subscriptionCurrentPeriodEnd)}</p>
-          )}
-          {subscriptionCurrentPeriodEnd && !subscriptionCancelAtPeriodEnd && (
-            <p>Prossimo addebito: {fmtDateTime(subscriptionCurrentPeriodEnd)}</p>
-          )}
-          {subscriptionCancelAtPeriodEnd && (
-            <p>Rinnovo automatico disattivato</p>
-          )}
-        </div>
-      </Card>
 
       </div>
 
@@ -1425,73 +1489,6 @@ export default function CustomerPortalDashboard() {
       </Card>
       )}
 
-      {(isSubscriptionActive || data?.cancellation_requested) && (
-      <Card className="p-6">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <h2 className="font-semibold">Disdetta abbonamento</h2>
-            <p className="text-xs text-muted-foreground mt-1">
-              Puoi disattivare il rinnovo automatico solo dopo l&apos;attivazione dell&apos;abbonamento.
-            </p>
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {subscriptionCurrentPeriodEnd && (
-              <div>Prossimo addebito: {fmtDate(subscriptionCurrentPeriodEnd)}</div>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-4">
-          {data?.cancellation_requested ? (
-            <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 text-center">
-              <p className="font-semibold">Disdetta richiesta il {fmtDate(data.cancellation_requested_at)}</p>
-              <p className="text-xs text-amber-700 mt-1">Potrai usare il servizio fino al termine del periodo già pagato</p>
-            </div>
-          ) : showCancelConfirm ? (
-            <div className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-4 text-sm space-y-3">
-              <p className="font-semibold text-destructive">Conferma disdetta abbonamento</p>
-              <p className="text-muted-foreground text-xs">
-                Potrai usare il servizio fino al termine del periodo già pagato. L&apos;accesso non verrà interrotto immediatamente.
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="flex-1"
-                  onClick={handleCancelSubscription}
-                  disabled={cancelBusy || !isSubscriptionActive}
-                >
-                  {cancelBusy ? "Disdetta in corso..." : "Conferma disdetta"}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => setShowCancelConfirm(false)}
-                  disabled={cancelBusy}
-                >
-                  Annulla
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <Button
-              variant={isSubscriptionActive ? "destructive" : "outline"}
-              className="w-full"
-              onClick={() => setShowCancelConfirm(true)}
-              disabled={cancelBusy || !isSubscriptionActive}
-            >
-              Disdici abbonamento
-            </Button>
-          )}
-          {!isSubscriptionActive && !data?.cancellation_requested && (
-            <p className="text-xs text-muted-foreground mt-2 text-center">
-              Il tasto si attiva quando l&apos;abbonamento passa in stato attivo.
-            </p>
-          )}
-        </div>
-      </Card>
-      )}
 
       </>
       )}
