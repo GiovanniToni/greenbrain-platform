@@ -902,12 +902,152 @@ export default function CustomerPortalDashboard() {
       )}
 
       {activeTab === "installation" && (
-        <Card className="p-6 border-primary/10">
-          <h2 className="font-semibold mb-2">Installazione GreenBrain</h2>
-          <p className="text-sm text-muted-foreground">
-            Runtime locale, bundle e aggiornamenti verranno spostati qui nel prossimo micro-step mantenendo le logiche già validate.
-          </p>
-        </Card>
+        <div className="space-y-5">
+          {/* Runtime status */}
+          <Card className="p-6 border-primary/10">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+              <div>
+                <h2 className="font-semibold">Runtime locale</h2>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {lastRefreshedAt
+                    ? `Ultimo controllo: ${fmtDateTime(lastRefreshedAt)}`
+                    : "Stato letto dal cloud GreenBrain"}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => doFetch(true)}
+                disabled={refreshing}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+                {refreshing ? "Aggiornamento..." : "Aggiorna stato installazione"}
+              </Button>
+            </div>
+            <div className="grid sm:grid-cols-3 gap-3">
+              <div className="rounded-xl border bg-muted/20 p-4">
+                <p className="text-xs text-muted-foreground mb-1">Stato piattaforma</p>
+                <Badge variant={platformReady ? "default" : "outline"}>
+                  {installationStatusLabel}
+                </Badge>
+              </div>
+              <div className="rounded-xl border bg-muted/20 p-4">
+                <p className="text-xs text-muted-foreground mb-1">Stato connessione</p>
+                <Badge variant={data?.runtime_connection_status === "healthy" ? "default" : "outline"}>
+                  {data?.runtime_connection_status || "Non collegato"}
+                </Badge>
+              </div>
+              <div className="rounded-xl border bg-muted/20 p-4">
+                <p className="text-xs text-muted-foreground mb-1">Ultimo heartbeat</p>
+                <p className="font-semibold text-sm">
+                  {data?.last_runtime_heartbeat_at ? fmtDateTime(data.last_runtime_heartbeat_at) : "Mai ricevuto"}
+                </p>
+              </div>
+              <div className="rounded-xl border bg-muted/20 p-4">
+                <p className="text-xs text-muted-foreground mb-1">Versione installata</p>
+                <p className="font-semibold text-sm">{installedVersion || "Non registrata"}</p>
+              </div>
+              <div className="rounded-xl border bg-muted/20 p-4">
+                <p className="text-xs text-muted-foreground mb-1">Agent locale</p>
+                <p className="font-semibold text-sm">{data?.runtime_local_agent_version || "—"}</p>
+              </div>
+              <div className="rounded-xl border bg-muted/20 p-4">
+                <p className="text-xs text-muted-foreground mb-1">Installazione</p>
+                <p className="font-mono text-xs break-all">
+                  {data?.latest_installation_id || "Non registrata"}
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Bundle & install */}
+          <Card className="p-6 border-primary/10">
+            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5 mb-5">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Package className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="font-semibold">Bundle &amp; installazione</h2>
+                    {hasUpdateAvailable && (
+                      <Badge variant="secondary" className="bg-amber-50 text-amber-800 border border-amber-200">
+                        Nuova versione
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">{bundleSubtitle}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-3 mb-5">
+              <div className="rounded-xl border bg-muted/20 p-4">
+                <p className="text-xs text-muted-foreground mb-1">Versione disponibile</p>
+                <p className="font-semibold text-sm">{latestAvailableVersion || "In preparazione"}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {platformReady
+                    ? "Bundle disponibile per reinstallare o aggiornare GreenBrain quando necessario."
+                    : "Release GreenBrain pronta per completare setup e installazione."}
+                </p>
+              </div>
+
+              <div className="rounded-xl border bg-muted/20 p-4">
+                <p className="text-xs text-muted-foreground mb-1">Ultimo download</p>
+                <p className="font-semibold text-sm">{lastDownloadedVersion || "Non ancora scaricato"}</p>
+                {lastDownloadedAt ? (
+                  <p className="text-xs text-muted-foreground mt-1">{fmtDateTime(lastDownloadedAt)}</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Verrà registrato automaticamente dopo il primo download.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {downloadedButNotInstalled && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 mb-4">
+                <p className="font-semibold">Aggiornamento scaricato ma non installato</p>
+                <p className="mt-1 text-xs">
+                  Hai scaricato la versione {lastDownloadedVersion}, ma il runtime locale risulta ancora alla versione {installedVersion}.
+                  Completa l’aggiornamento dal computer dove è installato GreenBrain.
+                </p>
+              </div>
+            )}
+
+            {firstDownloadedAt && (
+              <div className="rounded-xl border border-primary/10 bg-primary/5 px-4 py-3 text-xs text-muted-foreground mb-4">
+                Primo download effettuato il {fmtDateTime(firstDownloadedAt)}
+                {firstDownloadedVersion ? ` · versione ${firstDownloadedVersion}` : ""}
+              </div>
+            )}
+
+            {!bundleDownloadEnabled && (
+              <div className="rounded-xl border bg-muted/30 px-4 py-3 text-xs text-muted-foreground mb-4">
+                Il download verrà sbloccato automaticamente quando metodo di pagamento, slot di setup e disponibilità del bundle saranno confermati.
+              </div>
+            )}
+
+            <Button
+              className={bundleButtonIsPrimary ? "w-full bg-primary text-primary-foreground hover:bg-primary/90" : "w-full"}
+              variant={bundleButtonIsPrimary ? "default" : "outline"}
+              onClick={handleDownloadBundle}
+              disabled={!bundleDownloadEnabled || downloading}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              {bundleButtonLabel}
+            </Button>
+
+            {bundleDownloadEnabled && (
+              <p className="text-xs text-muted-foreground text-center mt-3">
+                {platformReady
+                  ? "Scarica di nuovo il bundle solo se devi reinstallare o aggiornare GreenBrain."
+                  : "Usa questo file durante la sessione remota di setup per completare GreenBrain."}
+              </p>
+            )}
+          </Card>
+        </div>
       )}
 
       {activeTab === "security" && (
@@ -1319,151 +1459,6 @@ export default function CustomerPortalDashboard() {
 
       </div>
 
-
-      {/* Runtime status */}
-      <Card className="p-6 border-primary/10">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
-          <div>
-            <h2 className="font-semibold">Runtime locale</h2>
-            <p className="text-xs text-muted-foreground mt-1">
-              {lastRefreshedAt
-                ? `Ultimo controllo: ${fmtDateTime(lastRefreshedAt)}`
-                : "Stato letto dal cloud GreenBrain"}
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => doFetch(true)}
-            disabled={refreshing}
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
-            {refreshing ? "Aggiornamento..." : "Aggiorna stato installazione"}
-          </Button>
-        </div>
-        <div className="grid sm:grid-cols-3 gap-3">
-          <div className="rounded-xl border bg-muted/20 p-4">
-            <p className="text-xs text-muted-foreground mb-1">Stato piattaforma</p>
-            <Badge variant={platformReady ? "default" : "outline"}>
-              {installationStatusLabel}
-            </Badge>
-          </div>
-          <div className="rounded-xl border bg-muted/20 p-4">
-            <p className="text-xs text-muted-foreground mb-1">Stato connessione</p>
-            <Badge variant={data?.runtime_connection_status === "healthy" ? "default" : "outline"}>
-              {data?.runtime_connection_status || "Non collegato"}
-            </Badge>
-          </div>
-          <div className="rounded-xl border bg-muted/20 p-4">
-            <p className="text-xs text-muted-foreground mb-1">Ultimo heartbeat</p>
-            <p className="font-semibold text-sm">
-              {data?.last_runtime_heartbeat_at ? fmtDateTime(data.last_runtime_heartbeat_at) : "Mai ricevuto"}
-            </p>
-          </div>
-          <div className="rounded-xl border bg-muted/20 p-4">
-            <p className="text-xs text-muted-foreground mb-1">Versione installata</p>
-            <p className="font-semibold text-sm">{installedVersion || "Non registrata"}</p>
-          </div>
-          <div className="rounded-xl border bg-muted/20 p-4">
-            <p className="text-xs text-muted-foreground mb-1">Agent locale</p>
-            <p className="font-semibold text-sm">{data?.runtime_local_agent_version || "—"}</p>
-          </div>
-          <div className="rounded-xl border bg-muted/20 p-4">
-            <p className="text-xs text-muted-foreground mb-1">Installazione</p>
-            <p className="font-mono text-xs break-all">
-              {data?.latest_installation_id || "Non registrata"}
-            </p>
-          </div>
-        </div>
-      </Card>
-
-      {/* Bundle & install */}
-      <Card className="p-6 border-primary/10">
-        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5 mb-5">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
-              <Package className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="font-semibold">Bundle &amp; installazione</h2>
-                {hasUpdateAvailable && (
-                  <Badge variant="secondary" className="bg-amber-50 text-amber-800 border border-amber-200">
-                    Nuova versione
-                  </Badge>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">{bundleSubtitle}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid sm:grid-cols-2 gap-3 mb-5">
-          <div className="rounded-xl border bg-muted/20 p-4">
-            <p className="text-xs text-muted-foreground mb-1">Versione disponibile</p>
-            <p className="font-semibold text-sm">{latestAvailableVersion || "In preparazione"}</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {platformReady
-                ? "Bundle disponibile per reinstallare o aggiornare GreenBrain quando necessario."
-                : "Release GreenBrain pronta per completare setup e installazione."}
-            </p>
-          </div>
-
-          <div className="rounded-xl border bg-muted/20 p-4">
-            <p className="text-xs text-muted-foreground mb-1">Ultimo download</p>
-            <p className="font-semibold text-sm">{lastDownloadedVersion || "Non ancora scaricato"}</p>
-            {lastDownloadedAt ? (
-              <p className="text-xs text-muted-foreground mt-1">{fmtDateTime(lastDownloadedAt)}</p>
-            ) : (
-              <p className="text-xs text-muted-foreground mt-1">
-                Verrà registrato automaticamente dopo il primo download.
-              </p>
-            )}
-          </div>
-        </div>
-
-        {downloadedButNotInstalled && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 mb-4">
-            <p className="font-semibold">Aggiornamento scaricato ma non installato</p>
-            <p className="mt-1 text-xs">
-              Hai scaricato la versione {lastDownloadedVersion}, ma il runtime locale risulta ancora alla versione {installedVersion}.
-              Completa l’aggiornamento dal computer dove è installato GreenBrain.
-            </p>
-          </div>
-        )}
-
-        {firstDownloadedAt && (
-          <div className="rounded-xl border border-primary/10 bg-primary/5 px-4 py-3 text-xs text-muted-foreground mb-4">
-            Primo download effettuato il {fmtDateTime(firstDownloadedAt)}
-            {firstDownloadedVersion ? ` · versione ${firstDownloadedVersion}` : ""}
-          </div>
-        )}
-
-        {!bundleDownloadEnabled && (
-          <div className="rounded-xl border bg-muted/30 px-4 py-3 text-xs text-muted-foreground mb-4">
-            Il download verrà sbloccato automaticamente quando metodo di pagamento, slot di setup e disponibilità del bundle saranno confermati.
-          </div>
-        )}
-
-        <Button
-          className={bundleButtonIsPrimary ? "w-full bg-primary text-primary-foreground hover:bg-primary/90" : "w-full"}
-          variant={bundleButtonIsPrimary ? "default" : "outline"}
-          onClick={handleDownloadBundle}
-          disabled={!bundleDownloadEnabled || downloading}
-        >
-          <Download className="w-4 h-4 mr-2" />
-          {bundleButtonLabel}
-        </Button>
-
-        {bundleDownloadEnabled && (
-          <p className="text-xs text-muted-foreground text-center mt-3">
-            {platformReady
-              ? "Scarica di nuovo il bundle solo se devi reinstallare o aggiornare GreenBrain."
-              : "Usa questo file durante la sessione remota di setup per completare GreenBrain."}
-          </p>
-        )}
-      </Card>
 
       {nextSteps.some((step) => !step.done) && (
       <Card className="p-6">
