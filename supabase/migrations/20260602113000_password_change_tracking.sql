@@ -1,11 +1,6 @@
-ALTER TABLE public.greenbrain_users
-  ADD COLUMN IF NOT EXISTS tenant_code text,
-  ADD COLUMN IF NOT EXISTS home_host text DEFAULT 'www.greenbrain.it',
-  ADD COLUMN IF NOT EXISTS home_path text DEFAULT '/account',
-  ADD COLUMN IF NOT EXISTS user_role text DEFAULT 'customer_admin',
-  ADD COLUMN IF NOT EXISTS can_access_app boolean NOT NULL DEFAULT false;
-
 -- Password change tracking and cloud/local sync metadata.
+-- Passwords are never stored in clear text: only hashed_password is stored.
+
 ALTER TABLE public.greenbrain_users
   ADD COLUMN IF NOT EXISTS password_changed_at timestamptz,
   ADD COLUMN IF NOT EXISTS password_changed_by uuid,
@@ -22,7 +17,7 @@ CREATE TABLE IF NOT EXISTS public.greenbrain_user_password_events (
   email text NOT NULL,
   tenant_code text,
   event_type text NOT NULL,
-  source text NOT NULL DEFAULT 'local',
+  source text NOT NULL DEFAULT 'cloud',
   status text NOT NULL DEFAULT 'ok',
   password_version integer,
   occurred_at timestamptz NOT NULL DEFAULT now(),

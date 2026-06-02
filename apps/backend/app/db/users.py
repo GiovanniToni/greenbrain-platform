@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
+
 import uuid
-from typing import Optional
+from typing import Any, Optional
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -98,3 +100,107 @@ def create_admin_user(
     )
     db.commit()
     return get_user_by_id(db, user_id)
+
+
+def record_password_event(
+    db: Session,
+    *,
+    user_id: str | None,
+    email: str,
+    tenant_code: str | None,
+    event_type: str,
+    source: str = "cloud",
+    status: str = "ok",
+    password_version: int | None = None,
+    details: dict[str, Any] | None = None,
+) -> None:
+    db.execute(
+        text("""
+            INSERT INTO greenbrain_user_password_events
+              (user_id, email, tenant_code, event_type, source, status, password_version, details)
+            VALUES
+              (
+                CASE WHEN :user_id IS NULL THEN NULL ELSE CAST(:user_id AS uuid) END,
+                :email,
+                :tenant_code,
+                :event_type,
+                :source,
+                :status,
+                :password_version,
+                CAST(:details AS jsonb)
+              )
+        """),
+        {
+            "user_id": user_id,
+            "email": email.lower().strip(),
+            "tenant_code": tenant_code,
+            "event_type": event_type,
+            "source": source,
+            "status": status,
+            "password_version": password_version,
+            "details": json.dumps(details or {}, ensure_ascii=False),
+        },
+    )
+
+
+def update_user_password_hash(
+    db: Session,
+    *,
+    user_id: str,
+    hashed_password: str,
+    changed_by_user_id: str | None = None,
+    source: str = "cloud",
+) -> dict:
+    row = db.execute(
+        text("""
+            UPDATE greenbrain_users
+            SET
+              hashed_password = :hashed_password,
+              password_changed_at = now(),
+              password_changed_by = CASE
+                WHEN :changed_by_user_id IS NULL THEN NULL
+                ELSE CAST(:changed_by_user_id AS uuid)
+              END,
+              password_change_source = :source,
+              password_version = COALESCE(password_version, 0) + 1,
+              password_sync_required_at = CASE
+                WHEN tenant_code IS NULL OR tenant_code = 'greenbrain' THEN password_sync_required_at
+                ELSE now()
+              END,
+              password_last_sync_status = CASE
+                WHEN tenant_code IS NULL OR tenant_code = 'greenbrain' THEN 'not_required'
+                ELSE 'pending'
+              END,
+              password_last_sync_error = NULL
+            WHERE id = CAST(:user_id AS uuid)
+            RETURNING *
+        """),
+        {
+            "user_id": user_id,
+            "hashed_password": hashed_password,
+            "changed_by_user_id": changed_by_user_id,
+            "source": source,
+        },
+    ).mappings().first()
+
+    if not row:
+        raise ValueError("user_not_found")
+
+    updated = dict(row)
+    record_password_event(
+        db,
+        user_id=str(updated["id"]),
+        email=updated["email"],
+        tenant_code=updated.get("tenant_code"),
+        event_type="password_changed",
+        source=source,
+        status="ok",
+        password_version=updated.get("password_version"),
+        details={
+            "changed_by_user_id": changed_by_user_id,
+            "sync_status": updated.get("password_last_sync_status"),
+        },
+    )
+    db.commit()
+    return updated
+
