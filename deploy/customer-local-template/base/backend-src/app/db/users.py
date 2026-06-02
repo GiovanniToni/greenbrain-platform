@@ -120,7 +120,7 @@ def record_password_event(
               (user_id, email, tenant_code, event_type, source, status, password_version, details)
             VALUES
               (
-                CASE WHEN :user_id IS NULL THEN NULL ELSE CAST(:user_id AS uuid) END,
+                CAST(NULLIF(:user_id, '') AS uuid),
                 :email,
                 :tenant_code,
                 :event_type,
@@ -157,10 +157,7 @@ def update_user_password_hash(
             SET
               hashed_password = :hashed_password,
               password_changed_at = now(),
-              password_changed_by = CASE
-                WHEN :changed_by_user_id IS NULL THEN NULL
-                ELSE CAST(:changed_by_user_id AS uuid)
-              END,
+              password_changed_by = CAST(NULLIF(:changed_by_user_id, '') AS uuid),
               password_change_source = :source,
               password_version = COALESCE(password_version, 0) + 1,
               password_sync_required_at = CASE
@@ -178,7 +175,7 @@ def update_user_password_hash(
         {
             "user_id": user_id,
             "hashed_password": hashed_password,
-            "changed_by_user_id": changed_by_user_id,
+            "changed_by_user_id": changed_by_user_id or "",
             "source": source,
         },
     ).mappings().first()
@@ -197,7 +194,7 @@ def update_user_password_hash(
         status="ok",
         password_version=updated.get("password_version"),
         details={
-            "changed_by_user_id": changed_by_user_id,
+            "changed_by_user_id": changed_by_user_id or "",
             "sync_status": updated.get("password_last_sync_status"),
         },
     )

@@ -9,7 +9,8 @@ ALTER TABLE public.greenbrain_users
   ADD COLUMN IF NOT EXISTS password_sync_required_at timestamptz,
   ADD COLUMN IF NOT EXISTS password_last_synced_at timestamptz,
   ADD COLUMN IF NOT EXISTS password_last_sync_status text NOT NULL DEFAULT 'not_required',
-  ADD COLUMN IF NOT EXISTS password_last_sync_error text;
+  ADD COLUMN IF NOT EXISTS password_last_sync_error text,
+  ADD COLUMN IF NOT EXISTS password_last_sync_attempt_at timestamptz;
 
 CREATE TABLE IF NOT EXISTS public.greenbrain_user_password_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
