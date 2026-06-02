@@ -225,6 +225,12 @@ def change_password(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if (settings.app_env or "").strip().lower() == "client-local":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="password_change_only_available_in_cloud_account",
+        )
+
     current_password = (body.current_password or "").strip()
     new_password = body.new_password or ""
 

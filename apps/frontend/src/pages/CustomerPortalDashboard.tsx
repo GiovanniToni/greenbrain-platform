@@ -20,6 +20,7 @@ import {
 import { planDisplayName, planDisplayPrice } from "@/lib/planConfig";
 import { createSetupSession } from "@/lib/customerBillingApi";
 import { useAuth } from "@/hooks/useAuth";
+import { apiPost } from "@/lib/apiClient";
 
 type LifecyclePhase =
   | "loading"
@@ -253,6 +254,11 @@ export default function CustomerPortalDashboard() {
   const [lastRefreshedAt, setLastRefreshedAt] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
+  const [securityCurrentPassword, setSecurityCurrentPassword] = useState("");
+  const [securityNewPassword, setSecurityNewPassword] = useState("");
+  const [securityConfirmPassword, setSecurityConfirmPassword] = useState("");
+  const [securityBusy, setSecurityBusy] = useState(false);
+  const [securityMessage, setSecurityMessage] = useState<string | null>(null);
 
   const [slotDate, setSlotDate] = useState("");
   const [slotTime, setSlotTime] = useState("morning");
@@ -406,6 +412,55 @@ export default function CustomerPortalDashboard() {
       setError(err instanceof Error ? err.message : "Errore download bundle");
     } finally {
       setDownloading(false);
+    }
+  }
+
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+
+    const currentPassword = securityCurrentPassword.trim();
+    const newPassword = securityNewPassword;
+    const confirmPassword = securityConfirmPassword;
+
+    setSecurityMessage(null);
+    setError(null);
+
+    if (!currentPassword) {
+      setError("Inserisci la password attuale.");
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setError("La nuova password deve contenere almeno 8 caratteri.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError("La conferma password non coincide.");
+      return;
+    }
+
+    try {
+      setSecurityBusy(true);
+      const res = await apiPost("/api/v1/auth/change-password", {
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
+
+      setSecurityCurrentPassword("");
+      setSecurityNewPassword("");
+      setSecurityConfirmPassword("");
+
+      const syncText = res?.password_last_sync_status === "pending"
+        ? " La sincronizzazione verso l'installazione locale è stata messa in coda."
+        : "";
+
+      setSecurityMessage(`Password aggiornata correttamente.${syncText}`);
+      await doFetch(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Errore cambio password");
+    } finally {
+      setSecurityBusy(false);
     }
   }
 
@@ -1052,10 +1107,70 @@ export default function CustomerPortalDashboard() {
 
       {activeTab === "security" && (
         <Card className="p-6 border-primary/10">
-          <h2 className="font-semibold mb-2">Sicurezza</h2>
-          <p className="text-sm text-muted-foreground">
-            Cambio password e gestione credenziali saranno aggiunti dopo l&apos;analisi dell&apos;endpoint auth dedicato.
-          </p>
+          <div className="flex flex-col gap-1 mb-5">
+            <h2 className="font-semibold text-lg">Sicurezza</h2>
+            <p className="text-sm text-muted-foreground">
+              Modifica la password dell&apos;account cloud GreenBrain. La nuova password verrà poi sincronizzata con l&apos;installazione locale.
+            </p>
+          </div>
+
+          <form onSubmit={handleChangePassword} className="space-y-4 max-w-xl">
+            <div className="space-y-1.5">
+              <Label htmlFor="securityCurrentPassword" className="text-xs">Password attuale</Label>
+              <Input
+                id="securityCurrentPassword"
+                type="password"
+                autoComplete="current-password"
+                value={securityCurrentPassword}
+                onChange={(e) => setSecurityCurrentPassword(e.target.value)}
+                disabled={securityBusy}
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="securityNewPassword" className="text-xs">Nuova password</Label>
+              <Input
+                id="securityNewPassword"
+                type="password"
+                autoComplete="new-password"
+                value={securityNewPassword}
+                onChange={(e) => setSecurityNewPassword(e.target.value)}
+                disabled={securityBusy}
+                minLength={8}
+                required
+              />
+              <p className="text-xs text-muted-foreground">Minimo 8 caratteri.</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="securityConfirmPassword" className="text-xs">Conferma nuova password</Label>
+              <Input
+                id="securityConfirmPassword"
+                type="password"
+                autoComplete="new-password"
+                value={securityConfirmPassword}
+                onChange={(e) => setSecurityConfirmPassword(e.target.value)}
+                disabled={securityBusy}
+                minLength={8}
+                required
+              />
+            </div>
+
+            {securityMessage && (
+              <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-primary">
+                {securityMessage}
+              </div>
+            )}
+
+            <div className="rounded-xl border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
+              Per sicurezza la password può essere modificata solo da questo account cloud. Il runtime locale riceverà l&apos;hash aggiornato tramite sincronizzazione controllata.
+            </div>
+
+            <Button type="submit" disabled={securityBusy}>
+              {securityBusy ? "Aggiornamento password..." : "Aggiorna password"}
+            </Button>
+          </form>
         </Card>
       )}
 
