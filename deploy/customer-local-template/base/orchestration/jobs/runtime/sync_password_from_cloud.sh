@@ -84,8 +84,12 @@ PY
     -H "Content-Type: application/json" \
     -d @"$payload_file" 2>>"$LOG" || true)"
 
-  log "PASSWORD_SYNC_ACK_HTTP=$http_code status=$ack_status"
-  mask_json_to_log "$response_file"
+  local ack_response_status
+  local ack_response_version
+  ack_response_status="$(json_field "$response_file" "status")"
+  ack_response_version="$(json_field "$response_file" "password_version")"
+
+  log "PASSWORD_SYNC_ACK_HTTP=$http_code status=$ack_status response_status=${ack_response_status:-unknown} version=${ack_response_version:-unknown}"
 
   rm -f "$payload_file" "$response_file"
 }
@@ -109,6 +113,15 @@ fi
 
 if [ -z "${PROVISIONING_TOKEN:-}" ]; then
   log "PASSWORD_SYNC_SKIPPED missing PROVISIONING_TOKEN"
+  exit 0
+fi
+
+# This job is designed to run inside the GreenBrain Docker network.
+# In normal customer installs POSTGRES_HOST=postgres resolves only from containers
+# such as gb_customer_scheduler, not from the Mac/Linux host shell.
+if [ "${POSTGRES_HOST:-${PGHOST:-}}" = "postgres" ] && ! getent hosts postgres >/dev/null 2>&1; then
+  log "PASSWORD_SYNC_SKIPPED postgres hostname is not resolvable from this shell"
+  log "PASSWORD_SYNC_HINT run inside scheduler: docker compose -f docker-compose.prebuilt.yml --env-file overlay/env/customer-local.env exec -T scheduler sh -lc 'cd /workspace && bash base/orchestration/jobs/runtime/sync_password_from_cloud.sh'"
   exit 0
 fi
 
