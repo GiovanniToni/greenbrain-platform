@@ -192,7 +192,7 @@ def _safe_env_value(value: Any) -> str:
 
 
 
-def _get_cloud_password_hash_for_customer(customer_profile: Dict[str, Any]) -> str:
+def _get_cloud_password_seed_for_customer(customer_profile: Dict[str, Any]) -> Dict[str, Any]:
     email = (
         customer_profile.get("portal_user_email")
         or customer_profile.get("contact_email")
@@ -201,23 +201,37 @@ def _get_cloud_password_hash_for_customer(customer_profile: Dict[str, Any]) -> s
     ).strip().lower()
 
     if not email:
-        return ""
+        return {}
 
     try:
         client = get_supabase_client()
         result = (
             client.table("greenbrain_users")
-            .select("hashed_password")
+            .select(
+                "hashed_password,password_version,password_changed_at,"
+                "password_last_sync_status"
+            )
             .eq("email", email)
             .limit(1)
             .execute()
         )
         rows = result.data or []
         if not rows:
-            return ""
-        return (rows[0].get("hashed_password") or "").strip()
+            return {}
+
+        row = rows[0] or {}
+        hashed_password = (row.get("hashed_password") or "").strip()
+        if not hashed_password:
+            return {}
+
+        return {
+            "hashed_password": hashed_password,
+            "password_version": row.get("password_version"),
+            "password_changed_at": row.get("password_changed_at"),
+            "password_last_sync_status": row.get("password_last_sync_status") or "synced",
+        }
     except Exception:
-        return ""
+        return {}
 
 
 
@@ -263,6 +277,10 @@ def _render_customer_env(base_env: str, customer_profile: Dict[str, Any], temp_p
         "LOCAL_CUSTOMER_TEMP_PASSWORD": temp_password,
         "LOCAL_CUSTOMER_PASSWORD_HASH": (customer_profile.get("local_customer_password_hash") or ""),
         "LOCAL_CUSTOMER_PASSWORD_MODE": (customer_profile.get("local_customer_password_mode") or ("temporary_password" if temp_password else "cloud_password")),
+        "LOCAL_CUSTOMER_PASSWORD_VERSION": (customer_profile.get("local_customer_password_version") or ""),
+        "LOCAL_CUSTOMER_PASSWORD_CHANGED_AT": (customer_profile.get("local_customer_password_changed_at") or ""),
+        "LOCAL_CUSTOMER_PASSWORD_SYNC_STATUS": (customer_profile.get("local_customer_password_sync_status") or ""),
+        "LOCAL_CUSTOMER_PASSWORD_SEED_SOURCE": (customer_profile.get("local_customer_password_seed_source") or ""),
         "LOCAL_CUSTOMER_TENANT_CODE": tenant_code,
         "LOCAL_CUSTOMER_HOME_HOST": home_host,
         "LOCAL_CUSTOMER_HOME_PATH": "/dashboard",
@@ -321,12 +339,16 @@ def _build_personalized_bundle(source_bundle: Path, customer_profile: Dict[str, 
     )
     provisioning_token = token_result["token"]
 
-    cloud_password_hash = _get_cloud_password_hash_for_customer(customer_profile)
-    if cloud_password_hash:
+    cloud_password_seed = _get_cloud_password_seed_for_customer(customer_profile)
+    if cloud_password_seed.get("hashed_password"):
         customer_profile = {
             **customer_profile,
-            "local_customer_password_hash": cloud_password_hash,
+            "local_customer_password_hash": cloud_password_seed.get("hashed_password") or "",
             "local_customer_password_mode": "cloud_password",
+            "local_customer_password_version": cloud_password_seed.get("password_version") or "",
+            "local_customer_password_changed_at": cloud_password_seed.get("password_changed_at") or "",
+            "local_customer_password_sync_status": cloud_password_seed.get("password_last_sync_status") or "synced",
+            "local_customer_password_seed_source": "cloud_seed",
         }
         temp_password = ""
     else:

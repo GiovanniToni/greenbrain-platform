@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime, timezone
 from typing import Any, Dict
 from urllib.parse import quote_plus
 
@@ -59,6 +60,10 @@ def provision_customer_auth_user(
     home_host: str,
     home_path: str,
     user_role: str,
+    password_version: int | None = None,
+    password_changed_at: str | None = None,
+    password_seed_source: str | None = None,
+    password_sync_status: str | None = None,
 ) -> Dict[str, Any]:
     engine = _build_auth_engine()
     table_name, cols = _find_user_table(engine)
@@ -72,6 +77,13 @@ def provision_customer_auth_user(
         hashed_password = hash_password(clean_password)
     else:
         raise RuntimeError("missing_password_or_hash")
+
+    is_cloud_seed = bool(clean_password_hash)
+    now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    seed_password_version = int(password_version or 1)
+    seed_password_changed_at = password_changed_at or (now_iso if is_cloud_seed else None)
+    seed_password_source = password_seed_source or ("cloud_seed" if is_cloud_seed else "initial")
+    seed_password_sync_status = password_sync_status or ("synced" if is_cloud_seed else "not_required")
 
     payload: Dict[str, Any] = {
         "email": email.strip().lower(),
@@ -92,6 +104,23 @@ def provision_customer_auth_user(
         payload["user_role"] = user_role
     if "can_access_app" in cols:
         payload["can_access_app"] = True
+
+    if "password_version" in cols:
+        payload["password_version"] = seed_password_version
+    if "password_changed_at" in cols:
+        payload["password_changed_at"] = seed_password_changed_at
+    if "password_change_source" in cols:
+        payload["password_change_source"] = seed_password_source
+    if "password_sync_required_at" in cols:
+        payload["password_sync_required_at"] = None
+    if "password_last_sync_status" in cols:
+        payload["password_last_sync_status"] = seed_password_sync_status
+    if "password_last_synced_at" in cols:
+        payload["password_last_synced_at"] = now_iso if is_cloud_seed else None
+    if "password_last_sync_attempt_at" in cols:
+        payload["password_last_sync_attempt_at"] = now_iso if is_cloud_seed else None
+    if "password_last_sync_error" in cols:
+        payload["password_last_sync_error"] = None
 
     with engine.begin() as conn:
         existing = conn.execute(
