@@ -288,11 +288,22 @@ def heartbeat_runtime(payload: Dict[str, Any]) -> Dict[str, Any]:
             "installed_release_version": version,
         })
 
+    actions: list[Dict[str, Any]] = []
+    pending_password_sync = get_pending_password_sync_for_runtime(tenant_code)
+    if pending_password_sync:
+        actions.append({
+            "type": "password_sync_required",
+            "password_version": pending_password_sync.get("password_version"),
+            "email": pending_password_sync.get("email"),
+            "required_at": pending_password_sync.get("password_sync_required_at"),
+        })
+
     return {
         "status": "heartbeat_received",
         "tenant": tenant,
         "installation": installation,
         "runtime_connection": runtime_connection,
+        "actions": actions,
     }
 
 
