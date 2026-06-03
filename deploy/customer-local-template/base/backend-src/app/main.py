@@ -45,6 +45,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def add_private_network_access_header(request, call_next):
+    response = await call_next(request)
+
+    origin = request.headers.get("origin", "")
+    is_greenbrain_origin = origin == "https://greenbrain.it" or origin == "https://www.greenbrain.it" or (
+        origin.startswith("https://") and origin.endswith(".greenbrain.it")
+    )
+
+    if settings.app_env == "client-local" and is_greenbrain_origin:
+        response.headers["Access-Control-Allow-Private-Network"] = "true"
+
+    return response
+
+
 app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(cloud_sync_router)

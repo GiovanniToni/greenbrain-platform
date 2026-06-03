@@ -201,3 +201,108 @@ def update_user_password_hash(
     db.commit()
     return updated
 
+def ensure_password_sync_schema(db: Session) -> None:
+    db.execute(text("""
+        ALTER TABLE public.greenbrain_users
+          ADD COLUMN IF NOT EXISTS password_changed_at timestamptz,
+          ADD COLUMN IF NOT EXISTS password_changed_by uuid,
+          ADD COLUMN IF NOT EXISTS password_change_source text NOT NULL DEFAULT 'initial',
+          ADD COLUMN IF NOT EXISTS password_version integer NOT NULL DEFAULT 1,
+          ADD COLUMN IF NOT EXISTS password_sync_required_at timestamptz,
+          ADD COLUMN IF NOT EXISTS password_last_synced_at timestamptz,
+          ADD COLUMN IF NOT EXISTS password_last_sync_status text NOT NULL DEFAULT 'not_required',
+          ADD COLUMN IF NOT EXISTS password_last_sync_error text,
+          ADD COLUMN IF NOT EXISTS password_last_sync_attempt_at timestamptz
+    """))
+
+    db.execute(text("""
+        CREATE TABLE IF NOT EXISTS public.greenbrain_user_password_events (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id uuid REFERENCES public.greenbrain_users(id) ON DELETE SET NULL,
+          email text NOT NULL,
+          tenant_code text,
+          event_type text NOT NULL,
+          source text NOT NULL DEFAULT 'local',
+          status text NOT NULL DEFAULT 'ok',
+          password_version integer,
+          occurred_at timestamptz NOT NULL DEFAULT now(),
+          details jsonb NOT NULL DEFAULT '{}'::jsonb
+        )
+    """))
+
+
+def apply_cloud_password_sync(
+    db: Session,
+    *,
+    email: str,
+    tenant_code: str,
+    hashed_password: str,
+    password_version: int,
+    password_changed_at: str | None,
+    cloud_user_id: str | None,
+    installation_id: str | None,
+) -> dict:
+    clean_email = email.lower().strip()
+    clean_tenant = (tenant_code or "").strip()
+
+    if not clean_email:
+        raise ValueError("email_missing")
+    if not clean_tenant:
+        raise ValueError("tenant_code_missing")
+    if not hashed_password:
+        raise ValueError("hashed_password_missing")
+    if not password_version:
+        raise ValueError("password_version_missing")
+
+    ensure_password_sync_schema(db)
+
+    row = db.execute(
+        text("""
+            UPDATE public.greenbrain_users
+            SET
+              hashed_password = :hashed_password,
+              password_changed_at = COALESCE(NULLIF(:password_changed_at, '')::timestamptz, now()),
+              password_change_source = 'cloud_sync',
+              password_version = :password_version,
+              password_last_synced_at = now(),
+              password_last_sync_attempt_at = now(),
+              password_last_sync_status = 'synced',
+              password_last_sync_error = NULL
+            WHERE lower(email) = lower(:email)
+              AND COALESCE(tenant_code, '') = :tenant_code
+            RETURNING id, email, tenant_code, password_version, password_last_synced_at, password_last_sync_status
+        """),
+        {
+            "hashed_password": hashed_password,
+            "password_changed_at": password_changed_at or "",
+            "password_version": int(password_version),
+            "email": clean_email,
+            "tenant_code": clean_tenant,
+        },
+    ).mappings().first()
+
+    if not row:
+        db.rollback()
+        raise ValueError("local_user_not_found_or_not_updated")
+
+    updated = dict(row)
+
+    record_password_event(
+        db,
+        user_id=str(updated["id"]),
+        email=updated["email"],
+        tenant_code=updated.get("tenant_code"),
+        event_type="password_synced_from_cloud",
+        source="local_runtime",
+        status="ok",
+        password_version=updated.get("password_version"),
+        details={
+            "cloud_user_id": cloud_user_id or "",
+            "installation_id": installation_id or "",
+            "trigger": "local_api",
+        },
+    )
+
+    db.commit()
+    return updated
+

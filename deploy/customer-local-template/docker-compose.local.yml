@@ -18,7 +18,10 @@ services:
     container_name: greenbrain_local_backend
     restart: unless-stopped
     env_file:
-      - ./overlay/env/customer-local.env
+      - path: ./overlay/env/customer-local.env
+        required: true
+      - path: ./overlay/provisioning/local-runtime.env
+        required: false
     depends_on:
       - postgres
     ports:

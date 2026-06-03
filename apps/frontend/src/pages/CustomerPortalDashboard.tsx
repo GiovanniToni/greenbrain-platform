@@ -386,6 +386,39 @@ export default function CustomerPortalDashboard() {
     }
   }
 
+  async function tryImmediateLocalPasswordSync(): Promise<string> {
+    try {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 6000);
+
+      const response = await fetch("http://localhost:8008/api/v1/customer-runtime/password-sync/run-local", {
+        method: "POST",
+        headers: { "Accept": "application/json" },
+        signal: controller.signal,
+      });
+
+      window.clearTimeout(timeout);
+
+      if (!response.ok) {
+        return " La password è aggiornata sul cloud; GreenBrain locale si allineerà automaticamente al prossimo controllo.";
+      }
+
+      const body = await response.json().catch(() => null);
+
+      if (body?.status === "synced") {
+        return " GreenBrain locale è stato sincronizzato subito.";
+      }
+
+      if (body?.status === "no_pending") {
+        return " GreenBrain locale risulta già allineato.";
+      }
+
+      return " La password è aggiornata sul cloud; GreenBrain locale si allineerà automaticamente al prossimo controllo.";
+    } catch {
+      return " La password è aggiornata sul cloud; GreenBrain locale si allineerà automaticamente al prossimo controllo.";
+    }
+  }
+
   async function handleDownloadBundle() {
     try {
       setDownloading(true);
@@ -451,9 +484,15 @@ export default function CustomerPortalDashboard() {
       setSecurityNewPassword("");
       setSecurityConfirmPassword("");
 
-      const syncText = res?.password_last_sync_status === "pending"
-        ? " La sincronizzazione verso l'installazione locale è stata messa in coda."
-        : "";
+      let syncText = "";
+
+      if (res?.password_last_sync_status === "pending") {
+        syncText = await tryImmediateLocalPasswordSync();
+      }
+
+      if (!syncText) {
+        syncText = " GreenBrain locale risulta già allineato.";
+      }
 
       setSecurityMessage(`Password aggiornata correttamente.${syncText}`);
       await doFetch(true);
