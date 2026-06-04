@@ -93,18 +93,18 @@ check_port() {
   fi
 
   if [ "$gb_match" -eq 1 ]; then
-    warn "$label port $port already used by existing GreenBrain stack"
+    warn "Porta $port ($label) già usata da una installazione GreenBrain locale esistente: continuo con aggiornamento/reinstallazione controllata."
   else
-    echo "ERROR: $label port $port already used by external service" >&2
+    echo "ERROR: porta $port ($label) già usata da un altro programma esterno a GreenBrain." >&2
     if command -v lsof >/dev/null 2>&1; then
       echo >&2
-      echo "Process using port $port:" >&2
+      echo "Programma che sta usando la porta $port:" >&2
       lsof -nP -iTCP:"$port" -sTCP:LISTEN >&2 || true
     fi
     if [ "$(uname -s)" = "Darwin" ]; then
       echo >&2
-      echo "On macOS, close the application using the port and retry." >&2
-      echo "If Windsurf is listed, quit Windsurf before installing GreenBrain." >&2
+      echo "Su macOS, chiudi il programma che sta usando questa porta e rilancia l\'installazione." >&2
+      echo "Se nell\'elenco compare Windsurf, chiudi Windsurf prima di installare GreenBrain." >&2
     fi
     exit 1
   fi
