@@ -476,7 +476,7 @@ export default function CustomerPortalDashboard() {
       }
 
       if (!syncText) {
-        syncText = " GreenBrain locale risulta già allineato.";
+        syncText = " GreenBrain locale è già allineato. Non ci sono aggiornamenti password da applicare.";
       }
 
       setSecurityMessage(`Password aggiornata correttamente.${syncText}`);

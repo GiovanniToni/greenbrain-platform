@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
-type SyncStatus = "idle" | "running" | "synced" | "no_pending" | "error" | "not_local";
+type SyncStatus = "idle" | "running" | "synced" | "no_pending" | "cloud_unreachable" | "error" | "not_local";
 
 type SyncResult = {
   status?: string;
@@ -18,6 +18,48 @@ type SyncResult = {
 
 function isLocalHost(hostname: string): boolean {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
+
+function getCustomerMessage(
+  body: SyncResult | null,
+  responseStatus?: number
+): { status: SyncStatus; message: string } {
+  const backendStatus = body?.status;
+  const detail = body?.detail;
+
+  if (backendStatus === "synced") {
+    return {
+      status: "synced",
+      message: "Password locale sincronizzata correttamente.",
+    };
+  }
+
+  if (backendStatus === "no_pending") {
+    return {
+      status: "no_pending",
+      message: "GreenBrain locale è già allineato. Non ci sono aggiornamenti password da applicare.",
+    };
+  }
+
+  if (
+    backendStatus === "pending_failed" ||
+    backendStatus === "cloud_unreachable" ||
+    detail === "cloud_unreachable"
+  ) {
+    return {
+      status: "cloud_unreachable",
+      message:
+        "Connessione cloud temporaneamente non disponibile. Riprova tra poco oppure attendi il prossimo controllo automatico.",
+    };
+  }
+
+  return {
+    status: "error",
+    message:
+      responseStatus != null
+        ? `Errore di sincronizzazione. HTTP ${responseStatus}`
+        : "Errore di sincronizzazione.",
+  };
 }
 
 export default function LocalPasswordSync() {
@@ -47,29 +89,15 @@ export default function LocalPasswordSync() {
       const body = await response.json().catch(() => null);
       setResult(body);
 
-      if (!response.ok) {
-        setStatus("error");
-        setMessage(body?.detail || `Sincronizzazione non riuscita. HTTP ${response.status}`);
-        return;
-      }
+      const customerResult = getCustomerMessage(body, response.status);
 
-      if (body?.status === "synced") {
-        setStatus("synced");
-        setMessage("Password locale sincronizzata correttamente.");
-        return;
-      }
-
-      if (body?.status === "no_pending") {
-        setStatus("no_pending");
-        setMessage("GreenBrain locale risulta già allineato.");
-        return;
-      }
-
-      setStatus("error");
-      setMessage("Risposta non riconosciuta dal runtime locale.");
+      setStatus(customerResult.status);
+      setMessage(customerResult.message);
     } catch (err) {
+      const detail = err instanceof Error ? err.message : "Errore durante la sincronizzazione locale.";
       setStatus("error");
-      setMessage(err instanceof Error ? err.message : "Errore durante la sincronizzazione locale.");
+      setMessage("Errore di sincronizzazione.");
+      setResult({ detail });
     }
   }
 
