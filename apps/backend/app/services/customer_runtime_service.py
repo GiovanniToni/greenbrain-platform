@@ -98,12 +98,27 @@ def _validate_provisioning_token(raw_token: str | None, tenant_code: str, instal
         raise RuntimeError("provisioning_token_missing")
 
     token_hash = _hash_token(raw_token.strip())
-    row = get_active_runtime_token_by_hash(token_hash)
+
+    # Register must be idempotent for installer retry/update on the same runtime.
+    # Fresh first registration consumes an active token.
+    # A retry with the same already-used token is valid only for the same installation_id.
+    row = get_runtime_token_by_hash(token_hash)
     if not row:
         raise RuntimeError("provisioning_token_invalid")
 
     if (row.get("tenant_code") or "").strip() != tenant_code:
         raise RuntimeError("provisioning_token_tenant_mismatch")
+
+    status = (row.get("status") or "").strip().lower()
+    used_by_installation_id = (row.get("used_by_installation_id") or "").strip()
+
+    if status == "used":
+        if used_by_installation_id and used_by_installation_id == installation_id:
+            return row
+        raise RuntimeError("provisioning_token_installation_mismatch")
+
+    if status != "active":
+        raise RuntimeError("provisioning_token_invalid_status")
 
     expires_at = row.get("expires_at")
     if expires_at:
