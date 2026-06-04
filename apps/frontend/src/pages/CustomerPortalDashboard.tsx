@@ -259,6 +259,7 @@ export default function CustomerPortalDashboard() {
   const [securityConfirmPassword, setSecurityConfirmPassword] = useState("");
   const [securityBusy, setSecurityBusy] = useState(false);
   const [securityMessage, setSecurityMessage] = useState<string | null>(null);
+  const [localPasswordSyncUrl, setLocalPasswordSyncUrl] = useState<string | null>(null);
 
   const [slotDate, setSlotDate] = useState("");
   const [slotTime, setSlotTime] = useState("morning");
@@ -386,37 +387,20 @@ export default function CustomerPortalDashboard() {
     }
   }
 
-  async function tryImmediateLocalPasswordSync(): Promise<string> {
+  function openLocalPasswordSyncPage(): string {
+    const url = "http://localhost:8088/local-sync/password?source=cloud-password-change";
+    setLocalPasswordSyncUrl(url);
+
     try {
-      const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 6000);
-
-      const response = await fetch("http://localhost:8008/api/v1/customer-runtime/password-sync/run-local", {
-        method: "POST",
-        headers: { "Accept": "application/json" },
-        signal: controller.signal,
-      });
-
-      window.clearTimeout(timeout);
-
-      if (!response.ok) {
-        return " La password è aggiornata sul cloud; GreenBrain locale si allineerà automaticamente al prossimo controllo.";
+      const opened = window.open(url, "_blank", "noopener,noreferrer");
+      if (opened) {
+        return " Ho aperto la pagina di sincronizzazione locale. Se il browser la blocca, usa il pulsante qui sotto.";
       }
-
-      const body = await response.json().catch(() => null);
-
-      if (body?.status === "synced") {
-        return " GreenBrain locale è stato sincronizzato subito.";
-      }
-
-      if (body?.status === "no_pending") {
-        return " GreenBrain locale risulta già allineato.";
-      }
-
-      return " La password è aggiornata sul cloud; GreenBrain locale si allineerà automaticamente al prossimo controllo.";
     } catch {
-      return " La password è aggiornata sul cloud; GreenBrain locale si allineerà automaticamente al prossimo controllo.";
+      // Browser may block popups after async password update. The visible link remains available.
     }
+
+    return " Usa il pulsante qui sotto per sincronizzare subito GreenBrain locale; in ogni caso si allineerà automaticamente al prossimo controllo.";
   }
 
   async function handleDownloadBundle() {
@@ -485,9 +469,10 @@ export default function CustomerPortalDashboard() {
       setSecurityConfirmPassword("");
 
       let syncText = "";
+      setLocalPasswordSyncUrl(null);
 
       if (res?.password_last_sync_status === "pending") {
-        syncText = await tryImmediateLocalPasswordSync();
+        syncText = openLocalPasswordSyncPage();
       }
 
       if (!syncText) {
@@ -1197,8 +1182,22 @@ export default function CustomerPortalDashboard() {
             </div>
 
             {securityMessage && (
-              <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-primary">
-                {securityMessage}
+              <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-primary space-y-2">
+                <p>{securityMessage}</p>
+                {localPasswordSyncUrl && (
+                  <div>
+                    <a
+                      href={localPasswordSyncUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex"
+                    >
+                      <Button type="button" size="sm" variant="outline">
+                        Sincronizza GreenBrain locale ora
+                      </Button>
+                    </a>
+                  </div>
+                )}
               </div>
             )}
 

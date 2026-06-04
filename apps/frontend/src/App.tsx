@@ -12,6 +12,7 @@ import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
 import PricingPage from "@/pages/PricingPage";
 import CustomerPortalDashboard from "@/pages/CustomerPortalDashboard";
+import LocalPasswordSync from "@/pages/LocalPasswordSync";
 import CustomerOpsConsolePage from "@/pages/CustomerOpsConsolePage";
 import Signup from "@/pages/Signup";
 import Customers from "@/pages/Customers";
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/pricing" element={<PricingPage />} />
             <Route path="/customer-portal" element={<Navigate to="/account" replace />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/local-sync/password" element={<LocalPasswordSync />} />
 
             <Route element={<ProtectedRoute />}>
               <Route element={<AppLayout />}>
