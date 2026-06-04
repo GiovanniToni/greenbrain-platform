@@ -280,11 +280,19 @@ def run_local_password_sync_route(
     pending_url = _runtime_env_value("PASSWORD_SYNC_PENDING_URL") or f"{central}/api/v1/customer-runtime/password-sync/pending"
     ack_url = _runtime_env_value("PASSWORD_SYNC_ACK_URL") or f"{central}/api/v1/customer-runtime/password-sync/ack"
 
-    pending_status, pending = _post_json(
-        pending_url,
-        {"tenant_code": tenant_code, "installation_id": installation_id},
-        token=provisioning_token,
-    )
+    try:
+        pending_status, pending = _post_json(
+            pending_url,
+            {"tenant_code": tenant_code, "installation_id": installation_id},
+            token=provisioning_token,
+        )
+    except Exception as exc:
+        return {
+            "status": "pending_failed",
+            "pending_http_status": 0,
+            "detail": "cloud_unreachable",
+            "error": str(exc),
+        }
 
     if pending_status != 200:
         return {
