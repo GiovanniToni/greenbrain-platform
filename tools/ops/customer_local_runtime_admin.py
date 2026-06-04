@@ -293,6 +293,189 @@ def command_list_installations(args: argparse.Namespace) -> int:
         return 0
 
 
+def command_cleanup_plan(args: argparse.Namespace) -> int:
+    tenant = _require_tenant(args.tenant)
+    keep_latest_healthy = max(1, min(int(args.keep_latest_healthy), 20))
+    limit_candidates = max(1, min(int(args.limit_candidates), 500))
+
+    with SessionLocal() as db:
+        missing = [
+            table
+            for table in (TOKEN_TABLE, INSTALLATION_TABLE)
+            if not _table_exists(db, table)
+        ]
+        if missing:
+            _print_json({"status": "error", "missing_tables": missing})
+            return 2
+
+        token_status_rows = db.execute(
+            text(
+                f"""
+                SELECT status, count(*) AS count
+                FROM public.{TOKEN_TABLE}
+                WHERE tenant_code = :tenant
+                GROUP BY status
+                ORDER BY count DESC, status
+                """
+            ),
+            {"tenant": tenant},
+        ).mappings().all()
+
+        active_tokens = db.execute(
+            text(
+                f"""
+                SELECT
+                    token_id,
+                    token_hint,
+                    purpose,
+                    status,
+                    expires_at,
+                    used_at,
+                    used_by_installation_id,
+                    created_at,
+                    updated_at
+                FROM public.{TOKEN_TABLE}
+                WHERE tenant_code = :tenant
+                  AND status = :active
+                ORDER BY created_at DESC
+                """
+            ),
+            {"tenant": tenant, "active": "active"},
+        ).mappings().all()
+
+        recent_tokens = db.execute(
+            text(
+                f"""
+                SELECT
+                    token_id,
+                    token_hint,
+                    purpose,
+                    status,
+                    expires_at,
+                    used_at,
+                    used_by_installation_id,
+                    created_at,
+                    updated_at
+                FROM public.{TOKEN_TABLE}
+                WHERE tenant_code = :tenant
+                ORDER BY created_at DESC
+                LIMIT 20
+                """
+            ),
+            {"tenant": tenant},
+        ).mappings().all()
+
+        ranked_installations = db.execute(
+            text(
+                f"""
+                WITH ranked AS (
+                    SELECT
+                        installation_id,
+                        customer_id,
+                        tenant_code,
+                        installation_label,
+                        runtime_mode,
+                        connection_mode,
+                        data_mode,
+                        installed_release_version,
+                        local_agent_version,
+                        public_backend_url,
+                        provisioning_status,
+                        runtime_health,
+                        last_heartbeat_at,
+                        last_sync_at,
+                        last_sync_status,
+                        notes,
+                        created_at,
+                        updated_at,
+                        row_number() OVER (
+                            ORDER BY last_heartbeat_at DESC NULLS LAST, created_at DESC
+                        ) AS heartbeat_rank
+                    FROM public.{INSTALLATION_TABLE}
+                    WHERE tenant_code = :tenant
+                      AND runtime_health = :healthy
+                )
+                SELECT *
+                FROM ranked
+                ORDER BY heartbeat_rank
+                LIMIT :limit
+                """
+            ),
+            {"tenant": tenant, "healthy": "healthy", "limit": keep_latest_healthy + limit_candidates},
+        ).mappings().all()
+
+        keep_installations = []
+        candidate_old_installations = []
+
+        for row in ranked_installations:
+            item = _row_to_dict(row)
+            rank = int(item.get("heartbeat_rank") or 0)
+            if rank <= keep_latest_healthy:
+                keep_installations.append(item)
+            else:
+                candidate_old_installations.append(item)
+
+        installation_counts = db.execute(
+            text(
+                f"""
+                SELECT
+                    installed_release_version,
+                    runtime_health,
+                    provisioning_status,
+                    count(*) AS count
+                FROM public.{INSTALLATION_TABLE}
+                WHERE tenant_code = :tenant
+                GROUP BY installed_release_version, runtime_health, provisioning_status
+                ORDER BY installed_release_version DESC NULLS LAST, count DESC
+                """
+            ),
+            {"tenant": tenant},
+        ).mappings().all()
+
+        payload = {
+            "status": "ok",
+            "mode": "read_only",
+            "plan_only": True,
+            "tenant_code": tenant,
+            "cleanup_policy": {
+                "keep_latest_healthy": keep_latest_healthy,
+                "selection_order": "last_heartbeat_at DESC NULLS LAST, created_at DESC",
+                "candidate_limit": limit_candidates,
+            },
+            "schema_capabilities": {
+                "archive_columns_present": False,
+                "safe_mutation_supported_now": False,
+                "reason": "No archived/archived_at/deleted/retired/inactive columns exist on runtime token or installation tables.",
+            },
+            "token_status_counts": [_row_to_dict(row) for row in token_status_rows],
+            "active_tokens_warning": {
+                "count": len(active_tokens),
+                "tokens": [_row_to_dict(row) for row in active_tokens],
+            },
+            "recent_tokens": [_row_to_dict(row) for row in recent_tokens],
+            "installation_counts": [_row_to_dict(row) for row in installation_counts],
+            "keep_installations": keep_installations,
+            "candidate_old_installations": candidate_old_installations[:limit_candidates],
+            "candidate_old_installation_count_returned": len(candidate_old_installations[:limit_candidates]),
+            "recommendation": {
+                "next_safe_step": "review_plan_only",
+                "do_not_mutate_db_yet": True,
+                "future_mutation_requires_schema": "Add explicit archived/archived_at or retired/retired_at fields before implementing archive actions.",
+            },
+            "safety": {
+                "mutations_enabled": False,
+                "plan_only": True,
+                "updates": 0,
+                "deletes": 0,
+                "revokes": 0,
+                "archives": 0,
+                "token_hash_exposed": False,
+            },
+        }
+        _print_json(payload)
+        return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Read-only customer-local runtime/token ops utility."
@@ -312,6 +495,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_inst.add_argument("--tenant", required=True)
     p_inst.add_argument("--limit", type=int, default=50)
     p_inst.set_defaults(func=command_list_installations)
+
+    p_plan = sub.add_parser("cleanup-plan", help="Show read-only cleanup candidates without changing data.")
+    p_plan.add_argument("--tenant", required=True)
+    p_plan.add_argument("--keep-latest-healthy", type=int, default=1)
+    p_plan.add_argument("--limit-candidates", type=int, default=50)
+    p_plan.set_defaults(func=command_cleanup_plan)
 
     return parser
 
