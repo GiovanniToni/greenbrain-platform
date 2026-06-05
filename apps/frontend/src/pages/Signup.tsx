@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle2, Leaf } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/PasswordInput";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -164,9 +165,8 @@ export default function Signup() {
 
               <div className="space-y-2">
                 <Label htmlFor="portal_password">Password portale</Label>
-                <Input
+                <PasswordInput
                   id="portal_password"
-                  type="password"
                   placeholder="Almeno 8 caratteri"
                   value={form.portal_password}
                   onChange={(e) => update("portal_password", e.target.value)}

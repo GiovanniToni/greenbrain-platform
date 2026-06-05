@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Users, LayoutDashboard, Terminal, RefreshCw, UserPlus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { createAdminUser, listCustomers, type CustomerOpsItem } from "@/lib/customerOpsApi";
+import { PasswordInput } from "@/components/PasswordInput";
 
 function computeKpis(items: CustomerOpsItem[]) {
   return {
@@ -208,9 +209,8 @@ export default function CustomerOpsConsolePage() {
           </div>
           <div>
             <label className="text-xs font-medium text-muted-foreground">Password temporanea</label>
-            <input
+            <PasswordInput
               className="w-full mt-1 border rounded-lg px-3 py-2 text-sm"
-              type="password"
               value={adminForm.password}
               onChange={(e) => setAdminForm((f) => ({ ...f, password: e.target.value }))}
               placeholder="Minimo 8 caratteri"

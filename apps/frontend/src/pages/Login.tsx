@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Leaf, Mail, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/PasswordInput";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, type AuthUser } from "@/hooks/useAuth";
@@ -205,8 +206,7 @@ export default function Login() {
             <label className="text-sm font-medium">Password</label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                type="password"
+              <PasswordInput
                 name="gb_password"
                 autoComplete="new-password"
                 data-lpignore="true"

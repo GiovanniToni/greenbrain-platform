@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/PasswordInput";
 import { Label } from "@/components/ui/label";
 import {
   cancelPortalSubscription,
@@ -1141,9 +1142,8 @@ export default function CustomerPortalDashboard() {
           <form onSubmit={handleChangePassword} className="space-y-4 max-w-xl">
             <div className="space-y-1.5">
               <Label htmlFor="securityCurrentPassword" className="text-xs">Password attuale</Label>
-              <Input
+              <PasswordInput
                 id="securityCurrentPassword"
-                type="password"
                 autoComplete="current-password"
                 value={securityCurrentPassword}
                 onChange={(e) => setSecurityCurrentPassword(e.target.value)}
@@ -1154,9 +1154,8 @@ export default function CustomerPortalDashboard() {
 
             <div className="space-y-1.5">
               <Label htmlFor="securityNewPassword" className="text-xs">Nuova password</Label>
-              <Input
+              <PasswordInput
                 id="securityNewPassword"
-                type="password"
                 autoComplete="new-password"
                 value={securityNewPassword}
                 onChange={(e) => setSecurityNewPassword(e.target.value)}
@@ -1169,9 +1168,8 @@ export default function CustomerPortalDashboard() {
 
             <div className="space-y-1.5">
               <Label htmlFor="securityConfirmPassword" className="text-xs">Conferma nuova password</Label>
-              <Input
+              <PasswordInput
                 id="securityConfirmPassword"
-                type="password"
                 autoComplete="new-password"
                 value={securityConfirmPassword}
                 onChange={(e) => setSecurityConfirmPassword(e.target.value)}
