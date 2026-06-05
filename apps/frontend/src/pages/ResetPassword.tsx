@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Leaf, Lock } from "lucide-react";
 
 import { PasswordInput } from "@/components/PasswordInput";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { ApiError, apiPost } from "@/lib/apiClient";
+import { ApiError, apiPost, clearStoredToken } from "@/lib/apiClient";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -15,8 +16,8 @@ export default function ResetPassword() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const navigate = useNavigate();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,8 +51,10 @@ export default function ResetPassword() {
         description: "Ora puoi accedere con la nuova password.",
       });
 
+      clearStoredToken();
+      queryClient.clear();
       setMessage("Password aggiornata. Ora puoi accedere con la nuova password.");
-      setTimeout(() => navigate("/login", { replace: true }), 1200);
+      setTimeout(() => window.location.replace("/login"), 1200);
     } catch (err) {
       const detail = err instanceof ApiError ? err.message : err instanceof Error ? err.message : "";
 

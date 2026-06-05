@@ -14,6 +14,7 @@ import {
   getStoredToken,
   setStoredToken,
 } from "@/lib/apiClient";
+import { useQueryClient } from "@tanstack/react-query";
 
 export interface AuthUser {
   id: string;
@@ -43,6 +44,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const token = getStoredToken();
@@ -67,25 +69,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
+    clearStoredToken();
+    queryClient.clear();
+    setUser(null);
+
     const data = await apiPost("/api/v1/auth/login", { email, password });
     setStoredToken(data.access_token);
 
     const me: AuthUser = await apiGet("/api/v1/auth/me");
     setUser(me);
     return me;
-  }, []);
+  }, [queryClient]);
 
   const loginWithToken = useCallback(async (token: string) => {
+    clearStoredToken();
+    queryClient.clear();
+    setUser(null);
+
     setStoredToken(token);
     const me: AuthUser = await apiGet("/api/v1/auth/me");
     setUser(me);
     return me;
-  }, []);
+  }, [queryClient]);
 
   const logout = useCallback(() => {
     clearStoredToken();
+    queryClient.clear();
     setUser(null);
-  }, []);
+  }, [queryClient]);
 
   const value = useMemo(
     () => ({
