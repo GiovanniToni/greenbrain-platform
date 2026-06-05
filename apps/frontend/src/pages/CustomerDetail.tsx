@@ -174,6 +174,7 @@ export default function CustomerDetail() {
   const [forceBusy, setForceBusy] = useState(false);
   const [passwordResetBusy, setPasswordResetBusy] = useState(false);
   const [passwordResetLink, setPasswordResetLink] = useState<PasswordResetLinkResponse | null>(null);
+  const [passwordResetCopied, setPasswordResetCopied] = useState(false);
 
   const load = useCallback(() => {
     if (!customerId) return;
@@ -280,6 +281,7 @@ export default function CustomerDetail() {
     setPasswordResetBusy(true);
     setActionMsg(null);
     setPasswordResetLink(null);
+    setPasswordResetCopied(false);
 
     try {
       const res = await createCustomerPasswordResetLink(item.customer_id);
@@ -297,6 +299,8 @@ export default function CustomerDetail() {
 
     try {
       await navigator.clipboard.writeText(passwordResetLink.reset_url);
+      setPasswordResetCopied(true);
+      window.setTimeout(() => setPasswordResetCopied(false), 1800);
       setActionMsg({ type: "ok", text: "Link reset password copiato negli appunti" });
     } catch {
       setActionMsg({ type: "err", text: "Impossibile copiare il link automaticamente. Copialo manualmente dal campo." });
@@ -554,8 +558,12 @@ export default function CustomerDetail() {
                     <code style={resetLinkCode}>{passwordResetLink.reset_url}</code>
             
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, alignItems: "center" }}>
-                      <button onClick={handleCopyPasswordResetLink} style={btn}>
-                        Copia link
+                      <button
+                        onClick={handleCopyPasswordResetLink}
+                        style={passwordResetCopied ? btnCopied : btn}
+                        title={passwordResetCopied ? "Link copiato" : "Copia link reset password"}
+                      >
+                        {passwordResetCopied ? "✓ Copiato" : "📋 Copia link"}
                       </button>
             
                       {passwordResetLink.token_hint && (
@@ -1164,6 +1172,16 @@ const resetLinkCode: React.CSSProperties = {
   padding: "8px 10px",
   wordBreak: "break-all",
   whiteSpace: "normal",
+};
+
+const btnCopied: React.CSSProperties = {
+  ...btn,
+  background: "#dcfce7",
+  borderColor: "#86efac",
+  color: "#166534",
+  transform: "translateY(-1px) scale(1.02)",
+  boxShadow: "0 6px 14px rgba(22, 101, 52, 0.16)",
+  transition: "all 160ms ease",
 };
 
 const feedbackOk: React.CSSProperties = {
