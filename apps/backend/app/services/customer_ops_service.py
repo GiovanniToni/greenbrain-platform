@@ -18,6 +18,7 @@ from app.services.customer_billing_service import (
 )
 from app.services.customer_delivery_service import prepare_delivery_plan, get_latest_available_release_version
 from app.services.customer_provisioning_service import assign_release as provisioning_assign_release
+from app.services.password_reset_service import create_password_reset_for_email
 
 logger = logging.getLogger(__name__)
 
@@ -192,6 +193,71 @@ def trigger_subscription_activation(customer_id: str) -> Dict[str, Any]:
 
 def force_activate_subscription(customer_id: str) -> Dict[str, Any]:
     return _force_activate(customer_id)
+
+
+def generate_customer_password_reset_link(
+    db,
+    customer_id: str,
+    *,
+    created_by_user_id: str | None = None,
+    frontend_base_url: str = "https://www.greenbrain.it",
+    expires_minutes: int = 60,
+) -> Dict[str, Any]:
+    """
+    Generate an admin-created password reset link for a customer's portal user.
+
+    Safety:
+      - Does not change the password.
+      - Stores only token_hash in DB through password_reset_service.
+      - Returns the raw token only embedded in reset_url for immediate admin copy.
+      - Does not expose token_hash.
+    """
+    customer = get_customer_company_detail(customer_id)
+    if not customer:
+        raise ValueError(f"customer_not_found:{customer_id}")
+
+    email = (
+        customer.get("portal_user_email")
+        or customer.get("contact_email")
+        or customer.get("billing_email")
+        or ""
+    ).strip().lower()
+    if not email:
+        raise ValueError(f"customer_password_reset_email_missing:{customer_id}")
+
+    created = create_password_reset_for_email(
+        db,
+        email=email,
+        source="admin",
+        frontend_base_url=frontend_base_url,
+        created_by_user_id=created_by_user_id,
+        expires_minutes=expires_minutes,
+    )
+
+    if created.get("status") != "created" or not created.get("reset_url"):
+        raise ValueError(f"customer_password_reset_user_not_found:{email}")
+
+    expires_at = created.get("expires_at")
+    if hasattr(expires_at, "isoformat"):
+        expires_at = expires_at.isoformat()
+
+    return {
+        "status": "created",
+        "customer_id": customer_id,
+        "tenant_code": customer.get("tenant_code"),
+        "company_name": customer.get("company_name"),
+        "email": created.get("email"),
+        "reset_url": created.get("reset_url"),
+        "token_hint": created.get("token_hint"),
+        "expires_at": expires_at,
+        "expires_minutes": expires_minutes,
+        "source": "admin",
+        "safety": {
+            "token_hash_exposed": False,
+            "password_changed": False,
+            "raw_token_stored": False,
+        },
+    }
 
 
 def request_cancellation(customer_id: str) -> Dict[str, Any]:

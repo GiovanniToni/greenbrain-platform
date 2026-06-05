@@ -3,10 +3,12 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from app.api.v1.auth import require_internal_admin
+from app.db.session import get_db
 from app.schemas.customer_ops import CustomerCompanyCreate
 from app.services.customer_delivery_service import (
     generate_test_bundle_for_customer,
@@ -18,6 +20,7 @@ from app.services.customer_ops_service import (
     confirm_customer_setup_slot,
     create_customer,
     force_activate_subscription,
+    generate_customer_password_reset_link,
     get_customer_ops_item,
     list_customers,
     request_cancellation,
@@ -43,6 +46,20 @@ class OnboardingStatusUpdate(BaseModel):
 class ConfirmSlotPayload(BaseModel):
     setup_slot_scheduled_for: str
     notes: Optional[str] = None
+
+
+class PasswordResetLinkResponse(BaseModel):
+    status: str
+    customer_id: str
+    tenant_code: Optional[str] = None
+    company_name: Optional[str] = None
+    email: str
+    reset_url: str
+    token_hint: Optional[str] = None
+    expires_at: Optional[str] = None
+    expires_minutes: int
+    source: str
+    safety: dict
 
 
 @router.get("/customers")
@@ -144,6 +161,29 @@ def confirm_slot_route(
         raise HTTPException(status_code=500, detail=f"confirm_slot_failed: {exc}")
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"confirm_slot_failed: {exc}")
+
+
+@router.post("/customers/{customer_id}/password-reset-link", response_model=PasswordResetLinkResponse)
+def create_customer_password_reset_link_route(
+    customer_id: str,
+    current_user: dict = Depends(require_internal_admin),
+    db: Session = Depends(get_db),
+):
+    try:
+        return generate_customer_password_reset_link(
+            db,
+            customer_id,
+            created_by_user_id=str(current_user.get("id") or ""),
+        )
+    except ValueError as exc:
+        msg = str(exc)
+        if "customer_not_found" in msg:
+            raise HTTPException(status_code=404, detail=msg)
+        if "customer_password_reset_email_missing" in msg or "customer_password_reset_user_not_found" in msg:
+            raise HTTPException(status_code=409, detail=msg)
+        raise HTTPException(status_code=400, detail=msg)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"customer_password_reset_link_failed: {exc}")
 
 
 @router.post("/customers/{customer_id}/request-cancellation")
