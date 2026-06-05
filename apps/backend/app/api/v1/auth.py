@@ -25,6 +25,10 @@ from app.db.users import (
     update_user_password_hash,
 )
 from app.repositories.customer_portal_repository import get_runtime_connection_by_tenant_code
+from app.services.password_reset_service import (
+    create_password_reset_for_email,
+    reset_password_with_token,
+)
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -86,6 +90,29 @@ class ChangePasswordRequest(BaseModel):
 
 
 class PasswordChangeResponse(BaseModel):
+    ok: bool = True
+    email: str
+    password_changed_at: datetime | None = None
+    password_version: int | None = None
+    password_last_sync_status: str | None = None
+    password_sync_required_at: datetime | None = None
+
+
+class PasswordResetRequest(BaseModel):
+    email: str
+
+
+class PasswordResetRequestResponse(BaseModel):
+    ok: bool = True
+    message: str
+
+
+class PasswordResetConfirmRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+class PasswordResetConfirmResponse(BaseModel):
     ok: bool = True
     email: str
     password_changed_at: datetime | None = None
@@ -217,6 +244,98 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
         expires_in=settings.jwt_expire_minutes * 60,
     )
 
+
+
+@router.post("/request-password-reset", response_model=PasswordResetRequestResponse)
+def request_password_reset(
+    body: PasswordResetRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    email = (body.email or "").lower().strip()
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="email_required",
+        )
+
+    # Always return a generic response to avoid user enumeration.
+    # Until email delivery is wired, the reset link can be generated via the dev/admin utility.
+    try:
+        create_password_reset_for_email(
+            db,
+            email=email,
+            source="self_service",
+            frontend_base_url=None,
+            requested_ip=request.client.host if request.client else None,
+            requested_user_agent=request.headers.get("user-agent"),
+        )
+    except ValueError as exc:
+        if str(exc) == "email_required":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="email_required",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="password_reset_request_invalid",
+        )
+
+    return PasswordResetRequestResponse(
+        message="Se l'email è registrata, potrai ricevere istruzioni per reimpostare la password.",
+    )
+
+
+@router.post("/reset-password", response_model=PasswordResetConfirmResponse)
+def reset_password(
+    body: PasswordResetConfirmRequest,
+    db: Session = Depends(get_db),
+):
+    token = (body.token or "").strip()
+    new_password = body.new_password or ""
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="reset_token_required",
+        )
+
+    try:
+        updated = reset_password_with_token(
+            db,
+            raw_token=token,
+            new_password=new_password,
+        )
+    except ValueError as exc:
+        detail = str(exc)
+        if detail in {
+            "reset_token_required",
+            "new_password_too_short",
+            "new_password_same_as_current",
+            "password_reset_token_invalid_or_expired",
+            "password_reset_token_user_missing",
+        }:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=detail,
+            )
+        if detail == "password_reset_user_inactive":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=detail,
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="password_reset_failed",
+        )
+
+    return PasswordResetConfirmResponse(
+        email=updated["email"],
+        password_changed_at=updated.get("password_changed_at"),
+        password_version=updated.get("password_version"),
+        password_last_sync_status=updated.get("password_last_sync_status"),
+        password_sync_required_at=updated.get("password_sync_required_at"),
+    )
 
 
 @router.post("/change-password", response_model=PasswordChangeResponse)
