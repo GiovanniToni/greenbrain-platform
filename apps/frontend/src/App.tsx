@@ -10,6 +10,8 @@ import { ProtectedRoute, CustomerRoute, InternalAdminRoute } from "@/components/
 
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
 import PricingPage from "@/pages/PricingPage";
 import CustomerPortalDashboard from "@/pages/CustomerPortalDashboard";
 import LocalPasswordSync from "@/pages/LocalPasswordSync";
@@ -37,6 +39,8 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/pricing" element={<PricingPage />} />
             <Route path="/customer-portal" element={<Navigate to="/account" replace />} />
             <Route path="/signup" element={<Signup />} />

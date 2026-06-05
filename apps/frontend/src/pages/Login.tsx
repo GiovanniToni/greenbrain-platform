@@ -228,7 +228,10 @@ export default function Login() {
         </form>
 
         <p className="text-xs text-muted-foreground text-center mt-6">
-          Hai dimenticato la password? Contatta l&apos;amministratore.
+          Hai dimenticato la password?{" "}
+          <Link to="/forgot-password" className="text-primary hover:underline">
+            Reimpostala qui
+          </Link>
         </p>
       </Card>
     </div>
