@@ -97,6 +97,30 @@ export type SendReleaseResponse = {
   delivery_status: string;
 };
 
+export type PasswordResetLinkResponse = {
+  status: string;
+  customer_id: string;
+  tenant_code?: string | null;
+  company_name?: string | null;
+  email: string;
+  reset_url: string;
+  token_hint?: string | null;
+  expires_at?: string | null;
+  expires_minutes: number;
+  source: string;
+  safety: {
+    token_hash_exposed: boolean;
+    password_changed: boolean;
+    raw_token_stored: boolean;
+  };
+};
+
+export async function createCustomerPasswordResetLink(
+  customer_id: string,
+): Promise<PasswordResetLinkResponse> {
+  return apiPost(`/api/v1/customer-ops/customers/${customer_id}/password-reset-link`, {});
+}
+
 export async function listCustomers(limit = 100): Promise<{ items: CustomerOpsItem[] }> {
   return apiGet(`/api/v1/customer-ops/customers?limit=${limit}`);
 }

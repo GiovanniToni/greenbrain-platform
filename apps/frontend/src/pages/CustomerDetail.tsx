@@ -9,8 +9,10 @@ import {
   updateCustomerOnboardingStatus,
   activateCustomerSubscription,
   forceActivateCustomerSubscription,
+  createCustomerPasswordResetLink,
   DELIVERY_STATUS_LABELS,
   type CustomerOpsItem,
+  type PasswordResetLinkResponse,
 } from "@/lib/customerOpsApi";
 import { planDisplayName, planDisplayPrice } from "@/lib/planConfig";
 import { LATEST_RELEASE, customerHealth } from "@/lib/opsConfig";
@@ -170,6 +172,8 @@ export default function CustomerDetail() {
   const [forceConfirmed, setForceConfirmed] = useState(false);
   const [forceText, setForceText] = useState("");
   const [forceBusy, setForceBusy] = useState(false);
+  const [passwordResetBusy, setPasswordResetBusy] = useState(false);
+  const [passwordResetLink, setPasswordResetLink] = useState<PasswordResetLinkResponse | null>(null);
 
   const load = useCallback(() => {
     if (!customerId) return;
@@ -269,6 +273,35 @@ export default function CustomerDetail() {
     (item.delivery_install_status === "installed"
       ? (item.delivery_assigned_release_version || null)
       : null);
+
+  async function handleGeneratePasswordResetLink() {
+    if (!item) return;
+
+    setPasswordResetBusy(true);
+    setActionMsg(null);
+    setPasswordResetLink(null);
+
+    try {
+      const res = await createCustomerPasswordResetLink(item.customer_id);
+      setPasswordResetLink(res);
+      setActionMsg({ type: "ok", text: `Link reset password generato per ${res.email}` });
+    } catch (err) {
+      setActionMsg({ type: "err", text: err instanceof Error ? err.message : "Errore generazione link reset password" });
+    } finally {
+      setPasswordResetBusy(false);
+    }
+  }
+
+  async function handleCopyPasswordResetLink() {
+    if (!passwordResetLink?.reset_url) return;
+
+    try {
+      await navigator.clipboard.writeText(passwordResetLink.reset_url);
+      setActionMsg({ type: "ok", text: "Link reset password copiato negli appunti" });
+    } catch {
+      setActionMsg({ type: "err", text: "Impossibile copiare il link automaticamente. Copialo manualmente dal campo." });
+    }
+  }
 
   async function handleForceActivate() {
     setForceBusy(true);
@@ -487,6 +520,54 @@ export default function CustomerDetail() {
             <Row label="Customer ID" value={<code style={{ fontSize: 11 }}>{item.customer_id}</code>} />
             <Row label="Creato il" value={fmtDt(item.created_at)} />
             <Row label="Aggiornato il" value={fmtDt(item.updated_at, "datetime")} />
+
+            
+            <div style={{ ...inlineActionBox, gridColumn: "1 / -1" }}>
+              <div style={inlineActionTitle}>Sicurezza account</div>
+              <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
+                <div style={{ fontSize: 11, color: "#6b7280", lineHeight: 1.4 }}>
+                  Genera un link temporaneo per reimpostare la password dell&apos;utente cliente. Il link non cambia la password finché il cliente non completa il reset.
+                </div>
+            
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, alignItems: "center" }}>
+                  <button
+                    onClick={handleGeneratePasswordResetLink}
+                    disabled={busy || passwordResetBusy}
+                    style={busy || passwordResetBusy ? btnDisabled : btnPrimary}
+                  >
+                    {passwordResetBusy ? "Generazione..." : "Genera link reset password"}
+                  </button>
+            
+                  {passwordResetLink?.expires_at && (
+                    <span style={{ fontSize: 11, color: "#6b7280" }}>
+                      Valido fino al {fmtDt(passwordResetLink.expires_at, "datetime")}
+                    </span>
+                  )}
+                </div>
+            
+                {passwordResetLink?.reset_url && (
+                  <div style={resetLinkBox}>
+                    <div style={{ fontSize: 10, fontWeight: 800, color: "#374151", textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>
+                      Link generato per {passwordResetLink.email}
+                    </div>
+            
+                    <code style={resetLinkCode}>{passwordResetLink.reset_url}</code>
+            
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, alignItems: "center" }}>
+                      <button onClick={handleCopyPasswordResetLink} style={btn}>
+                        Copia link
+                      </button>
+            
+                      {passwordResetLink.token_hint && (
+                        <span style={{ fontSize: 11, color: "#6b7280" }}>
+                          Hint token: {passwordResetLink.token_hint}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </Section>
 
           <Section title="Pagamento e abbonamento">
@@ -1061,6 +1142,28 @@ const alignedBadge: React.CSSProperties = {
   border: "1px solid #86efac",
   borderRadius: 5,
   padding: "3px 10px",
+};
+
+const resetLinkBox: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+  borderRadius: 8,
+  padding: "10px 12px",
+};
+
+const resetLinkCode: React.CSSProperties = {
+  display: "block",
+  fontSize: 11,
+  color: "#111827",
+  background: "#ffffff",
+  border: "1px solid #e5e7eb",
+  borderRadius: 6,
+  padding: "8px 10px",
+  wordBreak: "break-all",
+  whiteSpace: "normal",
 };
 
 const feedbackOk: React.CSSProperties = {
