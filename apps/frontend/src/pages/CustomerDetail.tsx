@@ -637,7 +637,7 @@ export default function CustomerDetail() {
                           </span>
                         )}
 
-                        {passwordResetCopiedOnce && item.active_password_reset_alert && item.active_password_reset_alert.status !== "email_sent" && (
+                        {passwordResetCopiedOnce && item.active_password_reset_alert?.status !== "email_sent" && (
                           <button
                             onClick={handleMarkPasswordResetLinkSent}
                             disabled={busy || passwordResetBusy || passwordResetLinkSentBusy}

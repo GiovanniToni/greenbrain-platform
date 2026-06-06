@@ -297,10 +297,11 @@ def mark_customer_password_reset_alert_link_sent(
 
     db = SessionLocal()
     try:
-        updated_count = mark_password_reset_self_service_alert_link_sent_by_admin(
+        alert = mark_password_reset_self_service_alert_link_sent_by_admin(
             db,
             customer_id=customer_id,
             email=email,
+            tenant_code=customer.get("tenant_code"),
             admin_user_id=admin_user_id,
             details={
                 "customer_id": customer_id,
@@ -312,10 +313,11 @@ def mark_customer_password_reset_alert_link_sent(
         db.close()
 
     return {
-        "status": "email_sent" if updated_count > 0 else "no_active_alert",
+        "status": alert.get("status") or "email_sent",
         "customer_id": customer_id,
         "email": email,
-        "updated_count": updated_count,
+        "alert_id": str(alert.get("id")) if alert.get("id") else None,
+        "updated_count": 1,
     }
 
 

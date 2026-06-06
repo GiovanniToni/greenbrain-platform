@@ -316,19 +316,20 @@ def mark_password_reset_self_service_alert_link_sent_by_admin(
     *,
     customer_id: str,
     email: str,
+    tenant_code: str | None = None,
     admin_user_id: str | None = None,
     details: dict[str, Any] | None = None,
-) -> int:
+) -> Dict[str, Any]:
     """
-    Mark an active self-service password reset alert as manually sent by admin.
+    Mark a password reset alert as manually sent by admin.
 
-    Important: this does NOT resolve the alert. The alert remains active with
-    status='email_sent' until the customer actually completes the password reset,
-    at which point resolve_password_reset_self_service_alert(...) closes it.
+    If an active alert already exists, update it to email_sent.
+    If no active alert exists, create a new admin_manual email_sent alert.
+    The alert remains active until the customer actually completes the reset.
     """
     clean_email = (email or "").lower().strip()
     if not clean_email:
-        return 0
+        raise ValueError("email_required")
 
     merged_details = {
         "link_sent_by": "admin_manual",
@@ -337,28 +338,15 @@ def mark_password_reset_self_service_alert_link_sent_by_admin(
         **(details or {}),
     }
 
-    result = db.execute(
-        text("""
-            UPDATE public.greenbrain_customer_security_alerts
-            SET
-              status = 'email_sent',
-              severity = 'info',
-              title = 'Link reset password inviato',
-              message = 'L''admin ha inviato manualmente il link di reset. In attesa che il cliente completi il cambio password.',
-              last_seen_at = now(),
-              resolved_at = NULL,
-              details = details || CAST(:details AS jsonb)
-            WHERE customer_id = CAST(:customer_id AS uuid)
-              AND lower(email) = lower(:email)
-              AND alert_type = 'password_reset_self_service'
-              AND resolved_at IS NULL
-              AND status IN ('open', 'pending_admin_action', 'email_sent', 'email_failed', 'expired', 'rate_limited')
-        """),
-        {
-            "customer_id": str(customer_id),
-            "email": clean_email,
-            "details": _details_json(merged_details),
-        },
+    return upsert_password_reset_self_service_alert(
+        db,
+        email=clean_email,
+        customer_id=customer_id,
+        tenant_code=tenant_code,
+        status="email_sent",
+        severity="info",
+        title="Link reset password inviato",
+        message="L'admin ha inviato manualmente il link di reset. In attesa che il cliente completi il cambio password.",
+        source="admin_manual",
+        details=merged_details,
     )
-    db.commit()
-    return int(result.rowcount or 0)
