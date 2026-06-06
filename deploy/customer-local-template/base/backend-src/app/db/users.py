@@ -109,7 +109,7 @@ def record_password_event(
     email: str,
     tenant_code: str | None,
     event_type: str,
-    source: str = "local",
+    source: str = "cloud",
     status: str = "ok",
     password_version: int | None = None,
     details: dict[str, Any] | None = None,
@@ -143,13 +143,197 @@ def record_password_event(
     )
 
 
+def create_password_reset_token(
+    db: Session,
+    *,
+    user_id: str,
+    email: str,
+    token_hash: str,
+    source: str = "self_service",
+    expires_at: str,
+    created_by_user_id: str | None = None,
+    requested_ip: str | None = None,
+    requested_user_agent: str | None = None,
+    details: dict[str, Any] | None = None,
+) -> dict:
+    clean_email = email.lower().strip()
+    if not user_id:
+        raise ValueError("user_id_required")
+    if not clean_email:
+        raise ValueError("email_required")
+    if not token_hash:
+        raise ValueError("token_hash_required")
+    if source not in {"self_service", "admin", "dev"}:
+        raise ValueError("invalid_reset_token_source")
+    if not expires_at:
+        raise ValueError("expires_at_required")
+
+    # Only one active reset token per user/email. Old active tokens are revoked
+    # before creating the new one. Raw tokens are never stored here.
+    db.execute(
+        text("""
+            UPDATE public.greenbrain_user_password_reset_tokens
+            SET
+              status = 'revoked',
+              revoked_at = now(),
+              details = details || CAST(:revoke_details AS jsonb)
+            WHERE status = 'active'
+              AND used_at IS NULL
+              AND revoked_at IS NULL
+              AND (
+                user_id = CAST(:user_id AS uuid)
+                OR lower(email) = lower(:email)
+              )
+        """),
+        {
+            "user_id": user_id,
+            "email": clean_email,
+            "revoke_details": json.dumps(
+                {
+                    "reason": "superseded_by_new_reset_token",
+                    "new_source": source,
+                },
+                ensure_ascii=False,
+            ),
+        },
+    )
+
+    row = db.execute(
+        text("""
+            INSERT INTO public.greenbrain_user_password_reset_tokens
+              (
+                user_id,
+                email,
+                token_hash,
+                source,
+                status,
+                expires_at,
+                created_by_user_id,
+                requested_ip,
+                requested_user_agent,
+                details
+              )
+            VALUES
+              (
+                CAST(:user_id AS uuid),
+                :email,
+                :token_hash,
+                :source,
+                'active',
+                CAST(:expires_at AS timestamptz),
+                CAST(NULLIF(:created_by_user_id, '') AS uuid),
+                :requested_ip,
+                :requested_user_agent,
+                CAST(:details AS jsonb)
+              )
+            RETURNING *
+        """),
+        {
+            "user_id": user_id,
+            "email": clean_email,
+            "token_hash": token_hash,
+            "source": source,
+            "expires_at": expires_at,
+            "created_by_user_id": created_by_user_id or "",
+            "requested_ip": requested_ip,
+            "requested_user_agent": requested_user_agent,
+            "details": json.dumps(details or {}, ensure_ascii=False),
+        },
+    ).mappings().first()
+
+    if not row:
+        raise ValueError("password_reset_token_not_created")
+
+    db.commit()
+    return dict(row)
+
+
+def get_active_password_reset_token_by_hash(db: Session, token_hash: str) -> Optional[dict]:
+    if not token_hash:
+        return None
+
+    row = db.execute(
+        text("""
+            SELECT
+              t.*,
+              u.email AS user_email,
+              u.is_active AS user_is_active,
+              u.hashed_password AS user_hashed_password,
+              u.tenant_code AS user_tenant_code
+            FROM public.greenbrain_user_password_reset_tokens t
+            LEFT JOIN public.greenbrain_users u
+              ON u.id = t.user_id
+            WHERE t.token_hash = :token_hash
+              AND t.status = 'active'
+              AND t.used_at IS NULL
+              AND t.revoked_at IS NULL
+              AND t.expires_at > now()
+            LIMIT 1
+        """),
+        {"token_hash": token_hash},
+    ).mappings().first()
+
+    return dict(row) if row else None
+
+
+def mark_password_reset_token_used(
+    db: Session,
+    *,
+    token_id: str,
+    details: dict[str, Any] | None = None,
+) -> dict:
+    if not token_id:
+        raise ValueError("token_id_required")
+
+    row = db.execute(
+        text("""
+            UPDATE public.greenbrain_user_password_reset_tokens
+            SET
+              status = 'used',
+              used_at = now(),
+              details = details || CAST(:details AS jsonb)
+            WHERE id = CAST(:token_id AS uuid)
+              AND status = 'active'
+              AND used_at IS NULL
+              AND revoked_at IS NULL
+              AND expires_at > now()
+            RETURNING *
+        """),
+        {
+            "token_id": token_id,
+            "details": json.dumps(details or {}, ensure_ascii=False),
+        },
+    ).mappings().first()
+
+    if not row:
+        raise ValueError("password_reset_token_not_active")
+
+    db.commit()
+    return dict(row)
+
+
+def expire_password_reset_tokens(db: Session) -> int:
+    result = db.execute(
+        text("""
+            UPDATE public.greenbrain_user_password_reset_tokens
+            SET status = 'expired'
+            WHERE status = 'active'
+              AND used_at IS NULL
+              AND revoked_at IS NULL
+              AND expires_at <= now()
+        """)
+    )
+    db.commit()
+    return int(result.rowcount or 0)
+
+
 def update_user_password_hash(
     db: Session,
     *,
     user_id: str,
     hashed_password: str,
     changed_by_user_id: str | None = None,
-    source: str = "local",
+    source: str = "cloud",
 ) -> dict:
     row = db.execute(
         text("""
@@ -305,4 +489,3 @@ def apply_cloud_password_sync(
 
     db.commit()
     return updated
-

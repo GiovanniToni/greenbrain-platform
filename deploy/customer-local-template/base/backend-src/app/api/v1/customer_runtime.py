@@ -20,6 +20,8 @@ from app.services.customer_runtime_service import (
     get_status,
     heartbeat_runtime,
     register_runtime,
+    get_pending_password_sync,
+    ack_password_sync,
 )
 
 router = APIRouter(prefix="/api/v1/customer-runtime", tags=["customer-runtime"])
@@ -50,16 +52,38 @@ class RuntimeRegisterPayload(BaseModel):
     installation_label: str | None = "default"
 
 
+class PasswordSyncPendingPayload(BaseModel):
+    tenant_code: str
+    installation_id: str
+    provisioning_token: str | None = None
+
+
+class PasswordSyncAckPayload(BaseModel):
+    tenant_code: str
+    installation_id: str
+    user_id: str
+    password_version: int
+    status: str
+    error: str | None = None
+    provisioning_token: str | None = None
+
+
 class RuntimeHeartbeatPayload(BaseModel):
     tenant_code: str
     installation_id: str
+    tenant_name: str | None = None
     version: str | None = None
+    local_backend_url: str | None = None
+    public_backend_url: str | None = None
+    tunnel_public_host: str | None = None
+    connection_mode: str | None = "reverse-tunnel"
+    data_mode: str | None = "local-db-via-tunnel"
+    sync_enabled: bool | None = False
+    sync_frequency_minutes: int | None = None
+    runtime_health: str | None = None
     runtime: Dict[str, Any] = Field(default_factory=dict)
     last_etl: str | None = None
     last_sync_status: str | None = None
-    connection_mode: str | None = "reverse-tunnel"
-
-
 
 
 def _runtime_env_value(name: str) -> str:
@@ -84,7 +108,7 @@ def _post_json(url: str, payload: dict, token: str | None = None, timeout: int =
     headers = {
         "Content-Type": "application/json",
         "Accept": "application/json",
-        "User-Agent": "GreenBrainCustomerLocal/0.1.133 runtime-password-sync",
+        "User-Agent": f"GreenBrainCustomerLocal/{_runtime_env_value('GREENBRAIN_IMAGE_TAG') or _runtime_env_value('VERSION') or 'unknown'} runtime-password-sync",
     }
     if token:
         headers["Authorization"] = f"Bearer {token}"
@@ -166,6 +190,44 @@ def register_runtime_route(
         raise HTTPException(status_code=500, detail=f"runtime_register_failed: {exc}")
 
 
+@router.post("/password-sync/pending")
+def password_sync_pending_route(
+    payload: PasswordSyncPendingPayload,
+    authorization: str | None = Header(default=None),
+):
+    try:
+        token = None
+        if authorization and authorization.lower().startswith("bearer "):
+            token = authorization[7:].strip()
+        return get_pending_password_sync(payload.model_dump(), runtime_token=token)
+    except RuntimeError as exc:
+        msg = str(exc)
+        if msg.endswith("_missing") or msg.endswith("_invalid") or msg.endswith("_mismatch") or msg.endswith("_expired"):
+            raise HTTPException(status_code=400, detail=msg)
+        raise HTTPException(status_code=500, detail=f"password_sync_pending_failed: {exc}")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"password_sync_pending_failed: {exc}")
+
+
+@router.post("/password-sync/ack")
+def password_sync_ack_route(
+    payload: PasswordSyncAckPayload,
+    authorization: str | None = Header(default=None),
+):
+    try:
+        token = None
+        if authorization and authorization.lower().startswith("bearer "):
+            token = authorization[7:].strip()
+        return ack_password_sync(payload.model_dump(), runtime_token=token)
+    except RuntimeError as exc:
+        msg = str(exc)
+        if msg.endswith("_missing") or msg.endswith("_invalid") or msg.endswith("_mismatch") or msg.endswith("_expired"):
+            raise HTTPException(status_code=400, detail=msg)
+        raise HTTPException(status_code=500, detail=f"password_sync_ack_failed: {exc}")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"password_sync_ack_failed: {exc}")
+
+
 @router.post("/heartbeat")
 def heartbeat_runtime_route(payload: RuntimeHeartbeatPayload):
     try:
@@ -185,6 +247,7 @@ def runtime_status_route(tenant_code: str):
         return get_status(tenant_code)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"runtime_status_failed: {exc}")
+
 
 @router.post("/password-sync/run-local")
 def run_local_password_sync_route(
@@ -320,4 +383,3 @@ def run_local_password_sync_route(
         "ack_http_status": ack_status,
         "ack_status": ack.get("status"),
     }
-

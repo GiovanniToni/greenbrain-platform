@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from app.db.session import SessionLocal
 from app.integrations.supabase_client import get_supabase_client
+from app.repositories.customer_security_alerts_repository import (
+    get_active_password_reset_alert_for_customer,
+    list_active_security_alerts_for_customer,
+)
 
 
 _COMPANY_WITH_DELIVERY_SELECT = """
@@ -56,14 +61,62 @@ _COMPANY_WITH_DELIVERY_SELECT = """
 """
 
 
-def _map_row_to_ops_item(row: Dict[str, Any]) -> Dict[str, Any]:
+_RUNTIME_CONNECTION_SELECT = """
+    tenant_code,
+    runtime_health,
+    installation_id,
+    public_backend_url,
+    local_backend_url,
+    local_agent_version,
+    connection_mode,
+    last_heartbeat_at,
+    last_sync_status,
+    last_sync_at
+"""
+
+
+def _derive_installation_state(item: Dict[str, Any]) -> Dict[str, Any]:
+    runtime_status = (item.get("runtime_connection_status") or "").strip().lower()
+    installation_id = item.get("latest_installation_id")
+    heartbeat = item.get("last_runtime_heartbeat_at")
+    downloaded = bool(item.get("last_downloaded_at"))
+
+    platform_ready = bool(runtime_status == "healthy" and installation_id and heartbeat)
+
+    if platform_ready:
+        status = "healthy"
+        label = "Piattaforma attiva"
+        next_action = "open_platform"
+    elif installation_id:
+        status = "registered"
+        label = "Runtime registrato, in attesa stato healthy"
+        next_action = "check_runtime"
+    elif downloaded:
+        status = "downloaded"
+        label = "Bundle scaricato, installazione non ancora collegata"
+        next_action = "complete_installation"
+    else:
+        status = "not_started"
+        label = "Installazione non ancora iniziata"
+        next_action = "download_bundle"
+
+    return {
+        "platform_ready": platform_ready,
+        "installation_status": status,
+        "installation_status_label": label,
+        "installation_next_action": next_action,
+    }
+
+
+def _map_row_to_ops_item(row: Dict[str, Any], runtime: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Normalize a raw gb_customer_companies row (with embedded gb_customer_delivery) into a CustomerOpsItem dict."""
     delivery = row.get("gb_customer_delivery")
     if isinstance(delivery, list):
         delivery = delivery[0] if delivery else {}
     delivery = delivery or {}
+    runtime = runtime or {}
 
-    return {
+    item = {
         "customer_id": row.get("customer_id"),
         "tenant_code": row.get("tenant_code"),
         "company_name": row.get("company_name"),
@@ -77,6 +130,15 @@ def _map_row_to_ops_item(row: Dict[str, Any]) -> Dict[str, Any]:
         "db_integration_status": row.get("db_integration_status"),
         "assigned_release_version": row.get("assigned_release_version"),
         "installed_release_version": row.get("installed_release_version"),
+        "runtime_connection_status": runtime.get("runtime_health") or row.get("runtime_connection_status"),
+        "latest_installation_id": runtime.get("installation_id") or row.get("latest_installation_id"),
+        "last_runtime_heartbeat_at": runtime.get("last_heartbeat_at") or row.get("last_runtime_heartbeat_at"),
+        "runtime_public_backend_url": runtime.get("public_backend_url"),
+        "runtime_local_backend_url": runtime.get("local_backend_url"),
+        "runtime_local_agent_version": runtime.get("local_agent_version"),
+        "runtime_connection_mode": runtime.get("connection_mode"),
+        "runtime_last_sync_status": runtime.get("last_sync_status"),
+        "runtime_last_sync_at": runtime.get("last_sync_at"),
         "first_downloaded_release_version": row.get("first_downloaded_release_version"),
         "first_downloaded_at": row.get("first_downloaded_at"),
         "last_downloaded_release_version": row.get("last_downloaded_release_version"),
@@ -110,6 +172,24 @@ def _map_row_to_ops_item(row: Dict[str, Any]) -> Dict[str, Any]:
         "go_live_at": delivery.get("go_live_at"),
         "delivery_updated_at": delivery.get("updated_at"),
     }
+    item.update(_derive_installation_state(item))
+    return item
+
+
+def get_runtime_connections_by_tenant_codes(tenant_codes: List[str]) -> Dict[str, Dict[str, Any]]:
+    clean_codes = sorted({(code or "").strip() for code in tenant_codes if (code or "").strip()})
+    if not clean_codes:
+        return {}
+
+    client = get_supabase_client()
+    resp = (
+        client.table("greenbrain_runtime_connections")
+        .select(_RUNTIME_CONNECTION_SELECT)
+        .in_("tenant_code", clean_codes)
+        .execute()
+    )
+
+    return {row.get("tenant_code"): row for row in (resp.data or []) if row.get("tenant_code")}
 
 
 def list_customer_companies(limit: int = 100) -> List[Dict[str, Any]]:
@@ -121,7 +201,9 @@ def list_customer_companies(limit: int = 100) -> List[Dict[str, Any]]:
         .limit(limit)
         .execute()
     )
-    return [_map_row_to_ops_item(row) for row in (response.data or [])]
+    rows = response.data or []
+    runtime_map = get_runtime_connections_by_tenant_codes([row.get("tenant_code") for row in rows])
+    return [_map_row_to_ops_item(row, runtime_map.get(row.get("tenant_code"))) for row in rows]
 
 
 def get_customer_ops_item_by_id(customer_id: str) -> Optional[Dict[str, Any]]:
@@ -137,7 +219,35 @@ def get_customer_ops_item_by_id(customer_id: str) -> Optional[Dict[str, Any]]:
     rows = resp.data or []
     if not rows:
         return None
-    return _map_row_to_ops_item(rows[0])
+    row = rows[0]
+    runtime_map = get_runtime_connections_by_tenant_codes([row.get("tenant_code")])
+    item = _map_row_to_ops_item(row, runtime_map.get(row.get("tenant_code")))
+
+    item["active_security_alerts"] = []
+    item["active_password_reset_alert"] = None
+
+    db = SessionLocal()
+    try:
+        lookup_email = item.get("portal_user_email") or item.get("contact_email") or item.get("billing_email")
+        item["active_security_alerts"] = list_active_security_alerts_for_customer(
+            db,
+            customer_id=item.get("customer_id"),
+            email=lookup_email,
+        )
+        item["active_password_reset_alert"] = get_active_password_reset_alert_for_customer(
+            db,
+            customer_id=item.get("customer_id"),
+            email=lookup_email,
+        )
+    except Exception:
+        db.rollback()
+        # Ops detail must remain available even if the optional alert table/query fails.
+        item["active_security_alerts"] = []
+        item["active_password_reset_alert"] = None
+    finally:
+        db.close()
+
+    return item
 
 
 def get_customer_company_detail(customer_id: str) -> Optional[Dict[str, Any]]:

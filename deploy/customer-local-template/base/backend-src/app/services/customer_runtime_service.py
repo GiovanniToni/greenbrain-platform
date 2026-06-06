@@ -14,8 +14,11 @@ from app.repositories.customer_runtime_repository import (
     upsert_tenant,
     insert_runtime_token,
     get_active_runtime_token_by_hash,
+    get_runtime_token_by_hash,
     revoke_active_runtime_tokens_by_customer,
     mark_runtime_token_used,
+    get_pending_password_sync_for_runtime,
+    ack_password_sync_for_runtime,
 )
 
 
@@ -57,6 +60,37 @@ def create_provisioning_token(customer_id: str, tenant_code: str, expires_days: 
         "expires_at": expires_at.isoformat(),
         "row": row,
     }
+
+
+
+def _validate_runtime_sync_token(raw_token: str | None, tenant_code: str, installation_id: str) -> Dict[str, Any]:
+    if not raw_token:
+        raise RuntimeError("runtime_token_missing")
+
+    token_hash = _hash_token(raw_token.strip())
+    row = get_runtime_token_by_hash(token_hash)
+    if not row:
+        raise RuntimeError("runtime_token_invalid")
+
+    if (row.get("tenant_code") or "").strip() != tenant_code:
+        raise RuntimeError("runtime_token_tenant_mismatch")
+
+    status = (row.get("status") or "").strip().lower()
+    used_by_installation_id = (row.get("used_by_installation_id") or "").strip()
+
+    if status == "used" and used_by_installation_id and used_by_installation_id != installation_id:
+        raise RuntimeError("runtime_token_installation_mismatch")
+
+    if status not in {"active", "used"}:
+        raise RuntimeError("runtime_token_invalid_status")
+
+    expires_at = row.get("expires_at")
+    if expires_at:
+        exp = datetime.fromisoformat(str(expires_at).replace("Z", "+00:00"))
+        if exp < datetime.now(timezone.utc):
+            raise RuntimeError("runtime_token_expired")
+
+    return row
 
 
 def _validate_provisioning_token(raw_token: str | None, tenant_code: str, installation_id: str) -> Dict[str, Any]:
@@ -202,11 +236,42 @@ def heartbeat_runtime(payload: Dict[str, Any]) -> Dict[str, Any]:
         or "unknown"
     )
 
+    customer = get_customer_by_tenant_code(tenant_code)
+    customer_id = customer.get("customer_id") if customer else None
+
+    version = (payload.get("version") or payload.get("installed_release_version") or "").strip() or None
+    connection_mode = payload.get("connection_mode") or "reverse-tunnel"
+    data_mode = payload.get("data_mode") or "local-db-via-tunnel"
+    public_backend_url = (payload.get("public_backend_url") or "").strip() or None
+    local_backend_url = (payload.get("local_backend_url") or "").strip() or None
+    tunnel_public_host = (payload.get("tunnel_public_host") or "").strip() or None
+
+    tenant = upsert_tenant({
+        "tenant_code": tenant_code,
+        "tenant_name": payload.get("tenant_name") or (customer or {}).get("company_name") or tenant_code,
+        "access_mode": "local-runtime",
+        "status": "active",
+        "login_host": "www.greenbrain.it",
+        "app_host": tunnel_public_host or f"{tenant_code}.greenbrain.it",
+        "backend_base_url": public_backend_url,
+        "runtime_origin": "customer-local",
+        "data_mode": data_mode,
+        "notes": "Auto-created/updated from customer-local heartbeat",
+    })
+
     installation = upsert_runtime_installation({
         "installation_id": installation_id,
+        "customer_id": customer_id,
         "tenant_code": tenant_code,
-        "installed_release_version": payload.get("version"),
-        "local_agent_version": payload.get("version"),
+        "installation_label": payload.get("installation_label") or "default",
+        "runtime_mode": "customer-local",
+        "connection_mode": connection_mode,
+        "data_mode": data_mode,
+        "installed_release_version": version,
+        "local_agent_version": version,
+        "local_backend_url": local_backend_url,
+        "public_backend_url": public_backend_url,
+        "tunnel_public_host": tunnel_public_host,
         "runtime_health": runtime_health,
         "last_heartbeat_at": now_iso,
         "last_heartbeat_payload": payload,
@@ -216,30 +281,119 @@ def heartbeat_runtime(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     runtime_connection = upsert_runtime_connection({
         "tenant_code": tenant_code,
-        "connection_mode": payload.get("connection_mode") or "reverse-tunnel",
+        "connection_mode": connection_mode,
+        "sync_enabled": bool(payload.get("sync_enabled", False)),
+        "sync_frequency_minutes": payload.get("sync_frequency_minutes"),
         "last_sync_status": payload.get("last_sync_status"),
-        "local_agent_version": payload.get("version"),
+        "local_agent_version": version,
         "runtime_health": runtime_health,
         "installation_id": installation_id,
+        "public_backend_url": public_backend_url,
+        "local_backend_url": local_backend_url,
         "last_heartbeat_at": now_iso,
         "last_heartbeat_payload": payload,
+        "notes": "Runtime heartbeat",
     })
 
-    customer = get_customer_by_tenant_code(tenant_code)
-    if customer:
-        update_customer_runtime_fields(customer["customer_id"], {
+    if customer_id:
+        update_customer_runtime_fields(customer_id, {
             "runtime_connection_status": runtime_health,
             "latest_installation_id": installation_id,
             "last_runtime_heartbeat_at": now_iso,
-            "installed_release_version": payload.get("version"),
+            "installed_release_version": version,
+        })
+
+    actions: list[Dict[str, Any]] = []
+    pending_password_sync = get_pending_password_sync_for_runtime(tenant_code)
+    if pending_password_sync:
+        actions.append({
+            "type": "password_sync_required",
+            "password_version": pending_password_sync.get("password_version"),
+            "email": pending_password_sync.get("email"),
+            "required_at": pending_password_sync.get("password_sync_required_at"),
         })
 
     return {
         "status": "heartbeat_received",
+        "tenant": tenant,
         "installation": installation,
         "runtime_connection": runtime_connection,
+        "actions": actions,
     }
 
 
 def get_status(tenant_code: str) -> Dict[str, Any]:
     return get_runtime_status_by_tenant(tenant_code)
+
+
+
+def get_pending_password_sync(payload: Dict[str, Any], runtime_token: str | None = None) -> Dict[str, Any]:
+    tenant_code = (payload.get("tenant_code") or "").strip()
+    installation_id = (payload.get("installation_id") or "").strip()
+
+    if not tenant_code:
+        raise RuntimeError("tenant_code_missing")
+    if not installation_id:
+        raise RuntimeError("installation_id_missing")
+
+    _validate_runtime_sync_token(runtime_token or payload.get("provisioning_token"), tenant_code, installation_id)
+
+    pending = get_pending_password_sync_for_runtime(tenant_code)
+    if not pending:
+        return {
+            "status": "no_pending_password_sync",
+            "has_pending": False,
+            "tenant_code": tenant_code,
+            "installation_id": installation_id,
+        }
+
+    return {
+        "status": "pending_password_sync",
+        "has_pending": True,
+        "tenant_code": tenant_code,
+        "installation_id": installation_id,
+        "user_id": str(pending.get("id")),
+        "email": pending.get("email"),
+        "hashed_password": pending.get("hashed_password"),
+        "password_version": pending.get("password_version"),
+        "password_changed_at": pending.get("password_changed_at"),
+        "password_sync_required_at": pending.get("password_sync_required_at"),
+    }
+
+
+def ack_password_sync(payload: Dict[str, Any], runtime_token: str | None = None) -> Dict[str, Any]:
+    tenant_code = (payload.get("tenant_code") or "").strip()
+    installation_id = (payload.get("installation_id") or "").strip()
+    user_id = (payload.get("user_id") or "").strip()
+    status = (payload.get("status") or "").strip().lower()
+    error = payload.get("error")
+    password_version = payload.get("password_version")
+
+    if not tenant_code:
+        raise RuntimeError("tenant_code_missing")
+    if not installation_id:
+        raise RuntimeError("installation_id_missing")
+    if not user_id:
+        raise RuntimeError("user_id_missing")
+    if status not in {"synced", "failed"}:
+        raise RuntimeError("password_sync_status_invalid")
+    if password_version is None:
+        raise RuntimeError("password_version_missing")
+
+    _validate_runtime_sync_token(runtime_token or payload.get("provisioning_token"), tenant_code, installation_id)
+
+    result = ack_password_sync_for_runtime(
+        user_id=user_id,
+        tenant_code=tenant_code,
+        password_version=int(password_version),
+        status=status,
+        error=error,
+    )
+
+    return {
+        "status": f"password_sync_{status}",
+        "tenant_code": tenant_code,
+        "installation_id": installation_id,
+        "password_version": int(password_version),
+        "ack": result,
+    }

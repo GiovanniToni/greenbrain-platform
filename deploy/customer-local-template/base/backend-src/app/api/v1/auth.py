@@ -25,6 +25,15 @@ from app.db.users import (
     update_user_password_hash,
 )
 from app.repositories.customer_portal_repository import get_runtime_connection_by_tenant_code
+from app.repositories.customer_security_alerts_repository import (
+    find_customer_by_portal_email,
+    resolve_password_reset_self_service_alert,
+    upsert_password_reset_self_service_alert,
+)
+from app.services.password_reset_service import (
+    create_password_reset_for_email,
+    reset_password_with_token,
+)
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -86,6 +95,29 @@ class ChangePasswordRequest(BaseModel):
 
 
 class PasswordChangeResponse(BaseModel):
+    ok: bool = True
+    email: str
+    password_changed_at: datetime | None = None
+    password_version: int | None = None
+    password_last_sync_status: str | None = None
+    password_sync_required_at: datetime | None = None
+
+
+class PasswordResetRequest(BaseModel):
+    email: str
+
+
+class PasswordResetRequestResponse(BaseModel):
+    ok: bool = True
+    message: str
+
+
+class PasswordResetConfirmRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+class PasswordResetConfirmResponse(BaseModel):
     ok: bool = True
     email: str
     password_changed_at: datetime | None = None
@@ -219,18 +251,150 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
 
 
 
+@router.post("/request-password-reset", response_model=PasswordResetRequestResponse)
+def request_password_reset(
+    body: PasswordResetRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    email = (body.email or "").lower().strip()
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="email_required",
+        )
+
+    # Always return a generic response to avoid user enumeration.
+    # Current phase: self-service creates an internal admin alert; admin sends the reset link manually.
+    try:
+        created = create_password_reset_for_email(
+            db,
+            email=email,
+            source="self_service",
+            frontend_base_url=None,
+            requested_ip=request.client.host if request.client else None,
+            requested_user_agent=request.headers.get("user-agent"),
+        )
+
+        if created.get("status") == "created":
+            try:
+                customer = find_customer_by_portal_email(db, created.get("email") or email) or {}
+                upsert_password_reset_self_service_alert(
+                    db,
+                    email=created.get("email") or email,
+                    customer_id=customer.get("customer_id"),
+                    tenant_code=customer.get("tenant_code"),
+                    status="pending_admin_action",
+                    severity="warning",
+                    title="Reset password self-service richiesto",
+                    message=(
+                        "Il cliente ha richiesto il recupero password dal self-service. "
+                        "Genera un link di reset manuale dal box Sicurezza account e invialo al cliente."
+                    ),
+                    source="self_service",
+                    details={
+                        "requested_ip": request.client.host if request.client else None,
+                        "requested_user_agent": request.headers.get("user-agent"),
+                        "token_created": True,
+                        "expires_at": str(created.get("expires_at") or ""),
+                        "requires_admin_manual_link": True,
+                        "email_delivery": "not_configured",
+                    },
+                )
+            except Exception:
+                db.rollback()
+                # Public password-reset requests must stay generic and must not fail
+                # because an internal admin alert could not be created.
+                pass
+    except ValueError as exc:
+        if str(exc) == "email_required":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="email_required",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="password_reset_request_invalid",
+        )
+
+    return PasswordResetRequestResponse(
+        message="Se l'email è registrata, potrai ricevere istruzioni per reimpostare la password.",
+    )
+
+
+@router.post("/reset-password", response_model=PasswordResetConfirmResponse)
+def reset_password(
+    body: PasswordResetConfirmRequest,
+    db: Session = Depends(get_db),
+):
+    token = (body.token or "").strip()
+    new_password = body.new_password or ""
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="reset_token_required",
+        )
+
+    try:
+        updated = reset_password_with_token(
+            db,
+            raw_token=token,
+            new_password=new_password,
+        )
+    except ValueError as exc:
+        detail = str(exc)
+        if detail in {
+            "reset_token_required",
+            "new_password_too_short",
+            "new_password_same_as_current",
+            "password_reset_token_invalid_or_expired",
+            "password_reset_token_user_missing",
+        }:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=detail,
+            )
+        if detail == "password_reset_user_inactive":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=detail,
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="password_reset_failed",
+        )
+
+    try:
+        resolve_password_reset_self_service_alert(
+            db,
+            email=updated["email"],
+            details={
+                "resolved_by": "password_reset_completed",
+                "password_version": updated.get("password_version"),
+                "token_used_at": str(updated.get("token_used_at") or ""),
+            },
+        )
+    except Exception:
+        db.rollback()
+        # Password reset must not fail because an internal ops alert could not be resolved.
+        pass
+
+    return PasswordResetConfirmResponse(
+        email=updated["email"],
+        password_changed_at=updated.get("password_changed_at"),
+        password_version=updated.get("password_version"),
+        password_last_sync_status=updated.get("password_last_sync_status"),
+        password_sync_required_at=updated.get("password_sync_required_at"),
+    )
+
+
 @router.post("/change-password", response_model=PasswordChangeResponse)
 def change_password(
     body: ChangePasswordRequest,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if (settings.app_env or "").strip().lower() == "client-local":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="password_change_only_available_in_cloud_account",
-        )
-
     current_password = (body.current_password or "").strip()
     new_password = body.new_password or ""
 
@@ -263,7 +427,7 @@ def change_password(
         user_id=str(current_user["id"]),
         hashed_password=hash_password(new_password),
         changed_by_user_id=str(current_user["id"]),
-        source="local_api",
+        source="cloud_api",
     )
 
     return PasswordChangeResponse(
@@ -392,6 +556,10 @@ def me(user: dict = Depends(get_current_user)):
         )
     )
 
+    home_path = user.get("home_path")
+    if platform_enabled and role in {"customer_admin", "customer_user", "tenant_admin"} and (not home_path or home_path == "/account"):
+        home_path = "/dashboard"
+
     return UserResponse(
         id=str(user["id"]),
         email=user["email"],
@@ -399,7 +567,7 @@ def me(user: dict = Depends(get_current_user)):
         is_admin=bool(user["is_admin"]),
         tenant_code=user.get("tenant_code"),
         home_host=user.get("home_host"),
-        home_path=user.get("home_path"),
+        home_path=home_path,
         user_role=user.get("user_role"),
         platform_enabled=platform_enabled,
         runtime_health=runtime_health,

@@ -3,6 +3,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Tuple
+import hashlib
+import logging
+import os
 import secrets
 import shlex
 import shutil
@@ -23,6 +26,16 @@ from app.repositories.customer_portal_repository import update_customer_last_dow
 from app.services.customer_runtime_service import create_provisioning_token
 
 RELEASES_ROOT = Path("/opt/greenbrain-platform/releases/customer-local")
+CUSTOMER_BUNDLE_OUTPUT_DIR = Path(
+    os.getenv(
+        "GREENBRAIN_CUSTOMER_BUNDLE_OUTPUT_DIR",
+        "/opt/greenbrain-platform/runtime-reports/customer-bundles",
+    )
+)
+CUSTOMER_BUNDLE_RETENTION_DAYS = int(os.getenv("GREENBRAIN_CUSTOMER_BUNDLE_RETENTION_DAYS", "14"))
+CUSTOMER_BUNDLE_RETENTION_MIN_KEEP = int(os.getenv("GREENBRAIN_CUSTOMER_BUNDLE_RETENTION_MIN_KEEP", "20"))
+
+logger = logging.getLogger("greenbrain.customer_delivery")
 
 
 def _version_key(version_name: str) -> Tuple[int, ...]:
@@ -74,6 +87,85 @@ def _find_latest_release_bundle() -> Path | None:
 
 
 
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _write_sha256_file(path: Path) -> str:
+    sha256 = _sha256_file(path)
+    checksum_path = path.with_name(path.name + ".sha256")
+    checksum_path.write_text(f"{sha256}  {path.name}\n")
+    return sha256
+
+
+def _safe_customer_bundle_output_files() -> list[Path]:
+    if not CUSTOMER_BUNDLE_OUTPUT_DIR.exists():
+        return []
+
+    patterns = (
+        "GreenBrain-Installer-*.zip",
+        "GreenBrain-Installer-*.zip.sha256",
+        "customer-local-*.tar.gz",
+        "customer-local-*.tar.gz.sha256",
+    )
+
+    files: list[Path] = []
+    for pattern in patterns:
+        files.extend(
+            p for p in CUSTOMER_BUNDLE_OUTPUT_DIR.glob(pattern)
+            if p.is_file() and p.parent == CUSTOMER_BUNDLE_OUTPUT_DIR
+        )
+
+    return sorted(set(files), key=lambda item: item.stat().st_mtime, reverse=True)
+
+
+def cleanup_customer_bundle_output_dir() -> dict[str, int]:
+    CUSTOMER_BUNDLE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    files = _safe_customer_bundle_output_files()
+    now_ts = datetime.now(timezone.utc).timestamp()
+    max_age_seconds = max(CUSTOMER_BUNDLE_RETENTION_DAYS, 1) * 86400
+    min_keep = max(CUSTOMER_BUNDLE_RETENTION_MIN_KEEP, 0)
+
+    removed = 0
+    kept = 0
+
+    for idx, file_path in enumerate(files):
+        age_seconds = now_ts - file_path.stat().st_mtime
+        keep_by_count = idx < min_keep
+        keep_by_age = age_seconds <= max_age_seconds
+
+        if keep_by_count or keep_by_age:
+            kept += 1
+            continue
+
+        try:
+            file_path.unlink()
+            removed += 1
+        except OSError as exc:
+            logging.getLogger("uvicorn.error").warning(
+                "customer_bundle_cleanup_failed path=%s error=%s",
+                str(file_path),
+                exc,
+            )
+
+    if removed:
+        logging.getLogger("uvicorn.error").warning(
+            "customer_bundle_cleanup removed=%s kept=%s retention_days=%s min_keep=%s dir=%s",
+            removed,
+            kept,
+            CUSTOMER_BUNDLE_RETENTION_DAYS,
+            min_keep,
+            str(CUSTOMER_BUNDLE_OUTPUT_DIR),
+        )
+
+    return {"removed": removed, "kept": kept}
+
+
 def _extract_release_version_from_bundle_path(bundle_path: Path) -> str | None:
     name = bundle_path.name.strip()
     prefix = "customer-local-"
@@ -100,7 +192,7 @@ def _safe_env_value(value: Any) -> str:
 
 
 
-def _get_cloud_password_hash_for_customer(customer_profile: Dict[str, Any]) -> str:
+def _get_cloud_password_seed_for_customer(customer_profile: Dict[str, Any]) -> Dict[str, Any]:
     email = (
         customer_profile.get("portal_user_email")
         or customer_profile.get("contact_email")
@@ -109,23 +201,37 @@ def _get_cloud_password_hash_for_customer(customer_profile: Dict[str, Any]) -> s
     ).strip().lower()
 
     if not email:
-        return ""
+        return {}
 
     try:
         client = get_supabase_client()
         result = (
             client.table("greenbrain_users")
-            .select("hashed_password")
+            .select(
+                "hashed_password,password_version,password_changed_at,"
+                "password_last_sync_status"
+            )
             .eq("email", email)
             .limit(1)
             .execute()
         )
         rows = result.data or []
         if not rows:
-            return ""
-        return (rows[0].get("hashed_password") or "").strip()
+            return {}
+
+        row = rows[0] or {}
+        hashed_password = (row.get("hashed_password") or "").strip()
+        if not hashed_password:
+            return {}
+
+        return {
+            "hashed_password": hashed_password,
+            "password_version": row.get("password_version"),
+            "password_changed_at": row.get("password_changed_at"),
+            "password_last_sync_status": row.get("password_last_sync_status") or "synced",
+        }
     except Exception:
-        return ""
+        return {}
 
 
 
@@ -148,26 +254,37 @@ def _render_customer_env(base_env: str, customer_profile: Dict[str, Any], temp_p
     db_password = secrets.token_urlsafe(24)
 
     overrides = {
+        "APP_ENV": "client-local",
         "TENANT_CODE": tenant_code,
         "TENANT_NAME": tenant_name,
         "TENANT_HOST": home_host,
+        "POSTGRES_HOST": "postgres",
+        "POSTGRES_PORT": "5432",
         "POSTGRES_DB": db_name,
         "POSTGRES_USER": db_user,
         "POSTGRES_PASSWORD": db_password,
         "POSTGRES_SSLMODE": "disable",
         "DATABASE_URL": f"postgresql://{db_user}:{db_password}@postgres:5432/{db_name}",
+        "JWT_EXPIRE_MINUTES": "60",
         "LOCAL_BACKEND_PORT": "8008",
         "LOCAL_FRONTEND_PORT": "8088",
         "CENTRAL_AUTH_URL": "https://www.greenbrain.it",
         "CENTRAL_TENANT_CODE": tenant_code,
+        "REMOTE_ACCESS_MODE": "reverse-tunnel",
+        "TUNNEL_ENABLED": "true",
         "LOCAL_CUSTOMER_EMAIL": email,
         "LOCAL_CUSTOMER_FULL_NAME": full_name,
         "LOCAL_CUSTOMER_TEMP_PASSWORD": temp_password,
         "LOCAL_CUSTOMER_PASSWORD_HASH": (customer_profile.get("local_customer_password_hash") or ""),
         "LOCAL_CUSTOMER_PASSWORD_MODE": (customer_profile.get("local_customer_password_mode") or ("temporary_password" if temp_password else "cloud_password")),
+        "LOCAL_CUSTOMER_PASSWORD_VERSION": (customer_profile.get("local_customer_password_version") or ""),
+        "LOCAL_CUSTOMER_PASSWORD_CHANGED_AT": (customer_profile.get("local_customer_password_changed_at") or ""),
+        "LOCAL_CUSTOMER_PASSWORD_SYNC_STATUS": (customer_profile.get("local_customer_password_sync_status") or ""),
+        "LOCAL_CUSTOMER_PASSWORD_SEED_SOURCE": (customer_profile.get("local_customer_password_seed_source") or ""),
         "LOCAL_CUSTOMER_TENANT_CODE": tenant_code,
         "LOCAL_CUSTOMER_HOME_HOST": home_host,
         "LOCAL_CUSTOMER_HOME_PATH": "/dashboard",
+        "LOCAL_CUSTOMER_USER_ROLE": "customer_admin",
     }
 
     lines = []
@@ -211,8 +328,9 @@ def _build_personalized_bundle(source_bundle: Path, customer_profile: Dict[str, 
         raise RuntimeError("customer_profile_missing_customer_id_or_tenant_code")
 
     version = _extract_release_version_from_bundle_path(source_bundle) or "unknown"
-    out_dir = Path("/tmp/greenbrain-customer-bundles")
+    out_dir = CUSTOMER_BUNDLE_OUTPUT_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
+    cleanup_customer_bundle_output_dir()
 
     token_result = create_provisioning_token(
         customer_id=customer_id,
@@ -221,12 +339,16 @@ def _build_personalized_bundle(source_bundle: Path, customer_profile: Dict[str, 
     )
     provisioning_token = token_result["token"]
 
-    cloud_password_hash = _get_cloud_password_hash_for_customer(customer_profile)
-    if cloud_password_hash:
+    cloud_password_seed = _get_cloud_password_seed_for_customer(customer_profile)
+    if cloud_password_seed.get("hashed_password"):
         customer_profile = {
             **customer_profile,
-            "local_customer_password_hash": cloud_password_hash,
+            "local_customer_password_hash": cloud_password_seed.get("hashed_password") or "",
             "local_customer_password_mode": "cloud_password",
+            "local_customer_password_version": cloud_password_seed.get("password_version") or "",
+            "local_customer_password_changed_at": cloud_password_seed.get("password_changed_at") or "",
+            "local_customer_password_sync_status": cloud_password_seed.get("password_last_sync_status") or "synced",
+            "local_customer_password_seed_source": "cloud_seed",
         }
         temp_password = ""
     else:
@@ -306,6 +428,7 @@ PROVISIONING_TOKEN=
             for child in tmp_path.iterdir():
                 tar.add(child, arcname=child.name)
 
+    _write_sha256_file(output_bundle)
     return output_bundle
 
 
@@ -348,7 +471,8 @@ def _build_personalized_universal_installer(
     personalized_tar = _build_personalized_bundle(source_tar, customer_profile)
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-    out_root = Path("/tmp/greenbrain-customer-bundles")
+    out_root = CUSTOMER_BUNDLE_OUTPUT_DIR
+    out_root.mkdir(parents=True, exist_ok=True)
     out_dir = out_root / f"universal-{version}-{tenant_code}-{stamp}"
     out_dir.mkdir(parents=True, exist_ok=True)
     output_zip = out_root / f"GreenBrain-Installer-{version}-{tenant_code}-{stamp}.zip"
@@ -366,8 +490,27 @@ def _build_personalized_universal_installer(
             if child.is_file():
                 zout.write(child, arcname=child.name)
 
+    _write_sha256_file(output_zip)
     shutil.rmtree(out_dir, ignore_errors=True)
     return output_zip
+
+
+def generate_test_bundle_for_customer(customer_id: str) -> Dict[str, Any]:
+    """Genera un bundle personalizzato per un cliente senza verificare
+    il gate pagamento/slot. Usato solo da endpoint ops (admin)."""
+    customer = get_customer_by_id(customer_id)
+    if not customer.get("portal_user_email"):
+        customer["portal_user_email"] = customer.get("contact_email", "")
+    latest_bundle = _find_latest_release_bundle()
+    if not latest_bundle:
+        raise RuntimeError("no_release_bundle_available")
+    personalized = _build_personalized_universal_installer(latest_bundle, customer)
+    version = _extract_release_version_from_bundle_path(latest_bundle) or "unknown"
+    return {
+        "bundle_path": str(personalized),
+        "filename": personalized.name,
+        "version": version,
+    }
 
 
 def record_bundle_download(customer_profile: Dict[str, Any], bundle: Dict[str, Any]) -> Dict[str, Any]:
@@ -391,6 +534,66 @@ def record_bundle_download(customer_profile: Dict[str, Any], bundle: Dict[str, A
         last_downloaded_at=ts,
     )
     return row
+
+def bundle_download_headers(bundle: Dict[str, Any]) -> Dict[str, str]:
+    version = (bundle.get("assigned_release_version") or bundle.get("version") or "").strip()
+    source = (bundle.get("source") or "").strip()
+    filename = (bundle.get("filename") or Path(bundle.get("bundle_path", "")).name or "GreenBrain-Installer.zip").strip()
+
+    headers = {
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        "Pragma": "no-cache",
+        "Expires": "0",
+        "X-Accel-Buffering": "no",
+        "X-GreenBrain-Bundle-Filename": filename,
+    }
+
+    if version:
+        headers["X-GreenBrain-Bundle-Version"] = version
+    if source:
+        headers["X-GreenBrain-Bundle-Source"] = source
+
+    bundle_path = Path(bundle.get("bundle_path", ""))
+    if bundle_path.exists() and bundle_path.is_file():
+        headers["X-GreenBrain-Bundle-SHA256"] = _sha256_file(bundle_path)
+
+    return headers
+
+
+def log_bundle_download(
+    *,
+    actor: str,
+    customer_profile: Dict[str, Any],
+    bundle: Dict[str, Any],
+) -> None:
+    bundle_path = Path(bundle["bundle_path"])
+    try:
+        size_bytes = bundle_path.stat().st_size
+    except OSError:
+        size_bytes = None
+
+    try:
+        sha256 = _sha256_file(bundle_path)
+    except OSError:
+        sha256 = None
+
+    message = (
+        "customer_bundle_download "
+        f"actor={actor} "
+        f"customer_id={customer_profile.get('customer_id')} "
+        f"email={customer_profile.get('portal_user_email') or customer_profile.get('contact_email') or customer_profile.get('email')} "
+        f"tenant_code={customer_profile.get('tenant_code')} "
+        f"release_version={bundle.get('assigned_release_version') or bundle.get('version')} "
+        f"source={bundle.get('source')} "
+        f"filename={bundle.get('filename') or bundle_path.name} "
+        f"path={str(bundle_path)} "
+        f"size_bytes={size_bytes} "
+        f"sha256={sha256}"
+    )
+
+    logger.info(message)
+    logging.getLogger("uvicorn.error").warning(message)
+
 
 def prepare_delivery_plan(customer_id: str) -> Dict[str, Any]:
     customer = get_customer_by_id(customer_id)
