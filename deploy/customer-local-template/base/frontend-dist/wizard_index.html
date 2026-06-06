@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>GreenBrain Installer</title>
+  <style>
+    *{box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:0;background:#f3f7f2;color:#17351f;min-height:100vh}
+    .wrap{max-width:860px;margin:32px auto;background:#fff;border-radius:20px;padding:36px 40px;box-shadow:0 8px 32px rgba(0,0,0,.10)}
+    .brand{display:flex;align-items:center;gap:16px;margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid #e8f0e8}
+    .logoBox{width:56px;height:56px;border-radius:16px;background:#1f7a3b;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 12px rgba(31,122,59,.28)}
+    .logoBox svg{width:30px;height:30px;color:#fff}
+    h1{margin:0;font-size:26px;font-weight:700;color:#17351f}
+    .subtitle{color:#5a7a60;font-size:14px;margin-top:2px}
+    .step{display:none}
+    .step.active{display:block}
+    .step h2{font-size:20px;margin:0 0 6px;color:#17351f}
+    .step .desc{color:#5a7a60;font-size:14px;margin:0 0 20px;line-height:1.5}
+    label{display:block;margin-top:14px;font-weight:600;font-size:14px;color:#2d5a38}
+    input,select{width:100%;padding:11px 14px;margin-top:5px;border:1.5px solid #d0ddd0;border-radius:10px;font-size:15px;color:#17351f;background:#fff;transition:border .2s}
+    input:focus,select:focus{outline:none;border-color:#1f7a3b}
+    input[readonly]{background:#f3f7f2;color:#5a7a60;cursor:default}
+    .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .btn-row{margin-top:24px;display:flex;gap:10px;flex-wrap:wrap}
+    button{border:0;border-radius:10px;padding:11px 22px;font-weight:600;font-size:14px;cursor:pointer;transition:opacity .15s}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    .primary{background:#1f7a3b;color:#fff}
+    .secondary{background:#e8f0e8;color:#17351f}
+    .danger{background:#b42318;color:#fff}
+    .note{margin-bottom:16px;padding:12px 16px;border-radius:12px;background:#eef7ee;border:1px solid #c6e0c8;font-size:14px;color:#1f5c2e}
+    .note b{color:#1a6b33}
+    .credBox{padding:16px;border-radius:12px;background:#f3f7f2;border:1px solid #c6e0c8;font-size:14px;line-height:1.9}
+    .credBox code{background:#dff0e2;padding:2px 7px;border-radius:6px;font-family:monospace}
+    pre{background:#0f1f12;color:#a8f0b8;padding:16px;border-radius:12px;min-height:200px;overflow:auto;white-space:pre-wrap;font-size:12px;display:none;margin-top:12px}
+    .statusBox{display:none;margin-top:16px;padding:14px 18px;border-radius:14px;background:#eef7ee;border:1px solid #c6e0c8}
+    .statusTitle{font-weight:600;font-size:15px;margin-bottom:4px}
+    .statusHint{font-size:14px;color:#3d6645;line-height:1.6}
+    .spinner{display:inline-block;width:16px;height:16px;border:2.5px solid #c6e0c8;border-top-color:#1f7a3b;border-radius:50%;animation:spin .9s linear infinite;vertical-align:middle;margin-right:8px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .chip{display:inline-block;background:#dff0e2;color:#1a6b33;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:600;margin-left:8px;vertical-align:middle}
+    .hint{color:#5a7a60;font-size:13px;line-height:1.5;margin-top:6px}
+    .testResult{margin-left:10px;font-size:13px;font-weight:600;vertical-align:middle}
+    .passwordWrap{position:relative}
+    .passwordWrap input{padding-right:82px}
+    .passwordToggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);margin-top:2.5px;border:0;background:#eef7ee;color:#1f5c2e;padding:6px 10px;border-radius:8px;font-size:12px;line-height:1;cursor:pointer;font-weight:700}
+    .passwordToggle:hover{background:#dff0e2;color:#17351f}
+    .passwordToggle:focus{outline:2px solid #1f7a3b;outline-offset:1px}
+    a{color:#1f7a3b;text-decoration:none}
+    a:hover{text-decoration:underline}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="logoBox">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M11 20A7 7 0 0 1 4 13C4 7 9 4 20 4c0 11-3 16-9 16Zm0 0v-7m0 0c0-2 2-4 5-4"/>
+      </svg>
+    </div>
+    <div>
+      <h1>GreenBrain</h1>
+      <div class="subtitle">Customer Local Installer</div>
+    </div>
+  </div>
+
+  <!-- S1: Benvenuto -->
+  <div id="s1" class="step active">
+    <h2>Benvenuto</h2>
+    <p class="desc">Questo wizard installerà GreenBrain sul computer locale del cliente.</p>
+    <div id="welcomeNote" class="note" style="display:none">
+      <b>Bundle personalizzato rilevato</b><span id="welcomeChip" class="chip"></span><br>
+      <span id="welcomeDesc"></span>
+    </div>
+    <div class="btn-row">
+      <button class="primary" onclick="go(2)">Inizia installazione →</button>
+    </div>
+  </div>
+
+  <!-- S2: Dati cliente -->
+  <div id="s2" class="step">
+    <h2>Dati cliente</h2>
+    <p class="desc">Verifica i dati del cliente. I campi pre-compilati provengono dal bundle personale.</p>
+    <div id="s2note" class="note" style="display:none">
+      <b>Bundle cloud:</b> i dati seguenti sono stati pre-configurati per questo cliente. Modificali solo se necessario.
+    </div>
+    <label>Tenant code</label>
+    <input id="tenant_code" value="" placeholder="es. azienda_srl">
+    <label>Tenant name</label>
+    <input id="tenant_name" value="" placeholder="Azienda SRL">
+    <label>Host pubblico</label>
+    <input id="tenant_host" value="" placeholder="azienda-srl.greenbrain.it">
+    <label>Email accesso locale</label>
+    <input id="customer_email" type="email" value="" placeholder="mario@azienda.it">
+    <label>Password temporanea</label>
+    <div class="passwordWrap">
+      <input id="customer_password" type="password" value="" placeholder="Lascia vuoto = usa password portale GreenBrain">
+      <button type="button" class="passwordToggle" onclick="togglePasswordVisibility('customer_password', this)" aria-label="Mostra password" title="Mostra password">Mostra</button>
+    </div>
+    <p id="s2pwHint" class="hint" style="display:none"></p>
+    <div class="btn-row">
+      <button class="secondary" onclick="go(1)">← Indietro</button>
+      <button class="primary" onclick="go(3)">Avanti →</button>
+    </div>
+  </div>
+
+  <!-- S3: Database locale -->
+  <div id="s3" class="step">
+    <h2>Database locale</h2>
+    <p class="desc">Configura Postgres locale. La password è stata generata in modo sicuro.</p>
+    <div id="s3note" class="note" style="display:none">
+      <b>Bundle cloud:</b> credenziali DB già impostate. Non modificare a meno che non si sappia cosa si fa.
+    </div>
+    <label>Postgres DB</label>
+    <input id="postgres_db" value="" placeholder="greenbrain_cliente">
+    <label>Postgres user</label>
+    <input id="postgres_user" value="" placeholder="greenbrain_cliente">
+    <label>Postgres password</label>
+    <div class="passwordWrap">
+      <input id="postgres_password" type="password" value="">
+      <button type="button" class="passwordToggle" onclick="togglePasswordVisibility('postgres_password', this)" aria-label="Mostra password" title="Mostra password">Mostra</button>
+    </div>
+    <div class="row2">
+      <div><label>Backend port</label><input id="backend_port" value="8008"></div>
+      <div><label>Frontend port</label><input id="frontend_port" value="8088"></div>
+    </div>
+    <div class="btn-row">
+      <button class="secondary" onclick="go(2)">← Indietro</button>
+      <button class="primary" onclick="go(4)">Avanti →</button>
+    </div>
+  </div>
+
+  <!-- S4: Source DB -->
+  <div id="s4" class="step">
+    <h2>Dati aziendali SQL Server <span style="font-size:14px;font-weight:400;color:#5a7a60">(opzionale)</span></h2>
+    <p class="desc">Connetti GreenBrain al tuo gestionale SQL Server per importare i dati di vendita. Puoi saltare e configurare in seguito.</p>
+    <label>Server SQL (IP o hostname)</label>
+    <input id="sql_host" placeholder="es. 192.168.1.10 o SQLSERVER\NOMISTANZA">
+    <div class="row2">
+      <div><label>Porta</label><input id="sql_port" value="1433"></div>
+      <div><label>Database</label><input id="sql_db" placeholder="NomeDatabase"></div>
+    </div>
+    <label>Utente SQL</label>
+    <input id="sql_user" placeholder="es. sa o greenbrain_reader">
+    <label>Password SQL</label>
+    <div class="passwordWrap">
+      <input id="sql_pass" type="password">
+      <button type="button" class="passwordToggle" onclick="togglePasswordVisibility('sql_pass', this)" aria-label="Mostra password" title="Mostra password">Mostra</button>
+    </div>
+    <div style="margin-top:14px">
+      <button class="secondary" onclick="testSourceDb()">Testa connessione</button>
+      <span id="sqlResult" class="testResult"></span>
+    </div>
+    <div class="btn-row">
+      <button class="secondary" onclick="go(3)">← Indietro</button>
+      <button class="primary" onclick="saveSourceDbAndGo()">Avanti →</button>
+      <button class="secondary" onclick="go(5)">Salta</button>
+    </div>
+  </div>
+
+  <!-- S5: Installazione -->
+  <div id="s5" class="step">
+    <h2>Installazione</h2>
+    <p class="desc">Premi <b>Installa / aggiorna</b> per avviare GreenBrain locale. Se trova una installazione compatibile, GreenBrain mantiene i dati locali e aggiorna i servizi; per ripartire da zero usa il reset completo.</p>
+    <div class="btn-row">
+      <button class="secondary" onclick="go(4)">← Indietro</button>
+      <button id="installBtn" class="primary" onclick="startInstall(false)">Installa / aggiorna GreenBrain</button>
+      <button id="freshResetBtn" class="danger" onclick="startFreshReset()" style="display:none">Reset completo e reinstalla</button>
+      <button id="openBtn" class="secondary" onclick="openLocal()" style="display:none">Apri runtime locale</button>
+    </div>
+    <div id="statusBox" class="statusBox">
+      <div class="statusTitle"><span id="spinner" class="spinner"></span><span id="statusText">In corso...</span></div>
+      <div id="statusHint" class="statusHint">Sto preparando GreenBrain locale. Se esiste già una installazione compatibile, i dati locali e i segreti vengono mantenuti.</div>
+    </div>
+    <button id="logBtn" style="display:none;margin-top:12px" class="secondary" onclick="toggleLog()">Mostra log tecnico</button>
+    <pre id="logPre"></pre>
+  </div>
+</div>
+
+<script>
+var _fp = '8088';
+
+function go(n){
+  document.querySelectorAll('.step').forEach(x=>x.classList.remove('active'));
+  document.getElementById('s'+n).classList.add('active');
+}
+
+function payload(){
+  return {
+    tenant_code:       document.getElementById('tenant_code').value,
+    tenant_name:       document.getElementById('tenant_name').value,
+    tenant_host:       document.getElementById('tenant_host').value,
+    postgres_db:       document.getElementById('postgres_db').value,
+    postgres_user:     document.getElementById('postgres_user').value,
+    postgres_password: document.getElementById('postgres_password').value,
+    backend_port:      document.getElementById('backend_port').value,
+    frontend_port:     document.getElementById('frontend_port').value,
+    customer_email:    document.getElementById('customer_email').value,
+    customer_name:     document.getElementById('tenant_name').value,
+    customer_password: document.getElementById('customer_password').value,
+  };
+}
+
+function esc(v){
+  return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function togglePasswordVisibility(inputId, btn){
+  var input = document.getElementById(inputId);
+  if(!input){ return; }
+  var visible = input.type === 'text';
+  input.type = visible ? 'password' : 'text';
+  var label = visible ? 'Mostra password' : 'Nascondi password';
+  btn.textContent = visible ? 'Mostra' : 'Nascondi';
+  btn.setAttribute('aria-label', label);
+  btn.setAttribute('title', label);
+}
+
+async function startInstall(forceFresh){
+  var btn = document.getElementById('installBtn');
+  var freshBtn = document.getElementById('freshResetBtn');
+  btn.disabled = true;
+  freshBtn.style.display = 'none';
+  btn.textContent = forceFresh ? 'Reset completo in corso...' : 'Installazione / aggiornamento in corso...';
+  document.getElementById('spinner').style.display='inline-block';
+  document.getElementById('statusBox').style.display = 'block';
+  document.getElementById('logBtn').style.display = 'inline-block';
+  document.getElementById('statusText').textContent = forceFresh ? 'Reset completo e reinstallazione...' : 'Avvio installazione / aggiornamento...';
+  document.getElementById('statusHint').textContent = forceFresh
+    ? 'Reset completo in corso: rimuovo la vecchia installazione locale GreenBrain e ricreo il database locale.'
+    : 'Sto preparando GreenBrain locale. Se esiste già una installazione compatibile, i dati locali e i segreti vengono mantenuti.';
+
+  var data = payload();
+  if(forceFresh){ data.force_fresh_install = true; }
+
+  await fetch('/api/install',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+  poll();
+}
+
+function startFreshReset(){
+  var ok = confirm(
+    'Eseguire un reset completo di GreenBrain locale?\n\n' +
+    'Questa operazione rimuove il vecchio database locale GreenBrain presente su questo computer e ricrea l\'installazione usando il bundle scaricato.\n\n' +
+    'Usa questa opzione solo se vuoi ripartire da zero o sostituire una vecchia installazione non compatibile.'
+  );
+  if(!ok){ return; }
+  startInstall(true);
+}
+
+async function poll(){
+  try{
+    var lr = await fetch('/api/log'); var lt = await lr.text();
+    var el = document.getElementById('logPre'); el.textContent = lt; el.scrollTop = el.scrollHeight;
+  }catch(e){}
+  var st = {state:'running'};
+  try{ var sr = await fetch('/api/status'); st = await sr.json(); }catch(e){}
+  if(st.state==='completed'){
+    document.getElementById('spinner').style.display='none';
+    document.getElementById('statusText').textContent='Installazione completata ✓';
+    document.getElementById('installBtn').textContent='Completato';
+    document.getElementById('openBtn').style.display='inline-block';
+    loadCredentials(); return;
+  }
+  if(st.state==='failed'){
+    document.getElementById('spinner').style.display='none';
+    document.getElementById('statusText').textContent='Installazione fallita ✗';
+
+    var isDbCompatError =
+      (typeof lt === 'string') &&
+      (lt.indexOf('LOCAL_DB_CREDENTIALS_FAILED') >= 0 || lt.indexOf('INSTALL_EXIT_CODE=31') >= 0);
+
+    var btn=document.getElementById('installBtn');
+    btn.disabled=false;
+    btn.textContent='Riprova';
+
+    if(isDbCompatError){
+      document.getElementById('statusHint').innerHTML =
+        '<b style="color:#b42318">Vecchia installazione locale non compatibile.</b><br>' +
+        'GreenBrain ha trovato un database locale già esistente, ma le credenziali non sono compatibili con questo bundle.<br><br>' +
+        '<b>Puoi eseguire un reset completo e reinstallare</b>: questa operazione rimuove il vecchio database locale GreenBrain e ricrea l\'installazione con i dati del bundle scaricato.';
+      document.getElementById('freshResetBtn').style.display='inline-block';
+    } else {
+      document.getElementById('statusHint').innerHTML='<b style="color:#b42318">Errore.</b> Apri il log tecnico per i dettagli, correggi e rilancia.';
+      document.getElementById('freshResetBtn').style.display='none';
+    }
+    return;
+  }
+  setTimeout(poll,1500);
+}
+
+async function loadCredentials(){
+  try{
+    var r = await fetch('/api/local-credentials');
+    var d = await r.json();
+    if(d && d.email){
+      _fp = d.frontend_port || '8088';
+      var pwLine = d.mode==='cloud_password'
+        ? '<b>Password:</b> usa la password del portale GreenBrain<br>'
+        : '<b>Password temporanea:</b> <code>'+esc(d.password||'')+'</code><br>';
+      var hint = d.mode==='cloud_password'
+        ? 'Usa le credenziali del portale GreenBrain per accedere al runtime locale.'
+        : 'Usa questa password temporanea per il primo accesso. Potrai cambiarla dal profilo.';
+      document.getElementById('statusHint').innerHTML =
+        '<div class="credBox" style="margin-bottom:14px">'+
+        '<b>Cliente:</b> '+esc(d.customer_name||d.tenant||'-')+'<br>'+
+        '<b>Email:</b> '+esc(d.email)+'<br>'+
+        pwLine+
+        '<b>Tenant:</b> '+esc(d.tenant||'-')+'<br>'+
+        '<b>Versione:</b> '+esc(d.version||'-')+
+        '</div>'+
+        '<p style="margin:0 0 10px">'+esc(hint)+'</p>'+
+        '<button class="primary" onclick="window.open(\'https://www.greenbrain.it/login\',\'_blank\')" style="font-size:15px;padding:12px 24px">'+
+        'Accedi a GreenBrain →</button>'+
+        '<p class="hint" style="margin-top:10px">Runtime locale: <a href="http://localhost:'+esc(_fp)+'" target="_blank">http://localhost:'+esc(_fp)+'</a></p>';
+      return;
+    }
+  }catch(e){}
+  document.getElementById('statusHint').textContent='GreenBrain installato. Premi "Apri runtime locale".';
+}
+
+function openLocal(){
+  window.open('http://localhost:'+document.getElementById('frontend_port').value,'_blank');
+}
+
+function toggleLog(){
+  var el=document.getElementById('logPre');
+  var btn=document.getElementById('logBtn');
+  if(el.style.display==='block'){el.style.display='none';btn.textContent='Mostra log tecnico';}
+  else{el.style.display='block';btn.textContent='Nascondi log tecnico';}
+}
+
+async function testSourceDb(){
+  var res=document.getElementById('sqlResult');
+  res.textContent='Test...'; res.style.color='#5a7a60';
+  try{
+    var r=await fetch('/api/test-source-db',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({host:document.getElementById('sql_host').value,
+        port:parseInt(document.getElementById('sql_port').value)||1433})});
+    var d=await r.json();
+    res.textContent=(d.ok?'✓ ':'✗ ')+d.message;
+    res.style.color=d.ok?'#1f7a3b':'#b42318';
+  }catch(e){res.textContent='✗ Errore di rete';res.style.color='#b42318';}
+}
+
+async function saveSourceDbAndGo(){
+  var host=document.getElementById('sql_host').value.trim();
+  if(host){
+    await fetch('/api/save-source-db',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({host:host,
+        port:parseInt(document.getElementById('sql_port').value)||1433,
+        database:document.getElementById('sql_db').value,
+        username:document.getElementById('sql_user').value,
+        password:document.getElementById('sql_pass').value})});
+  }
+  go(5);
+}
+
+window.addEventListener('load', async function(){
+  try{
+    var r = await fetch('/api/precompiled-info');
+    var d = await r.json();
+    if(d.is_personalized){
+      var label = d.customer_name||(d.tenant_name||d.tenant_code||'');
+      document.getElementById('welcomeNote').style.display='block';
+      document.getElementById('welcomeChip').textContent=d.version||'';
+      document.getElementById('welcomeDesc').textContent=
+        'Bundle configurato per: '+(label||d.customer_email||d.tenant_code);
+      document.getElementById('s2note').style.display='block';
+      document.getElementById('s3note').style.display='block';
+      if(d.customer_email){
+        document.getElementById('s2pwHint').style.display='block';
+        document.getElementById('s2pwHint').textContent=
+          'Accesso già configurato per: '+d.customer_email+'. Usa la stessa password del portale GreenBrain.';
+      }
+    }
+    if(d.tenant_code)      document.getElementById('tenant_code').value      = d.tenant_code;
+    if(d.tenant_name)      document.getElementById('tenant_name').value      = d.tenant_name;
+    if(d.tenant_code)      document.getElementById('tenant_host').value      = d.tenant_code.replace(/_/g,'-')+'.greenbrain.it';
+    if(d.customer_email)   document.getElementById('customer_email').value   = d.customer_email;
+    if(d.postgres_db)      document.getElementById('postgres_db').value      = d.postgres_db;
+    if(d.postgres_user)    document.getElementById('postgres_user').value    = d.postgres_user;
+    if(d.postgres_password)document.getElementById('postgres_password').value= d.postgres_password;
+    if(d.backend_port)     document.getElementById('backend_port').value     = d.backend_port;
+    if(d.frontend_port)   {document.getElementById('frontend_port').value    = d.frontend_port; _fp=d.frontend_port;}
+  }catch(e){}
+});
+</script>
+</body>
+</html>
