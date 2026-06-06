@@ -21,7 +21,7 @@ import {
 import { planDisplayName, planDisplayPrice } from "@/lib/planConfig";
 import { createSetupSession } from "@/lib/customerBillingApi";
 import { useAuth } from "@/hooks/useAuth";
-import { apiPost } from "@/lib/apiClient";
+import { apiGet, apiPost } from "@/lib/apiClient";
 
 type LifecyclePhase =
   | "loading"
@@ -111,6 +111,33 @@ interface CustomerPortalProfile {
   delivery?: CustomerDeliveryProfile | null;
 }
 
+interface LocalDbCredentials {
+  status?: string;
+  scope?: string;
+  manual_postgres_install_required?: boolean;
+  credentials_file?: string;
+  postgres_host?: string;
+  postgres_port?: string;
+  postgres_db?: string;
+  postgres_user?: string;
+  postgres_password_present?: boolean;
+  postgres_password_masked?: boolean;
+  postgres_password?: string;
+  database_url_present?: boolean;
+  database_url_masked?: boolean;
+  database_url?: string;
+  tenant_code?: string;
+  installation_id?: string;
+  local_backend_port?: string;
+  local_frontend_port?: string;
+  data_storage?: {
+    type?: string;
+    container?: string;
+    mount_path?: string;
+    note?: string;
+  };
+}
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function fmtDate(iso: string | undefined | null) {
@@ -162,6 +189,70 @@ function LocalRuntimeAccount() {
 
   const dashboardPath = user?.home_path?.trim() || "/dashboard";
   const cloudAccountUrl = "https://www.greenbrain.it/account";
+
+  const [localDbCredentials, setLocalDbCredentials] = useState<LocalDbCredentials | null>(null);
+  const [localDbPassword, setLocalDbPassword] = useState("");
+  const [localDbRevealPassword, setLocalDbRevealPassword] = useState("");
+  const [localDbDatabaseUrl, setLocalDbDatabaseUrl] = useState("");
+  const [localDbBusy, setLocalDbBusy] = useState(false);
+  const [localDbError, setLocalDbError] = useState<string | null>(null);
+  const [localDbCopied, setLocalDbCopied] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchLocalDbCredentials() {
+      try {
+        setLocalDbError(null);
+        const res = await apiGet("/api/v1/customer-runtime/local-db-credentials");
+        if (!cancelled) setLocalDbCredentials(res);
+      } catch (err) {
+        if (!cancelled) {
+          setLocalDbError(err instanceof Error ? err.message : "Credenziali tecniche locali non disponibili");
+        }
+      }
+    }
+
+    fetchLocalDbCredentials();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function handleRevealLocalDbCredentials(e: React.FormEvent) {
+    e.preventDefault();
+    if (!localDbRevealPassword.trim()) {
+      setLocalDbError("Inserisci la password del tuo account GreenBrain.");
+      return;
+    }
+
+    try {
+      setLocalDbBusy(true);
+      setLocalDbError(null);
+      const res = await apiPost("/api/v1/customer-runtime/local-db-credentials/reveal", {
+        current_password: localDbRevealPassword,
+      });
+      setLocalDbCredentials(res);
+      setLocalDbPassword(res?.postgres_password || "");
+      setLocalDbDatabaseUrl(res?.database_url || "");
+      setLocalDbRevealPassword("");
+    } catch (err) {
+      setLocalDbError(err instanceof Error ? err.message : "Impossibile mostrare le credenziali tecniche");
+    } finally {
+      setLocalDbBusy(false);
+    }
+  }
+
+  async function copyLocalDbValue(label: string, value: string) {
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setLocalDbCopied(label);
+      window.setTimeout(() => setLocalDbCopied(null), 1800);
+    } catch {
+      setLocalDbError("Copia negli appunti non riuscita. Copia manualmente il valore.");
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -230,6 +321,141 @@ function LocalRuntimeAccount() {
             </Button>
           )}
         </div>
+      </Card>
+
+      <Card className="p-6">
+        <div className="flex flex-col gap-1 mb-4">
+          <h2 className="text-xl font-semibold">Credenziali tecniche database locale GreenBrain</h2>
+          <p className="text-sm text-muted-foreground">
+            PostgreSQL locale è gestito automaticamente da Docker. Non devi installare PostgreSQL manualmente.
+            Queste credenziali servono solo per assistenza, backup o manutenzione tecnica.
+          </p>
+        </div>
+
+        {localDbError && (
+          <div className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive mb-4">
+            {localDbError}
+          </div>
+        )}
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <p className="text-sm text-muted-foreground">Database</p>
+            <p className="font-medium">{localDbCredentials?.postgres_db || "—"}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Utente DB</p>
+            <p className="font-medium">{localDbCredentials?.postgres_user || "—"}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Host interno Docker</p>
+            <p className="font-medium">{localDbCredentials?.postgres_host || "postgres"}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Porta interna PostgreSQL</p>
+            <p className="font-medium">{localDbCredentials?.postgres_port || "5432"}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Porta backend locale</p>
+            <p className="font-medium">{localDbCredentials?.local_backend_port || "8008"}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Porta frontend locale</p>
+            <p className="font-medium">{localDbCredentials?.local_frontend_port || "8088"}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Tenant</p>
+            <p className="font-medium">{localDbCredentials?.tenant_code || user?.tenant_code || "—"}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Installazione</p>
+            <p className="font-mono text-xs break-all">{localDbCredentials?.installation_id || "—"}</p>
+          </div>
+        </div>
+
+        <div className="mt-5 rounded-xl border bg-muted/20 p-4">
+          <p className="text-sm font-semibold mb-1">Dove sono salvati i dati locali?</p>
+          <p className="text-sm text-muted-foreground">
+            {localDbCredentials?.data_storage?.note ||
+              "I dati PostgreSQL locali sono salvati nel volume Docker del runtime GreenBrain."}
+          </p>
+          <div className="grid gap-3 md:grid-cols-2 mt-3 text-sm">
+            <div>
+              <p className="text-muted-foreground">Container</p>
+              <p className="font-medium">{localDbCredentials?.data_storage?.container || "greenbrain_local_postgres"}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Percorso interno</p>
+              <p className="font-mono text-xs">{localDbCredentials?.data_storage?.mount_path || "/var/lib/postgresql/data"}</p>
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={handleRevealLocalDbCredentials} className="mt-5 space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="local-db-reveal-password">Conferma password account GreenBrain</Label>
+            <PasswordInput
+              id="local-db-reveal-password"
+              value={localDbRevealPassword}
+              onChange={(e) => setLocalDbRevealPassword(e.target.value)}
+              placeholder="Inserisci la password del tuo account"
+              autoComplete="current-password"
+            />
+            <p className="text-xs text-muted-foreground">
+              La password tecnica del DB viene mostrata solo dopo verifica della password account locale.
+            </p>
+          </div>
+
+          <Button type="submit" variant="outline" disabled={localDbBusy}>
+            {localDbBusy ? "Verifica..." : "Mostra credenziali tecniche"}
+          </Button>
+        </form>
+
+        <div className="mt-5 space-y-3">
+          <div className="rounded-xl border bg-background p-4">
+            <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Password DB</p>
+                <p className="font-mono text-sm break-all">
+                  {localDbPassword ? localDbPassword : localDbCredentials?.postgres_password_present ? "••••••••••••••••" : "Non disponibile"}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => copyLocalDbValue("password", localDbPassword)}
+                disabled={!localDbPassword}
+              >
+                {localDbCopied === "password" ? "Copiata" : "Copia password"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="rounded-xl border bg-background p-4">
+            <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">DATABASE_URL</p>
+                <p className="font-mono text-xs break-all">
+                  {localDbDatabaseUrl ? localDbDatabaseUrl : localDbCredentials?.database_url_present ? "••••••••••••••••" : "Non disponibile"}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => copyLocalDbValue("database_url", localDbDatabaseUrl)}
+                disabled={!localDbDatabaseUrl}
+              >
+                {localDbCopied === "database_url" ? "Copiata" : "Copia DATABASE_URL"}
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <p className="text-xs text-muted-foreground mt-4">
+          File tecnico locale: <code>overlay/env/customer-local.env</code>. Le credenziali non vengono salvate nel cloud.
+        </p>
       </Card>
     </div>
   );

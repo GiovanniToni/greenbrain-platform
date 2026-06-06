@@ -120,6 +120,13 @@
       <input id="postgres_password" type="password" value="">
       <button type="button" class="passwordToggle" onclick="togglePasswordVisibility('postgres_password', this)" aria-label="Mostra password" title="Mostra password">Mostra</button>
     </div>
+    <div class="note" style="margin-top:10px">
+      <b>Password tecnica database locale.</b><br>
+      Questa password è generata automaticamente per PostgreSQL locale ed è diversa dalla password del tuo account GreenBrain.
+      Normalmente non serve per accedere all'app, ma può essere utile per assistenza, backup o manutenzione.
+      Salvala in un posto sicuro. Dopo l'installazione puoi consultarla dal file tecnico locale <code>overlay/env/customer-local.env</code>.
+      Nelle prossime versioni sarà disponibile anche da GreenBrain locale → Account → Credenziali tecniche locali.
+    </div>
     <div class="row2">
       <div><label>Backend port</label><input id="backend_port" value="8008"></div>
       <div><label>Frontend port</label><input id="frontend_port" value="8088"></div>

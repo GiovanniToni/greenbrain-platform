@@ -11,8 +11,9 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.v1.auth import require_internal_admin
+from app.api.v1.auth import get_current_user, require_internal_admin
 from app.core.config import settings
+from app.core.security import verify_password
 from app.db.session import get_db
 from app.db.users import apply_cloud_password_sync
 from app.services.customer_runtime_service import (
@@ -84,6 +85,10 @@ class RuntimeHeartbeatPayload(BaseModel):
     runtime: Dict[str, Any] = Field(default_factory=dict)
     last_etl: str | None = None
     last_sync_status: str | None = None
+
+
+class LocalDbCredentialsRevealPayload(BaseModel):
+    current_password: str = Field(..., min_length=1)
 
 
 def _runtime_env_value(name: str) -> str:
@@ -383,3 +388,69 @@ def run_local_password_sync_route(
         "ack_http_status": ack_status,
         "ack_status": ack.get("status"),
     }
+
+def _local_db_credentials_payload(*, include_secrets: bool = False) -> Dict[str, Any]:
+    postgres_host = _runtime_env_value("POSTGRES_HOST") or "postgres"
+    postgres_port = _runtime_env_value("POSTGRES_PORT") or "5432"
+    postgres_db = _runtime_env_value("POSTGRES_DB")
+    postgres_user = _runtime_env_value("POSTGRES_USER")
+    postgres_password = _runtime_env_value("POSTGRES_PASSWORD")
+    database_url = _runtime_env_value("DATABASE_URL")
+
+    payload: Dict[str, Any] = {
+        "status": "ok",
+        "scope": "local_runtime_only",
+        "manual_postgres_install_required": False,
+        "credentials_file": "overlay/env/customer-local.env",
+        "postgres_host": postgres_host,
+        "postgres_port": postgres_port,
+        "postgres_db": postgres_db,
+        "postgres_user": postgres_user,
+        "postgres_password_present": bool(postgres_password),
+        "postgres_password_masked": bool(postgres_password),
+        "database_url_present": bool(database_url),
+        "database_url_masked": bool(database_url),
+        "tenant_code": _runtime_env_value("TENANT_CODE"),
+        "installation_id": _runtime_env_value("INSTALLATION_ID"),
+        "local_backend_port": _runtime_env_value("LOCAL_BACKEND_PORT") or "8008",
+        "local_frontend_port": _runtime_env_value("LOCAL_FRONTEND_PORT") or "8088",
+        "data_storage": {
+            "type": "docker_volume",
+            "container": "greenbrain_local_postgres",
+            "mount_path": "/var/lib/postgresql/data",
+            "note": "I dati PostgreSQL locali sono gestiti dal volume Docker del runtime GreenBrain.",
+        },
+    }
+
+    if include_secrets:
+        payload["postgres_password"] = postgres_password
+        payload["database_url"] = database_url
+
+    return payload
+
+
+@router.get("/local-db-credentials")
+def get_local_db_credentials(
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+):
+    _ensure_local_sync_request_allowed(request)
+    return _local_db_credentials_payload(include_secrets=False)
+
+
+@router.post("/local-db-credentials/reveal")
+def reveal_local_db_credentials(
+    payload: LocalDbCredentialsRevealPayload,
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+):
+    _ensure_local_sync_request_allowed(request)
+
+    if not verify_password(payload.current_password, current_user.get("hashed_password") or ""):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Password account non valida",
+        )
+
+    return _local_db_credentials_payload(include_secrets=True)
+
