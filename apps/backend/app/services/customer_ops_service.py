@@ -19,6 +19,8 @@ from app.services.customer_billing_service import (
 from app.services.customer_delivery_service import prepare_delivery_plan, get_latest_available_release_version
 from app.services.customer_provisioning_service import assign_release as provisioning_assign_release
 from app.services.password_reset_service import create_password_reset_for_email
+from app.db.session import SessionLocal
+from app.repositories.customer_security_alerts_repository import list_active_admin_security_notifications
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +126,21 @@ def list_customers(limit: int = 100) -> List[Dict[str, Any]]:
         item["latest_available_release_version"] = latest_available
 
     return items
+
+
+def list_customer_ops_notifications(limit: int = 20) -> Dict[str, Any]:
+    """Return active internal-admin notifications for the ops bell."""
+    db = SessionLocal()
+    try:
+        items = list_active_admin_security_notifications(db, limit=limit)
+    finally:
+        db.close()
+
+    return {
+        "items": items,
+        "active_count": len(items),
+        "unread_count": len(items),
+    }
 
 
 def create_customer(payload: Dict[str, Any]) -> Dict[str, Any]:

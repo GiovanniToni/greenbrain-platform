@@ -223,3 +223,13 @@ export type AdminUserCreatePayload = {
 export async function createAdminUser(payload: AdminUserCreatePayload) {
   return apiPost("/api/v1/auth/admin-users", payload);
 }
+
+export type CustomerOpsNotificationsResponse = {
+  items: CustomerSecurityAlert[];
+  active_count: number;
+  unread_count: number;
+};
+
+export async function getCustomerOpsNotifications(limit = 20): Promise<CustomerOpsNotificationsResponse> {
+  return apiGet(`/api/v1/customer-ops/notifications?limit=${limit}`);
+}

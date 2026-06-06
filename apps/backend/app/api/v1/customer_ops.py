@@ -22,6 +22,7 @@ from app.services.customer_ops_service import (
     force_activate_subscription,
     generate_customer_password_reset_link,
     get_customer_ops_item,
+    list_customer_ops_notifications,
     list_customers,
     request_cancellation,
     send_release,
@@ -87,6 +88,17 @@ def create_customer_route(
         return row
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"customer_ops_create_failed: {exc}")
+
+
+@router.get("/notifications")
+def list_notifications_route(
+    limit: int = Query(default=20, ge=1, le=100),
+    _: dict = Depends(require_internal_admin),
+):
+    try:
+        return list_customer_ops_notifications(limit=limit)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"customer_ops_notifications_failed: {exc}")
 
 
 @router.get("/customers/{customer_id}")

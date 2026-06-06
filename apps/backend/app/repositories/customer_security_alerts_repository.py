@@ -253,3 +253,59 @@ def get_active_password_reset_alert_for_customer(
         if alert.get("alert_type") == "password_reset_self_service":
             return alert
     return None
+
+
+def list_active_admin_security_notifications(
+    db: Session,
+    *,
+    limit: int = 20,
+) -> List[Dict[str, Any]]:
+    """
+    Return active customer security alerts for the internal admin notification center.
+
+    Current source table is greenbrain_customer_security_alerts.
+    Completed/resolved alerts are intentionally excluded from the bell.
+    """
+    rows = db.execute(
+        text("""
+            SELECT
+              a.id,
+              a.customer_id,
+              a.tenant_code,
+              a.email,
+              a.alert_type,
+              a.status,
+              a.severity,
+              a.title,
+              a.message,
+              a.source,
+              a.first_seen_at,
+              a.last_seen_at,
+              a.resolved_at,
+              a.details,
+              c.company_name
+            FROM public.greenbrain_customer_security_alerts a
+            LEFT JOIN public.gb_customer_companies c
+              ON c.customer_id = a.customer_id
+            WHERE a.resolved_at IS NULL
+              AND a.status IN ('open', 'pending_admin_action', 'email_sent', 'email_failed', 'expired', 'rate_limited')
+            ORDER BY
+              CASE a.severity
+                WHEN 'error' THEN 0
+                WHEN 'warning' THEN 1
+                ELSE 2
+              END,
+              a.last_seen_at DESC
+            LIMIT :limit
+        """),
+        {"limit": int(limit)},
+    ).mappings().all()
+
+    notifications: List[Dict[str, Any]] = []
+    for row in rows:
+        item = dict(row)
+        customer_id = item.get("customer_id")
+        item["target_url"] = f"/customers/{customer_id}" if customer_id else "/customers"
+        notifications.append(item)
+
+    return notifications
