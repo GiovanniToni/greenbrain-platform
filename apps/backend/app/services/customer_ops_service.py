@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+from sqlalchemy import text
 
 from app.repositories.customer_ops_repository import (
     create_customer_company,
@@ -68,12 +69,72 @@ def normalize_delivery_state(item: Dict[str, Any]) -> str:
     return "pending"
 
 
+def _iso_or_none(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)
+
+
+def _enrich_password_reset_history(item: Dict[str, Any]) -> None:
+    """
+    Add last completed password-reset metadata to customer detail.
+
+    Source of truth is greenbrain_users password tracking. We only expose this
+    as a reset history when password_change_source='password_reset'.
+    """
+    item["last_password_reset_at"] = None
+    item["last_password_reset_password_version"] = None
+    item["last_password_reset_sync_status"] = None
+    item["last_password_reset_synced_at"] = None
+
+    email = (
+        item.get("portal_user_email")
+        or item.get("contact_email")
+        or item.get("billing_email")
+        or ""
+    ).strip().lower()
+    if not email:
+        return
+
+    db = SessionLocal()
+    try:
+        row = db.execute(
+            text("""
+                SELECT
+                  password_changed_at,
+                  password_version,
+                  password_last_sync_status,
+                  password_last_synced_at
+                FROM public.greenbrain_users
+                WHERE lower(email) = lower(:email)
+                  AND password_change_source = 'password_reset'
+                  AND password_changed_at IS NOT NULL
+                ORDER BY password_changed_at DESC
+                LIMIT 1
+            """),
+            {"email": email},
+        ).mappings().first()
+    finally:
+        db.close()
+
+    if not row:
+        return
+
+    item["last_password_reset_at"] = _iso_or_none(row.get("password_changed_at"))
+    item["last_password_reset_password_version"] = row.get("password_version")
+    item["last_password_reset_sync_status"] = row.get("password_last_sync_status")
+    item["last_password_reset_synced_at"] = _iso_or_none(row.get("password_last_synced_at"))
+
+
 def get_customer_ops_item(customer_id: str) -> Dict[str, Any]:
     """Return a fully-enriched ops item (company + delivery join + derived delivery_status)."""
     item = get_customer_ops_item_by_id(customer_id)
     if not item:
         raise ValueError(f"customer_not_found:{customer_id}")
     item["delivery_status"] = normalize_delivery_state(item)
+    _enrich_password_reset_history(item)
     item["latest_available_release_version"] = get_latest_available_release_version()
     return item
 
