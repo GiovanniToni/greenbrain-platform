@@ -1267,6 +1267,34 @@ export default function CustomerPortalDashboard() {
             </div>
           </Card>
 
+            {/* Local account access */}
+            <Card className="p-6 border-primary/10 bg-primary/5">
+              <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
+                <div className="space-y-2">
+                  <h2 className="font-semibold">Account locale su questo computer</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Le credenziali tecniche del database locale sono disponibili solo dal runtime GreenBrain installato su questo computer.
+                    Per sicurezza non vengono salvate né mostrate dal cloud.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Apri l’account locale per visualizzare database, utente tecnico, password DB, DATABASE_URL e posizione dei dati locali dopo conferma della password account.
+                  </p>
+                </div>
+                <div className="flex flex-col sm:flex-row lg:flex-col gap-3 lg:min-w-[220px]">
+                  <Button asChild>
+                    <a href="http://localhost:8088/account?source=cloud-account" target="_blank" rel="noreferrer">
+                      Apri account locale
+                    </a>
+                  </Button>
+                  <Button variant="outline" asChild>
+                    <a href="http://localhost:8088/dashboard?source=cloud-account" target="_blank" rel="noreferrer">
+                      Apri dashboard locale
+                    </a>
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
           {/* Bundle & install */}
           <Card className="p-6 border-primary/10">
             <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5 mb-5">
