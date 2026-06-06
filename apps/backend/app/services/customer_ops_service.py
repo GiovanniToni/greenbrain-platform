@@ -20,7 +20,7 @@ from app.services.customer_delivery_service import prepare_delivery_plan, get_la
 from app.services.customer_provisioning_service import assign_release as provisioning_assign_release
 from app.services.password_reset_service import create_password_reset_for_email
 from app.db.session import SessionLocal
-from app.repositories.customer_security_alerts_repository import list_active_admin_security_notifications
+from app.repositories.customer_security_alerts_repository import list_active_admin_security_notifications, mark_password_reset_self_service_alert_link_sent_by_admin
 
 logger = logging.getLogger(__name__)
 
@@ -210,6 +210,52 @@ def trigger_subscription_activation(customer_id: str) -> Dict[str, Any]:
 
 def force_activate_subscription(customer_id: str) -> Dict[str, Any]:
     return _force_activate(customer_id)
+
+
+def mark_customer_password_reset_alert_link_sent(
+    customer_id: str,
+    *,
+    admin_user_id: str | None = None,
+) -> Dict[str, Any]:
+    """
+    Mark the active self-service password reset alert as link-sent by admin.
+    This does not resolve the alert and does not change/revoke any password reset token.
+    """
+    customer = get_customer_company_detail(customer_id)
+    if not customer:
+        raise ValueError(f"customer_not_found:{customer_id}")
+
+    email = (
+        customer.get("portal_user_email")
+        or customer.get("contact_email")
+        or customer.get("billing_email")
+        or ""
+    ).strip().lower()
+    if not email:
+        raise ValueError(f"customer_password_reset_email_missing:{customer_id}")
+
+    db = SessionLocal()
+    try:
+        updated_count = mark_password_reset_self_service_alert_link_sent_by_admin(
+            db,
+            customer_id=customer_id,
+            email=email,
+            admin_user_id=admin_user_id,
+            details={
+                "customer_id": customer_id,
+                "tenant_code": customer.get("tenant_code"),
+                "marked_from": "customer_ops_detail",
+            },
+        )
+    finally:
+        db.close()
+
+    return {
+        "status": "email_sent" if updated_count > 0 else "no_active_alert",
+        "customer_id": customer_id,
+        "email": email,
+        "updated_count": updated_count,
+    }
 
 
 def generate_customer_password_reset_link(

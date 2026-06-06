@@ -23,6 +23,7 @@ from app.services.customer_ops_service import (
     generate_customer_password_reset_link,
     get_customer_ops_item,
     list_customer_ops_notifications,
+    mark_customer_password_reset_alert_link_sent,
     list_customers,
     request_cancellation,
     send_release,
@@ -173,6 +174,27 @@ def confirm_slot_route(
         raise HTTPException(status_code=500, detail=f"confirm_slot_failed: {exc}")
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"confirm_slot_failed: {exc}")
+
+
+@router.post("/customers/{customer_id}/password-reset-alert/mark-link-sent")
+def mark_password_reset_alert_link_sent_route(
+    customer_id: str,
+    current_user: dict = Depends(require_internal_admin),
+):
+    try:
+        return mark_customer_password_reset_alert_link_sent(
+            customer_id,
+            admin_user_id=str(current_user.get("id") or ""),
+        )
+    except ValueError as exc:
+        msg = str(exc)
+        if "customer_not_found" in msg:
+            raise HTTPException(status_code=404, detail=msg)
+        if "customer_password_reset_email_missing" in msg:
+            raise HTTPException(status_code=409, detail=msg)
+        raise HTTPException(status_code=400, detail=msg)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"password_reset_alert_mark_link_sent_failed: {exc}")
 
 
 @router.post("/customers/{customer_id}/password-reset-link", response_model=PasswordResetLinkResponse)

@@ -10,6 +10,7 @@ import {
   activateCustomerSubscription,
   forceActivateCustomerSubscription,
   createCustomerPasswordResetLink,
+  markCustomerPasswordResetAlertLinkSent,
   DELIVERY_STATUS_LABELS,
   type CustomerOpsItem,
   type PasswordResetLinkResponse,
@@ -175,6 +176,7 @@ export default function CustomerDetail() {
   const [passwordResetBusy, setPasswordResetBusy] = useState(false);
   const [passwordResetLink, setPasswordResetLink] = useState<PasswordResetLinkResponse | null>(null);
   const [passwordResetCopied, setPasswordResetCopied] = useState(false);
+  const [passwordResetLinkSentBusy, setPasswordResetLinkSentBusy] = useState(false);
 
   const load = useCallback(() => {
     if (!customerId) return;
@@ -306,6 +308,23 @@ export default function CustomerDetail() {
       setActionMsg({ type: "err", text: "Impossibile copiare il link automaticamente. Copialo manualmente dal campo." });
     }
   }
+
+    async function handleMarkPasswordResetLinkSent() {
+      if (!item?.customer_id) return;
+
+      setPasswordResetLinkSentBusy(true);
+      setActionMsg(null);
+
+      try {
+        await markCustomerPasswordResetAlertLinkSent(item.customer_id);
+        setActionMsg({ type: "ok", text: "Link segnato come inviato. L'avviso resterà attivo finché il cliente non completa il reset." });
+        load();
+      } catch (err) {
+        setActionMsg({ type: "err", text: err instanceof Error ? err.message : "Errore aggiornamento avviso reset password" });
+      } finally {
+        setPasswordResetLinkSentBusy(false);
+      }
+    }
 
   async function handleForceActivate() {
     setForceBusy(true);
@@ -553,6 +572,16 @@ export default function CustomerDetail() {
                           ? ` · Ultimo aggiornamento ${fmtDt(item.active_password_reset_alert.last_seen_at, "datetime")}`
                           : ""}
                       </div>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginTop: 8 }}>
+                          <button
+                            onClick={handleMarkPasswordResetLinkSent}
+                            disabled={busy || passwordResetBusy || passwordResetLinkSentBusy}
+                            style={busy || passwordResetBusy || passwordResetLinkSentBusy ? btnDisabled : btn}
+                            title="Usalo dopo aver generato, copiato e inviato manualmente il link al cliente"
+                          >
+                            {passwordResetLinkSentBusy ? "Aggiornamento..." : "Segna link inviato"}
+                          </button>
+                        </div>
                     </div>
                   )}
 

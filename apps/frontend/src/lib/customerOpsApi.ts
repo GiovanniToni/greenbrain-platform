@@ -233,3 +233,7 @@ export type CustomerOpsNotificationsResponse = {
 export async function getCustomerOpsNotifications(limit = 20): Promise<CustomerOpsNotificationsResponse> {
   return apiGet(`/api/v1/customer-ops/notifications?limit=${limit}`);
 }
+
+export async function markCustomerPasswordResetAlertLinkSent(customer_id: string) {
+  return apiPost(`/api/v1/customer-ops/customers/${customer_id}/password-reset-alert/mark-link-sent`, {});
+}

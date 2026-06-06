@@ -309,3 +309,56 @@ def list_active_admin_security_notifications(
         notifications.append(item)
 
     return notifications
+
+
+def mark_password_reset_self_service_alert_link_sent_by_admin(
+    db: Session,
+    *,
+    customer_id: str,
+    email: str,
+    admin_user_id: str | None = None,
+    details: dict[str, Any] | None = None,
+) -> int:
+    """
+    Mark an active self-service password reset alert as manually sent by admin.
+
+    Important: this does NOT resolve the alert. The alert remains active with
+    status='email_sent' until the customer actually completes the password reset,
+    at which point resolve_password_reset_self_service_alert(...) closes it.
+    """
+    clean_email = (email or "").lower().strip()
+    if not clean_email:
+        return 0
+
+    merged_details = {
+        "link_sent_by": "admin_manual",
+        "manual_link_sent": True,
+        "admin_user_id": admin_user_id,
+        **(details or {}),
+    }
+
+    result = db.execute(
+        text("""
+            UPDATE public.greenbrain_customer_security_alerts
+            SET
+              status = 'email_sent',
+              severity = 'info',
+              title = 'Link reset password inviato',
+              message = 'L''admin ha inviato manualmente il link di reset. In attesa che il cliente completi il cambio password.',
+              last_seen_at = now(),
+              resolved_at = NULL,
+              details = details || CAST(:details AS jsonb)
+            WHERE customer_id = CAST(:customer_id AS uuid)
+              AND lower(email) = lower(:email)
+              AND alert_type = 'password_reset_self_service'
+              AND resolved_at IS NULL
+              AND status IN ('open', 'pending_admin_action', 'email_sent', 'email_failed', 'expired', 'rate_limited')
+        """),
+        {
+            "customer_id": str(customer_id),
+            "email": clean_email,
+            "details": _details_json(merged_details),
+        },
+    )
+    db.commit()
+    return int(result.rowcount or 0)
