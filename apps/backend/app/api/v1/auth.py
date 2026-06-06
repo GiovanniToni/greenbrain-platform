@@ -25,6 +25,11 @@ from app.db.users import (
     update_user_password_hash,
 )
 from app.repositories.customer_portal_repository import get_runtime_connection_by_tenant_code
+from app.repositories.customer_security_alerts_repository import (
+    find_customer_by_portal_email,
+    resolve_password_reset_self_service_alert,
+    upsert_password_reset_self_service_alert,
+)
 from app.services.password_reset_service import (
     create_password_reset_for_email,
     reset_password_with_token,
@@ -260,9 +265,9 @@ def request_password_reset(
         )
 
     # Always return a generic response to avoid user enumeration.
-    # Until email delivery is wired, the reset link can be generated via the dev/admin utility.
+    # Current phase: self-service creates an internal admin alert; admin sends the reset link manually.
     try:
-        create_password_reset_for_email(
+        created = create_password_reset_for_email(
             db,
             email=email,
             source="self_service",
@@ -270,6 +275,37 @@ def request_password_reset(
             requested_ip=request.client.host if request.client else None,
             requested_user_agent=request.headers.get("user-agent"),
         )
+
+        if created.get("status") == "created":
+            try:
+                customer = find_customer_by_portal_email(db, created.get("email") or email) or {}
+                upsert_password_reset_self_service_alert(
+                    db,
+                    email=created.get("email") or email,
+                    customer_id=customer.get("customer_id"),
+                    tenant_code=customer.get("tenant_code"),
+                    status="pending_admin_action",
+                    severity="warning",
+                    title="Reset password self-service richiesto",
+                    message=(
+                        "Il cliente ha richiesto il recupero password dal self-service. "
+                        "Genera un link di reset manuale dal box Sicurezza account e invialo al cliente."
+                    ),
+                    source="self_service",
+                    details={
+                        "requested_ip": request.client.host if request.client else None,
+                        "requested_user_agent": request.headers.get("user-agent"),
+                        "token_created": True,
+                        "expires_at": str(created.get("expires_at") or ""),
+                        "requires_admin_manual_link": True,
+                        "email_delivery": "not_configured",
+                    },
+                )
+            except Exception:
+                db.rollback()
+                # Public password-reset requests must stay generic and must not fail
+                # because an internal admin alert could not be created.
+                pass
     except ValueError as exc:
         if str(exc) == "email_required":
             raise HTTPException(
@@ -328,6 +364,21 @@ def reset_password(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="password_reset_failed",
         )
+
+    try:
+        resolve_password_reset_self_service_alert(
+            db,
+            email=updated["email"],
+            details={
+                "resolved_by": "password_reset_completed",
+                "password_version": updated.get("password_version"),
+                "token_used_at": str(updated.get("token_used_at") or ""),
+            },
+        )
+    except Exception:
+        db.rollback()
+        # Password reset must not fail because an internal ops alert could not be resolved.
+        pass
 
     return PasswordResetConfirmResponse(
         email=updated["email"],

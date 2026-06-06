@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from app.db.session import SessionLocal
 from app.integrations.supabase_client import get_supabase_client
+from app.repositories.customer_security_alerts_repository import (
+    get_active_password_reset_alert_for_customer,
+    list_active_security_alerts_for_customer,
+)
 
 
 _COMPANY_WITH_DELIVERY_SELECT = """
@@ -216,7 +221,33 @@ def get_customer_ops_item_by_id(customer_id: str) -> Optional[Dict[str, Any]]:
         return None
     row = rows[0]
     runtime_map = get_runtime_connections_by_tenant_codes([row.get("tenant_code")])
-    return _map_row_to_ops_item(row, runtime_map.get(row.get("tenant_code")))
+    item = _map_row_to_ops_item(row, runtime_map.get(row.get("tenant_code")))
+
+    item["active_security_alerts"] = []
+    item["active_password_reset_alert"] = None
+
+    db = SessionLocal()
+    try:
+        lookup_email = item.get("portal_user_email") or item.get("contact_email") or item.get("billing_email")
+        item["active_security_alerts"] = list_active_security_alerts_for_customer(
+            db,
+            customer_id=item.get("customer_id"),
+            email=lookup_email,
+        )
+        item["active_password_reset_alert"] = get_active_password_reset_alert_for_customer(
+            db,
+            customer_id=item.get("customer_id"),
+            email=lookup_email,
+        )
+    except Exception:
+        db.rollback()
+        # Ops detail must remain available even if the optional alert table/query fails.
+        item["active_security_alerts"] = []
+        item["active_password_reset_alert"] = None
+    finally:
+        db.close()
+
+    return item
 
 
 def get_customer_company_detail(customer_id: str) -> Optional[Dict[str, Any]]:

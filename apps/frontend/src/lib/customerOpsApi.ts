@@ -1,5 +1,22 @@
 import { apiGet, apiPatch, apiPost } from "@/lib/apiClient";
 
+export type CustomerSecurityAlert = {
+  id: string;
+  customer_id?: string | null;
+  tenant_code?: string | null;
+  email: string;
+  alert_type: string;
+  status: string;
+  severity: "info" | "warning" | "error" | string;
+  title: string;
+  message: string;
+  source?: string | null;
+  first_seen_at?: string | null;
+  last_seen_at?: string | null;
+  resolved_at?: string | null;
+  details?: Record<string, unknown>;
+};
+
 export type CustomerOpsItem = {
   customer_id: string;
   tenant_code?: string | null;
@@ -55,6 +72,8 @@ export type CustomerOpsItem = {
   cancellation_requested_at?: string | null;
   subscription_cancel_at_period_end?: boolean | null;
   subscription_current_period_end?: string | null;
+  active_security_alerts?: CustomerSecurityAlert[];
+  active_password_reset_alert?: CustomerSecurityAlert | null;
 };
 
 export const DELIVERY_STATUS_LABELS: Record<string, string> = {

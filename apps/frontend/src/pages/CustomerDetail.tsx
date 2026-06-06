@@ -526,57 +526,80 @@ export default function CustomerDetail() {
             <Row label="Aggiornato il" value={fmtDt(item.updated_at, "datetime")} />
 
             
-            <div style={{ ...inlineActionBox, gridColumn: "1 / -1" }}>
-              <div style={inlineActionTitle}>Sicurezza account</div>
-              <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
-                <div style={{ fontSize: 11, color: "#6b7280", lineHeight: 1.4 }}>
-                  Genera un link temporaneo per reimpostare la password dell&apos;utente cliente. Il link non cambia la password finché il cliente non completa il reset.
-                </div>
-            
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, alignItems: "center" }}>
-                  <button
-                    onClick={handleGeneratePasswordResetLink}
-                    disabled={busy || passwordResetBusy}
-                    style={busy || passwordResetBusy ? btnDisabled : btnPrimary}
-                  >
-                    {passwordResetBusy ? "Generazione..." : "Genera link reset password"}
-                  </button>
-            
-                  {passwordResetLink?.expires_at && (
-                    <span style={{ fontSize: 11, color: "#6b7280" }}>
-                      Valido fino al {fmtDt(passwordResetLink.expires_at, "datetime")}
-                    </span>
+              <div style={{ ...inlineActionBox, gridColumn: "1 / -1" }}>
+                <div style={inlineActionTitle}>Sicurezza account</div>
+                <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
+                  <div style={{ fontSize: 11, color: "#6b7280", lineHeight: 1.4 }}>
+                    Genera un link temporaneo per reimpostare la password dell&apos;utente cliente. Il link non cambia la password finché il cliente non completa il reset.
+                  </div>
+
+                  {item.active_password_reset_alert && (
+                    <div style={
+                      item.active_password_reset_alert.severity === "error"
+                        ? securityAlertError
+                        : item.active_password_reset_alert.severity === "warning"
+                        ? securityAlertWarning
+                        : securityAlertInfo
+                    }>
+                      <div style={{ fontSize: 11, fontWeight: 900, color: "#374151", textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>
+                        {item.active_password_reset_alert.title || "Avviso sicurezza account"}
+                      </div>
+                      <div style={{ fontSize: 12, color: "#374151", lineHeight: 1.45, marginTop: 3 }}>
+                        {item.active_password_reset_alert.message}
+                      </div>
+                      <div style={{ fontSize: 11, color: "#6b7280", marginTop: 5 }}>
+                        Stato: {item.active_password_reset_alert.status}
+                        {item.active_password_reset_alert.last_seen_at
+                          ? ` · Ultimo aggiornamento ${fmtDt(item.active_password_reset_alert.last_seen_at, "datetime")}`
+                          : ""}
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, alignItems: "center" }}>
+                    <button
+                      onClick={handleGeneratePasswordResetLink}
+                      disabled={busy || passwordResetBusy}
+                      style={busy || passwordResetBusy ? btnDisabled : btnPrimary}
+                    >
+                      {passwordResetBusy ? "Generazione..." : "Genera link reset password"}
+                    </button>
+
+                    {passwordResetLink?.expires_at && (
+                      <span style={{ fontSize: 11, color: "#6b7280" }}>
+                        Valido fino al {fmtDt(passwordResetLink.expires_at, "datetime")}
+                      </span>
+                    )}
+                  </div>
+
+                  {passwordResetLink?.reset_url && (
+                    <div style={resetLinkBox}>
+                      <div style={{ fontSize: 10, fontWeight: 800, color: "#374151", textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>
+                        Link generato per {passwordResetLink.email}
+                      </div>
+
+                      <code style={resetLinkCode}>{passwordResetLink.reset_url}</code>
+
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, alignItems: "center" }}>
+                        <button
+                          onClick={handleCopyPasswordResetLink}
+                          style={passwordResetCopied ? btnCopied : btn}
+                          title={passwordResetCopied ? "Link copiato" : "Copia link reset password"}
+                        >
+                          {passwordResetCopied ? "✓ Copiato" : "📋 Copia link"}
+                        </button>
+
+                        {passwordResetLink.token_hint && (
+                          <span style={{ fontSize: 11, color: "#6b7280" }}>
+                            Hint token: {passwordResetLink.token_hint}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   )}
                 </div>
-            
-                {passwordResetLink?.reset_url && (
-                  <div style={resetLinkBox}>
-                    <div style={{ fontSize: 10, fontWeight: 800, color: "#374151", textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>
-                      Link generato per {passwordResetLink.email}
-                    </div>
-            
-                    <code style={resetLinkCode}>{passwordResetLink.reset_url}</code>
-            
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, alignItems: "center" }}>
-                      <button
-                        onClick={handleCopyPasswordResetLink}
-                        style={passwordResetCopied ? btnCopied : btn}
-                        title={passwordResetCopied ? "Link copiato" : "Copia link reset password"}
-                      >
-                        {passwordResetCopied ? "✓ Copiato" : "📋 Copia link"}
-                      </button>
-            
-                      {passwordResetLink.token_hint && (
-                        <span style={{ fontSize: 11, color: "#6b7280" }}>
-                          Hint token: {passwordResetLink.token_hint}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
               </div>
-            </div>
-          </Section>
+            </Section>
 
           <Section title="Pagamento e abbonamento">
             <Row label="Piano" value={planName !== "—" ? `${planName}${planPrice ? ` — ${planPrice}` : ""}` : null} />
@@ -1150,6 +1173,27 @@ const alignedBadge: React.CSSProperties = {
   border: "1px solid #86efac",
   borderRadius: 5,
   padding: "3px 10px",
+};
+
+const securityAlertInfo: React.CSSProperties = {
+  background: "#eff6ff",
+  border: "1px solid #bfdbfe",
+  borderRadius: 8,
+  padding: "10px 12px",
+};
+
+const securityAlertWarning: React.CSSProperties = {
+  background: "#fffbeb",
+  border: "1px solid #fde68a",
+  borderRadius: 8,
+  padding: "10px 12px",
+};
+
+const securityAlertError: React.CSSProperties = {
+  background: "#fef2f2",
+  border: "1px solid #fecaca",
+  borderRadius: 8,
+  padding: "10px 12px",
 };
 
 const resetLinkBox: React.CSSProperties = {
