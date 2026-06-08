@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     supabase_service_role_key: Optional[str] = None
     supabase_bucket: str = "ml-snapshots"
 
+    # Source DB credential encryption.
+    # Must be a Fernet key generated with:
+    # python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    # Never reuse JWT_SECRET for credential encryption.
+    source_db_secret_key: Optional[str] = None
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @model_validator(mode="after")
