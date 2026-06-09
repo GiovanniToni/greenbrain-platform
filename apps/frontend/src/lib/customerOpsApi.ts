@@ -1,5 +1,40 @@
 import { apiGet, apiPatch, apiPost } from "@/lib/apiClient";
 
+export type CustomerSourceDbIntegration = {
+  customer_id?: string | null;
+  db_type?: string | null;
+  db_host?: string | null;
+  db_port?: number | null;
+  db_name?: string | null;
+  db_schema?: string | null;
+  source_client_code?: string | null;
+  db_view_name?: string | null;
+  db_username?: string | null;
+  db_password_set?: boolean;
+  db_encrypt?: boolean | null;
+  db_trust_server_certificate?: boolean | null;
+  manager_contact_email?: string | null;
+  manager_response_raw_text?: string | null;
+  manager_response_received_at?: string | null;
+  formal_validation_status?: string | null;
+  formal_validation_report?: string | null;
+  formal_validation_result?: {
+    missing?: string[];
+    warnings?: string[];
+    [key: string]: unknown;
+  };
+  formal_validation_at?: string | null;
+  technical_test_status?: string | null;
+  technical_test_report?: string | null;
+  technical_test_result?: Record<string, unknown>;
+  technical_test_at?: string | null;
+  last_error_report?: string | null;
+  last_error_at?: string | null;
+  notes?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
 export type CustomerSecurityAlert = {
   id: string;
   customer_id?: string | null;
@@ -74,6 +109,7 @@ export type CustomerOpsItem = {
   subscription_current_period_end?: string | null;
   active_security_alerts?: CustomerSecurityAlert[];
   active_password_reset_alert?: CustomerSecurityAlert | null;
+  source_db_integration?: CustomerSourceDbIntegration | null;
 };
 
 export const DELIVERY_STATUS_LABELS: Record<string, string> = {

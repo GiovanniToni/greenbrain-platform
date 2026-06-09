@@ -59,6 +59,27 @@ function fmtDt(iso: string | null | undefined, mode: "date" | "datetime" = "date
   } catch { return iso; }
 }
 
+
+function sourceDbStatusLabel(status: string | null | undefined) {
+  const s = (status || "not_started").toLowerCase();
+  if (s === "formal_validation_ok") return "Dati tecnici validati";
+  if (s === "formal_validation_failed") return "Dati tecnici incompleti";
+  if (s === "technical_test_pending") return "Test tecnico in attesa";
+  if (s === "technical_test_failed") return "Test tecnico non superato";
+  if (s === "technical_test_ok") return "Test tecnico superato";
+  if (s === "response_saved") return "Risposta salvata";
+  if (s === "request_ready") return "Richiesta pronta";
+  return "Non configurato";
+}
+
+function sourceDbStatusForBadge(status: string | null | undefined) {
+  const s = (status || "not_started").toLowerCase();
+  if (s === "formal_validation_ok" || s === "technical_test_ok") return "installed";
+  if (s === "formal_validation_failed" || s === "technical_test_failed") return "failed";
+  if (s === "technical_test_pending" || s === "response_saved" || s === "request_ready") return "slot_requested";
+  return "not_started";
+}
+
 const NEXT_ONBOARDING_STATUS: Record<string, string> = {
   slot_requested:          "slot_confirmed",
   slot_confirmed:          "setup_in_progress",
@@ -244,6 +265,18 @@ export default function CustomerDetail() {
     item.last_downloaded_release_version &&
     item.installed_release_version !== item.last_downloaded_release_version
   );
+  const sourceDbIntegration = item.source_db_integration || null;
+  const sourceDbFormalStatus =
+    sourceDbIntegration?.formal_validation_status || item.db_integration_status || "not_started";
+  const sourceDbTechnicalStatus =
+    sourceDbIntegration?.technical_test_status || "not_started";
+  const sourceDbMissing = Array.isArray(sourceDbIntegration?.formal_validation_result?.missing)
+    ? sourceDbIntegration?.formal_validation_result?.missing || []
+    : [];
+  const sourceDbWarnings = Array.isArray(sourceDbIntegration?.formal_validation_result?.warnings)
+    ? sourceDbIntegration?.formal_validation_result?.warnings || []
+    : [];
+
   const effectiveDbIntegrationStatus =
     item.db_integration_status === "not_started" && item.data_validated_at
       ? "validated"
@@ -812,6 +845,60 @@ export default function CustomerDetail() {
             </div>
           </Section>
 
+
+          <Section title="Collegamento gestionale">
+            <Row label="Stato formale" value={badge(sourceDbStatusForBadge(sourceDbFormalStatus))} />
+            <Row label="Dettaglio stato formale" value={sourceDbStatusLabel(sourceDbFormalStatus)} />
+            <Row label="Test tecnico" value={badge(sourceDbStatusForBadge(sourceDbTechnicalStatus))} />
+            <Row label="Dettaglio test tecnico" value={sourceDbStatusLabel(sourceDbTechnicalStatus)} />
+            <Row label="Server SQL" value={sourceDbIntegration?.db_host || "Non configurato"} />
+            <Row label="Porta" value={sourceDbIntegration?.db_port ? String(sourceDbIntegration.db_port) : null} />
+            <Row label="Database" value={sourceDbIntegration?.db_name || null} />
+            <Row label="Schema" value={sourceDbIntegration?.db_schema || null} />
+            <Row label="Codice cliente" value={sourceDbIntegration?.source_client_code || item.tenant_code || null} />
+            <Row label="Vista gestionale" value={sourceDbIntegration?.db_view_name || null} />
+            <Row label="Utente DB" value={sourceDbIntegration?.db_username || null} />
+            <Row label="Password DB gestionale" value={sourceDbIntegration?.db_password_set ? "Salvata e cifrata" : "Non salvata"} />
+            <Row label="Encrypt" value={sourceDbIntegration?.db_encrypt === true ? "Sì" : sourceDbIntegration?.db_encrypt === false ? "No" : null} />
+            <Row label="Trust certificate" value={sourceDbIntegration?.db_trust_server_certificate === true ? "Sì" : sourceDbIntegration?.db_trust_server_certificate === false ? "No" : null} />
+            <Row label="Email referente gestionale" value={sourceDbIntegration?.manager_contact_email || null} />
+            <Row label="Validazione formale il" value={fmtDt(sourceDbIntegration?.formal_validation_at, "datetime")} />
+            <Row label="Test tecnico il" value={fmtDt(sourceDbIntegration?.technical_test_at, "datetime")} />
+
+            {sourceDbMissing.length > 0 && (
+              <div style={{ gridColumn: "1 / -1", background: "#fee2e2", border: "1px solid #fecaca", borderRadius: 8, padding: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: "#991b1b", marginBottom: 4 }}>Dati mancanti</div>
+                <div style={{ fontSize: 12, color: "#7f1d1d" }}>{sourceDbMissing.join(", ")}</div>
+              </div>
+            )}
+
+            {sourceDbWarnings.length > 0 && (
+              <div style={{ gridColumn: "1 / -1", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: "#92400e", marginBottom: 4 }}>Avvisi</div>
+                <div style={{ fontSize: 12, color: "#78350f" }}>{sourceDbWarnings.join(", ")}</div>
+              </div>
+            )}
+
+            {sourceDbIntegration?.formal_validation_report && (
+              <div style={{ gridColumn: "1 / -1", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: "#374151", marginBottom: 4 }}>Report validazione formale</div>
+                <pre style={{ whiteSpace: "pre-wrap", margin: 0, fontSize: 11, color: "#6b7280", fontFamily: "inherit" }}>{sourceDbIntegration.formal_validation_report}</pre>
+              </div>
+            )}
+
+            {sourceDbIntegration?.technical_test_report && (
+              <div style={{ gridColumn: "1 / -1", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: "#374151", marginBottom: 4 }}>Report test tecnico</div>
+                <pre style={{ whiteSpace: "pre-wrap", margin: 0, fontSize: 11, color: "#6b7280", fontFamily: "inherit" }}>{sourceDbIntegration.technical_test_report}</pre>
+              </div>
+            )}
+
+            {!sourceDbIntegration && (
+              <div style={{ gridColumn: "1 / -1", fontSize: 12, color: "#6b7280" }}>
+                Il cliente non ha ancora inserito i dati del gestionale dal portale account.
+              </div>
+            )}
+          </Section>
 
           <Section title="Runtime locale">
             <Row label="Stato piattaforma" value={item.installation_status_label || (item.platform_ready ? "Piattaforma attiva" : "Non ancora attiva")} />
