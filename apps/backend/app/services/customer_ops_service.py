@@ -22,6 +22,7 @@ from app.services.customer_provisioning_service import assign_release as provisi
 from app.services.password_reset_service import create_password_reset_for_email
 from app.db.session import SessionLocal
 from app.repositories.customer_security_alerts_repository import list_active_admin_security_notifications, mark_password_reset_self_service_alert_link_sent_by_admin
+from app.repositories.customer_source_db_repository import get_source_db_integration, mask_source_db_integration
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +136,9 @@ def get_customer_ops_item(customer_id: str) -> Dict[str, Any]:
         raise ValueError(f"customer_not_found:{customer_id}")
     item["delivery_status"] = normalize_delivery_state(item)
     _enrich_password_reset_history(item)
+    item["source_db_integration"] = mask_source_db_integration(
+        get_source_db_integration(customer_id)
+    )
     item["latest_available_release_version"] = get_latest_available_release_version()
     return item
 

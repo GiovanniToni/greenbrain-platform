@@ -19,6 +19,8 @@ from app.services.customer_portal_service import (
     build_customer_portal_profile,
     cancel_customer_portal_subscription,
     confirm_customer_data_ok,
+    get_customer_source_db_state,
+    save_customer_source_db_state,
 )
 
 router = APIRouter(prefix="/api/v1/customer-portal", tags=["customer-portal"])
@@ -53,9 +55,58 @@ class BookSetupSlotPayload(BaseModel):
     notes: Optional[str] = None
 
 
+
+class SourceDbIntegrationPayload(BaseModel):
+    db_type: Optional[str] = None
+    db_host: Optional[str] = None
+    db_port: Optional[int] = None
+    db_name: Optional[str] = None
+    db_schema: Optional[str] = None
+    source_client_code: Optional[str] = None
+    db_view_name: Optional[str] = None
+    db_username: Optional[str] = None
+    password: Optional[str] = None
+    db_encrypt: Optional[bool] = None
+    db_trust_server_certificate: Optional[bool] = None
+    manager_contact_email: Optional[str] = None
+    manager_response_raw_text: Optional[str] = None
+    notes: Optional[str] = None
+
 @router.get("/health")
 def customer_portal_health():
     return {"status": "ok", "service": "customer-portal"}
+
+
+
+@router.get("/source-db")
+def get_source_db_state_route(email: str = Depends(get_portal_email_from_bearer)):
+    try:
+        return get_customer_source_db_state(email)
+    except RuntimeError as exc:
+        msg = str(exc)
+        if "customer_portal_profile_not_found" in msg:
+            raise HTTPException(status_code=404, detail=msg)
+        raise HTTPException(status_code=500, detail=f"get_source_db_state_failed: {exc}")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"get_source_db_state_failed: {exc}")
+
+
+@router.post("/source-db")
+def save_source_db_state_route(
+    payload: SourceDbIntegrationPayload,
+    email: str = Depends(get_portal_email_from_bearer),
+):
+    try:
+        return save_customer_source_db_state(email, payload.model_dump())
+    except RuntimeError as exc:
+        msg = str(exc)
+        if "customer_portal_profile_not_found" in msg:
+            raise HTTPException(status_code=404, detail=msg)
+        if "source_db_secret_key" in msg:
+            raise HTTPException(status_code=500, detail=msg)
+        raise HTTPException(status_code=500, detail=f"save_source_db_state_failed: {exc}")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"save_source_db_state_failed: {exc}")
 
 
 @router.get("/me")

@@ -8,6 +8,13 @@ from app.repositories.customer_portal_repository import (
     get_runtime_connection_by_tenant_code,
     update_customer_portal_fields,
 )
+from app.repositories.customer_source_db_repository import (
+    get_source_db_integration,
+    mask_source_db_integration,
+    save_source_db_integration,
+    update_customer_db_integration_status,
+)
+from app.core.secret_crypto import encrypt_secret
 from app.services.customer_billing_service import (
     cancel_subscription_at_period_end_for_portal_email,
 )
@@ -211,4 +218,162 @@ def confirm_customer_data_ok(user_email: str) -> Dict[str, Any]:
     return {
         "status": "data_validated",
         "data_validated_at": now_iso,
+    }
+
+
+_SOURCE_DB_ALLOWED_STATUSES = {
+    "not_started",
+    "response_saved",
+    "formal_validation_failed",
+    "formal_validation_ok",
+    "technical_test_pending",
+    "technical_test_failed",
+    "technical_test_ok",
+}
+
+
+def _clean_optional_text(value: Any) -> str | None:
+    clean = str(value or "").strip()
+    return clean or None
+
+
+def _clean_bool(value: Any) -> bool | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        clean = value.strip().lower()
+        if clean in {"1", "true", "yes", "y", "si", "sì"}:
+            return True
+        if clean in {"0", "false", "no", "n"}:
+            return False
+    return bool(value)
+
+
+def _build_source_db_formal_validation(payload: Dict[str, Any], *, password_set: bool) -> Dict[str, Any]:
+    missing = []
+
+    if not _clean_optional_text(payload.get("db_host")):
+        missing.append("server/host gestionale")
+    if not _clean_optional_text(payload.get("db_name")):
+        missing.append("nome database")
+    if not _clean_optional_text(payload.get("db_view_name")):
+        missing.append("nome vista")
+    if not _clean_optional_text(payload.get("db_username")):
+        missing.append("utente read-only")
+    if not password_set:
+        missing.append("password utente read-only")
+
+    warnings = []
+    username = (_clean_optional_text(payload.get("db_username")) or "").lower()
+    if username == "sa":
+        warnings.append("L'utente SQL Server indicato è 'sa': usare preferibilmente un utente dedicato read-only.")
+
+    view_name = (_clean_optional_text(payload.get("db_view_name")) or "").upper()
+    if view_name == "GREENHOUSE_VIEW_STAT":
+        warnings.append("Vista legacy GREENHOUSE_VIEW_STAT accettata; preferibile alias standard GREENBRAIN_VIEW_SALES_RAW.")
+
+    if missing:
+        status = "formal_validation_failed"
+        title = "Validazione formale non completata"
+    else:
+        status = "formal_validation_ok"
+        title = "Validazione formale completata"
+
+    lines = [
+        title,
+        "",
+        "Controlli formali:",
+        f"- Server/host: {'OK' if 'server/host gestionale' not in missing else 'MANCANTE'}",
+        f"- Database: {'OK' if 'nome database' not in missing else 'MANCANTE'}",
+        f"- Vista: {'OK' if 'nome vista' not in missing else 'MANCANTE'}",
+        f"- Utente: {'OK' if 'utente read-only' not in missing else 'MANCANTE'}",
+        f"- Password: {'OK' if password_set else 'MANCANTE'}",
+    ]
+
+    if warnings:
+        lines.extend(["", "Avvisi:"])
+        lines.extend([f"- {w}" for w in warnings])
+
+    if missing:
+        lines.extend(["", "Dati da completare:"])
+        lines.extend([f"- {m}" for m in missing])
+
+    return {
+        "status": status,
+        "missing": missing,
+        "warnings": warnings,
+        "report": "\n".join(lines),
+    }
+
+
+def get_customer_source_db_state(user_email: str) -> Dict[str, Any]:
+    row = get_customer_by_portal_email(user_email)
+    if not row:
+        raise RuntimeError(f"customer_portal_profile_not_found_for_email: {user_email}")
+
+    integration = get_source_db_integration(row["customer_id"])
+    return {
+        "customer_id": row.get("customer_id"),
+        "tenant_code": row.get("tenant_code"),
+        "db_integration_status": row.get("db_integration_status") or "not_started",
+        "source_db_integration": mask_source_db_integration(integration),
+    }
+
+
+def save_customer_source_db_state(user_email: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    row = get_customer_by_portal_email(user_email)
+    if not row:
+        raise RuntimeError(f"customer_portal_profile_not_found_for_email: {user_email}")
+
+    customer_id = row["customer_id"]
+    existing = get_source_db_integration(customer_id) or {}
+
+    password = str(payload.get("password") or "").strip()
+    password_set = bool(existing.get("db_password_set"))
+
+    db_payload: Dict[str, Any] = {
+        "db_type": _clean_optional_text(payload.get("db_type")) or "sqlserver",
+        "db_host": _clean_optional_text(payload.get("db_host")),
+        "db_port": int(payload.get("db_port") or 1433),
+        "db_name": _clean_optional_text(payload.get("db_name")),
+        "db_schema": _clean_optional_text(payload.get("db_schema")) or "dbo",
+        "source_client_code": _clean_optional_text(payload.get("source_client_code")),
+        "db_view_name": _clean_optional_text(payload.get("db_view_name")) or "GREENBRAIN_VIEW_SALES_RAW",
+        "db_username": _clean_optional_text(payload.get("db_username")),
+        "db_encrypt": _clean_bool(payload.get("db_encrypt")),
+        "db_trust_server_certificate": _clean_bool(payload.get("db_trust_server_certificate")),
+        "manager_contact_email": _clean_optional_text(payload.get("manager_contact_email")),
+        "manager_response_raw_text": _clean_optional_text(payload.get("manager_response_raw_text")),
+        "notes": _clean_optional_text(payload.get("notes")),
+    }
+
+    if password:
+        db_payload["db_password_encrypted"] = encrypt_secret(password)
+        db_payload["db_password_set"] = True
+        password_set = True
+
+    validation = _build_source_db_formal_validation(db_payload, password_set=password_set)
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    db_payload.update({
+        "formal_validation_status": validation["status"],
+        "formal_validation_report": validation["report"],
+        "formal_validation_result": {
+            "missing": validation["missing"],
+            "warnings": validation["warnings"],
+        },
+        "formal_validation_at": now_iso,
+        "technical_test_status": existing.get("technical_test_status") or "not_started",
+    })
+
+    saved = save_source_db_integration(customer_id, db_payload)
+    update_customer_db_integration_status(customer_id, validation["status"])
+
+    return {
+        "customer_id": customer_id,
+        "tenant_code": row.get("tenant_code"),
+        "db_integration_status": validation["status"],
+        "source_db_integration": mask_source_db_integration(saved),
     }
