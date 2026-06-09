@@ -68,3 +68,73 @@ export async function downloadCustomerPortalBundle(): Promise<{ blob: Blob; file
   const blob = await response.blob();
   return { blob, filename };
 }
+
+export type SourceDbIntegration = {
+  customer_id?: string | null;
+  db_type?: string | null;
+  db_host?: string | null;
+  db_port?: number | null;
+  db_name?: string | null;
+  db_schema?: string | null;
+  source_client_code?: string | null;
+  db_view_name?: string | null;
+  db_username?: string | null;
+  db_password_set?: boolean;
+  db_encrypt?: boolean | null;
+  db_trust_server_certificate?: boolean | null;
+  manager_contact_email?: string | null;
+  manager_response_raw_text?: string | null;
+  manager_response_received_at?: string | null;
+  formal_validation_status?: string | null;
+  formal_validation_report?: string | null;
+  formal_validation_result?: {
+    missing?: string[];
+    warnings?: string[];
+    [key: string]: unknown;
+  };
+  formal_validation_at?: string | null;
+  technical_test_status?: string | null;
+  technical_test_report?: string | null;
+  technical_test_result?: Record<string, unknown>;
+  technical_test_at?: string | null;
+  last_error_report?: string | null;
+  last_error_at?: string | null;
+  notes?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type SourceDbPortalState = {
+  customer_id?: string | null;
+  tenant_code?: string | null;
+  db_integration_status?: string | null;
+  source_db_integration?: SourceDbIntegration | null;
+};
+
+export type SourceDbIntegrationPayload = {
+  db_type?: string;
+  db_host?: string;
+  db_port?: number;
+  db_name?: string;
+  db_schema?: string;
+  source_client_code?: string;
+  db_view_name?: string;
+  db_username?: string;
+  password?: string;
+  db_encrypt?: boolean;
+  db_trust_server_certificate?: boolean;
+  manager_contact_email?: string;
+  manager_response_raw_text?: string;
+  notes?: string;
+};
+
+export async function getCustomerSourceDbState(): Promise<SourceDbPortalState> {
+  return apiGet("/api/v1/customer-portal/source-db");
+}
+
+export async function saveCustomerSourceDbState(
+  payload: SourceDbIntegrationPayload,
+): Promise<SourceDbPortalState> {
+  return apiPost("/api/v1/customer-portal/source-db", payload);
+}
+

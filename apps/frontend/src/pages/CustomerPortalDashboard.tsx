@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   Download, CreditCard, CheckCircle2, AlertCircle,
-  Package, Building2, Clock, Calendar, RefreshCw,
+  Package, Building2, Clock, Calendar, RefreshCw, Database,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -17,6 +17,9 @@ import {
   getCustomerPortalMe,
   bookSetupSlot,
   confirmDataOk,
+  getCustomerSourceDbState,
+  saveCustomerSourceDbState,
+  type SourceDbPortalState,
 } from "@/lib/customerPortalApi";
 import { planDisplayName, planDisplayPrice } from "@/lib/planConfig";
 import { createSetupSession } from "@/lib/customerBillingApi";
@@ -39,6 +42,7 @@ type AccountTab =
   | "profile"
   | "billing"
   | "installation"
+  | "sourceDb"
   | "security";
 
 const ACCOUNT_TABS: Array<{ key: AccountTab; label: string }> = [
@@ -46,6 +50,7 @@ const ACCOUNT_TABS: Array<{ key: AccountTab; label: string }> = [
   { key: "profile", label: "Anagrafica" },
   { key: "billing", label: "Pagamento e abbonamento" },
   { key: "installation", label: "Installazione GreenBrain" },
+  { key: "sourceDb", label: "Gestionale" },
   { key: "security", label: "Sicurezza" },
 ];
 
@@ -162,6 +167,29 @@ function slotTimeFmt(t: string | null | undefined) {
   if (t === "morning") return "Mattina";
   if (t === "afternoon") return "Pomeriggio";
   return t || "—";
+}
+
+
+function sourceDbStatusLabel(status: string | undefined | null) {
+  const s = (status || "not_started").toLowerCase();
+  if (s === "formal_validation_ok") return "Dati tecnici validati";
+  if (s === "formal_validation_failed") return "Dati tecnici incompleti";
+  if (s === "technical_test_pending") return "Test tecnico in attesa";
+  if (s === "technical_test_failed") return "Test tecnico non superato";
+  if (s === "technical_test_ok") return "Test tecnico superato";
+  if (s === "response_saved") return "Risposta salvata";
+  if (s === "request_ready") return "Richiesta pronta";
+  return "Non configurato";
+}
+
+function sourceDbStatusBadge(status: string | undefined | null) {
+  const s = (status || "not_started").toLowerCase();
+  if (s === "technical_test_ok") return <Badge>Test tecnico OK</Badge>;
+  if (s === "formal_validation_ok") return <Badge variant="secondary">Validazione formale OK</Badge>;
+  if (s === "formal_validation_failed" || s === "technical_test_failed") {
+    return <Badge variant="destructive">{sourceDbStatusLabel(s)}</Badge>;
+  }
+  return <Badge variant="outline">{sourceDbStatusLabel(s)}</Badge>;
 }
 
 function getLifecyclePhase(data: CustomerPortalProfile | null): LifecyclePhase {
@@ -487,6 +515,22 @@ export default function CustomerPortalDashboard() {
   const [securityBusy, setSecurityBusy] = useState(false);
   const [securityMessage, setSecurityMessage] = useState<string | null>(null);
   const [localPasswordSyncUrl, setLocalPasswordSyncUrl] = useState<string | null>(null);
+  const [sourceDbState, setSourceDbState] = useState<SourceDbPortalState | null>(null);
+  const [sourceDbBusy, setSourceDbBusy] = useState(false);
+  const [sourceDbMessage, setSourceDbMessage] = useState<string | null>(null);
+  const [sourceDbHost, setSourceDbHost] = useState("");
+  const [sourceDbPort, setSourceDbPort] = useState("1433");
+  const [sourceDbName, setSourceDbName] = useState("");
+  const [sourceDbSchema, setSourceDbSchema] = useState("dbo");
+  const [sourceDbClientCode, setSourceDbClientCode] = useState("");
+  const [sourceDbViewName, setSourceDbViewName] = useState("GREENBRAIN_VIEW_SALES_RAW");
+  const [sourceDbUsername, setSourceDbUsername] = useState("");
+  const [sourceDbPassword, setSourceDbPassword] = useState("");
+  const [sourceDbEncrypt, setSourceDbEncrypt] = useState(true);
+  const [sourceDbTrustCert, setSourceDbTrustCert] = useState(true);
+  const [sourceDbManagerEmail, setSourceDbManagerEmail] = useState("");
+  const [sourceDbManagerResponse, setSourceDbManagerResponse] = useState("");
+  const [sourceDbNotes, setSourceDbNotes] = useState("");
 
   const [slotDate, setSlotDate] = useState("");
   const [slotTime, setSlotTime] = useState("morning");
@@ -504,6 +548,31 @@ export default function CustomerPortalDashboard() {
     try {
       const profile = await getCustomerPortalMe();
       setData(profile);
+
+      try {
+        const sourceDb = await getCustomerSourceDbState();
+        setSourceDbState(sourceDb);
+        const integration = sourceDb?.source_db_integration;
+        if (integration) {
+          setSourceDbHost(integration.db_host || "");
+          setSourceDbPort(String(integration.db_port || 1433));
+          setSourceDbName(integration.db_name || "");
+          setSourceDbSchema(integration.db_schema || "dbo");
+          setSourceDbClientCode(integration.source_client_code || profile?.tenant_code || "");
+          setSourceDbViewName(integration.db_view_name || "GREENBRAIN_VIEW_SALES_RAW");
+          setSourceDbUsername(integration.db_username || "");
+          setSourceDbEncrypt(Boolean(integration.db_encrypt ?? true));
+          setSourceDbTrustCert(Boolean(integration.db_trust_server_certificate ?? true));
+          setSourceDbManagerEmail(integration.manager_contact_email || "");
+          setSourceDbManagerResponse(integration.manager_response_raw_text || "");
+          setSourceDbNotes(integration.notes || "");
+        } else {
+          setSourceDbClientCode(profile?.tenant_code || "");
+        }
+      } catch {
+        setSourceDbState(null);
+      }
+
       setLastRefreshedAt(new Date().toISOString());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Errore caricamento");
@@ -628,6 +697,45 @@ export default function CustomerPortalDashboard() {
     }
 
     return " Usa il pulsante qui sotto per sincronizzare subito GreenBrain locale; in ogni caso si allineerà automaticamente al prossimo controllo.";
+  }
+
+  async function handleSaveSourceDb(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSourceDbMessage(null);
+
+    try {
+      setSourceDbBusy(true);
+      const res = await saveCustomerSourceDbState({
+        db_type: "sqlserver",
+        db_host: sourceDbHost.trim(),
+        db_port: Number(sourceDbPort || 1433),
+        db_name: sourceDbName.trim(),
+        db_schema: sourceDbSchema.trim() || "dbo",
+        source_client_code: sourceDbClientCode.trim() || data?.tenant_code || undefined,
+        db_view_name: sourceDbViewName.trim() || "GREENBRAIN_VIEW_SALES_RAW",
+        db_username: sourceDbUsername.trim(),
+        password: sourceDbPassword.trim() || undefined,
+        db_encrypt: sourceDbEncrypt,
+        db_trust_server_certificate: sourceDbTrustCert,
+        manager_contact_email: sourceDbManagerEmail.trim() || undefined,
+        manager_response_raw_text: sourceDbManagerResponse.trim() || undefined,
+        notes: sourceDbNotes.trim() || undefined,
+      });
+
+      setSourceDbState(res);
+      setSourceDbPassword("");
+      setSourceDbMessage(
+        res.db_integration_status === "formal_validation_ok"
+          ? "Dati gestionali salvati e validati formalmente. Il test tecnico verrà eseguito dal computer collegato alla rete del gestionale."
+          : "Dati gestionali salvati. Completa i campi mancanti prima del test tecnico."
+      );
+      await doFetch(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Errore salvataggio collegamento gestionale");
+    } finally {
+      setSourceDbBusy(false);
+    }
   }
 
   async function handleDownloadBundle() {
@@ -762,6 +870,17 @@ export default function CustomerPortalDashboard() {
   const subscriptionCurrentPeriodEnd = data?.subscription_current_period_end || null;
   const subscriptionActivatedAt = data?.subscription_activated_at || null;
   const isSubscriptionActive = (data?.subscription_status || "").toLowerCase() === "active";
+  const sourceDbIntegration = sourceDbState?.source_db_integration || null;
+  const sourceDbStatus = sourceDbState?.db_integration_status
+    || sourceDbIntegration?.formal_validation_status
+    || data?.db_integration_status
+    || "not_started";
+  const sourceDbMissing = Array.isArray(sourceDbIntegration?.formal_validation_result?.missing)
+    ? sourceDbIntegration?.formal_validation_result?.missing || []
+    : [];
+  const sourceDbWarnings = Array.isArray(sourceDbIntegration?.formal_validation_result?.warnings)
+    ? sourceDbIntegration?.formal_validation_result?.warnings || []
+    : [];
 
   const platformReady = Boolean(data?.platform_ready);
   const installationStatusLabel = data?.installation_status_label || (
@@ -997,7 +1116,7 @@ export default function CustomerPortalDashboard() {
       )}
 
       <div className="rounded-2xl border bg-card p-2 shadow-sm">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
           {ACCOUNT_TABS.map((tab) => (
             <button
               key={tab.key}
@@ -1382,6 +1501,248 @@ export default function CustomerPortalDashboard() {
             )}
           </Card>
         </div>
+      )}
+
+
+      {activeTab === "sourceDb" && (
+        <Card className="p-6 border-primary/10">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between mb-5">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                <Database className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h2 className="font-semibold text-lg leading-tight">Collegamento gestionale</h2>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Inserisci i dati tecnici ricevuti dal gestore del database. La password viene cifrata e non viene mai mostrata nel portale.
+                </p>
+              </div>
+            </div>
+            <div className="flex-shrink-0">
+              {sourceDbStatusBadge(sourceDbStatus)}
+            </div>
+          </div>
+
+          {sourceDbMessage && (
+            <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm mb-4">
+              {sourceDbMessage}
+            </div>
+          )}
+
+          <div className="grid gap-4 md:grid-cols-3 mb-5">
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <p className="text-xs text-muted-foreground mb-1">Stato formale</p>
+              <p className="font-semibold">
+                {sourceDbStatusLabel(sourceDbIntegration?.formal_validation_status || sourceDbStatus)}
+              </p>
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <p className="text-xs text-muted-foreground mb-1">Test tecnico</p>
+              <p className="font-semibold">
+                {sourceDbStatusLabel(sourceDbIntegration?.technical_test_status || "not_started")}
+              </p>
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <p className="text-xs text-muted-foreground mb-1">Password DB</p>
+              <p className="font-semibold">
+                {sourceDbIntegration?.db_password_set ? "Salvata e cifrata" : "Non salvata"}
+              </p>
+            </div>
+          </div>
+
+          {(sourceDbMissing.length > 0 || sourceDbWarnings.length > 0) && (
+            <div className="grid gap-3 md:grid-cols-2 mb-5">
+              {sourceDbMissing.length > 0 && (
+                <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm">
+                  <p className="font-semibold mb-2">Dati mancanti</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    {sourceDbMissing.map((item) => <li key={item}>{item}</li>)}
+                  </ul>
+                </div>
+              )}
+              {sourceDbWarnings.length > 0 && (
+                <div className="rounded-xl border bg-amber-50 border-amber-200 p-4 text-sm text-amber-900">
+                  <p className="font-semibold mb-2">Avvisi</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    {sourceDbWarnings.map((item) => <li key={item}>{item}</li>)}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          <form onSubmit={handleSaveSourceDb} className="space-y-5">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="source-db-host">Server SQL / istanza</Label>
+                <Input
+                  id="source-db-host"
+                  value={sourceDbHost}
+                  onChange={(e) => setSourceDbHost(e.target.value)}
+                  placeholder="SERVERGREEN\\FLORINFO"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="source-db-port">Porta</Label>
+                <Input
+                  id="source-db-port"
+                  value={sourceDbPort}
+                  onChange={(e) => setSourceDbPort(e.target.value)}
+                  placeholder="1433"
+                  inputMode="numeric"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="source-db-name">Database</Label>
+                <Input
+                  id="source-db-name"
+                  value={sourceDbName}
+                  onChange={(e) => setSourceDbName(e.target.value)}
+                  placeholder="AZIEN001"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="source-db-schema">Schema</Label>
+                <Input
+                  id="source-db-schema"
+                  value={sourceDbSchema}
+                  onChange={(e) => setSourceDbSchema(e.target.value)}
+                  placeholder="dbo"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="source-db-client-code">Codice cliente / tenant</Label>
+                <Input
+                  id="source-db-client-code"
+                  value={sourceDbClientCode}
+                  onChange={(e) => setSourceDbClientCode(e.target.value)}
+                  placeholder={data?.tenant_code || "codice cliente"}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="source-db-view">Vista dati vendite</Label>
+                <Input
+                  id="source-db-view"
+                  value={sourceDbViewName}
+                  onChange={(e) => setSourceDbViewName(e.target.value)}
+                  placeholder="GREENBRAIN_VIEW_SALES_RAW"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Standard consigliato: GREENBRAIN_VIEW_SALES_RAW.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="source-db-username">Utente SQL read-only</Label>
+                <Input
+                  id="source-db-username"
+                  value={sourceDbUsername}
+                  onChange={(e) => setSourceDbUsername(e.target.value)}
+                  placeholder="greenbrain_reader"
+                  autoComplete="username"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="source-db-password">
+                  Password DB {sourceDbIntegration?.db_password_set ? "(lascia vuota per non modificarla)" : ""}
+                </Label>
+                <PasswordInput
+                  id="source-db-password"
+                  value={sourceDbPassword}
+                  onChange={(e) => setSourceDbPassword(e.target.value)}
+                  placeholder={sourceDbIntegration?.db_password_set ? "Password già salvata" : "Password utente read-only"}
+                  autoComplete="new-password"
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="flex items-start gap-3 rounded-xl border bg-muted/20 p-4 text-sm">
+                <input
+                  type="checkbox"
+                  checked={sourceDbEncrypt}
+                  onChange={(e) => setSourceDbEncrypt(e.target.checked)}
+                  className="mt-1"
+                />
+                <span>
+                  <span className="font-semibold block">Encrypt attivo</span>
+                  <span className="text-muted-foreground">Consigliato per SQL Server Driver 18.</span>
+                </span>
+              </label>
+
+              <label className="flex items-start gap-3 rounded-xl border bg-muted/20 p-4 text-sm">
+                <input
+                  type="checkbox"
+                  checked={sourceDbTrustCert}
+                  onChange={(e) => setSourceDbTrustCert(e.target.checked)}
+                  className="mt-1"
+                />
+                <span>
+                  <span className="font-semibold block">Trust server certificate</span>
+                  <span className="text-muted-foreground">Utile in rete locale con certificato non pubblico.</span>
+                </span>
+              </label>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="source-db-manager-email">Email referente gestionale</Label>
+                <Input
+                  id="source-db-manager-email"
+                  value={sourceDbManagerEmail}
+                  onChange={(e) => setSourceDbManagerEmail(e.target.value)}
+                  placeholder="tecnico@gestionale.it"
+                  type="email"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="source-db-notes">Note interne</Label>
+                <Input
+                  id="source-db-notes"
+                  value={sourceDbNotes}
+                  onChange={(e) => setSourceDbNotes(e.target.value)}
+                  placeholder="Es. dati ricevuti dal tecnico il..."
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="source-db-manager-response">Risposta del gestore DB / gestionale</Label>
+              <textarea
+                id="source-db-manager-response"
+                value={sourceDbManagerResponse}
+                onChange={(e) => setSourceDbManagerResponse(e.target.value)}
+                className="min-h-[110px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                placeholder="Incolla qui server, database, vista, utente read-only ed eventuali note su VPN/rete."
+              />
+            </div>
+
+            {sourceDbIntegration?.formal_validation_report && (
+              <div className="rounded-xl border bg-muted/20 p-4">
+                <p className="text-sm font-semibold mb-2">Report validazione formale</p>
+                <pre className="whitespace-pre-wrap text-xs text-muted-foreground font-sans">
+                  {sourceDbIntegration.formal_validation_report}
+                </pre>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <p className="text-xs text-muted-foreground">
+                Il test tecnico sulla raggiungibilità SQL Server verrà eseguito successivamente dal computer nella rete del gestionale.
+              </p>
+              <Button type="submit" disabled={sourceDbBusy}>
+                {sourceDbBusy ? "Salvataggio..." : "Salva collegamento gestionale"}
+              </Button>
+            </div>
+          </form>
+        </Card>
       )}
 
       {activeTab === "security" && (
