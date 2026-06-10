@@ -18,7 +18,7 @@ if command -v docker >/dev/null 2>&1; then
     COMPOSE_FILE="$ROOT/docker-compose.prebuilt.yml"
   fi
 
-  docker compose -f "$COMPOSE_FILE" --env-file "$ENV" run --rm source-db-importer \
+  docker compose -f "$COMPOSE_FILE" --env-file "$ENV" run --rm --no-deps source-db-importer \
     bash -lc 'cd /workspace && python base/apps/source-db-importer/technical_check_source_db.py' 2>&1 | tee -a "$LOG"
 else
   cd "$ROOT"
