@@ -29,6 +29,21 @@ set -e
 
 ln -sfn "$(basename "$LOG")" "$LATEST"
 
+UPLOAD_SCRIPT="$ROOT/base/scripts/upload-source-db-technical-report.sh"
+if [ -f "$UPLOAD_SCRIPT" ]; then
+  set +e
+  bash "$UPLOAD_SCRIPT" 2>&1 | tee -a "$LOG"
+  UPLOAD_RC="${PIPESTATUS[0]}"
+  set -e
+  if [ "$UPLOAD_RC" -eq 0 ]; then
+    echo "SOURCE_DB_TECHNICAL_REPORT_UPLOAD_NON_BLOCKING_OK" | tee -a "$LOG"
+  else
+    echo "SOURCE_DB_TECHNICAL_REPORT_UPLOAD_NON_BLOCKING_FAILED rc=$UPLOAD_RC" | tee -a "$LOG"
+  fi
+else
+  echo "SOURCE_DB_TECHNICAL_REPORT_UPLOAD_SKIPPED missing_upload_script:$UPLOAD_SCRIPT" | tee -a "$LOG"
+fi
+
 if [ "$RC" -eq 0 ]; then
   echo "SOURCE_DB_TECHNICAL_CHECK_OK" | tee -a "$LOG"
   exit 0
