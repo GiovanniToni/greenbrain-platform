@@ -65,6 +65,19 @@ def get_best_sql_driver():
     raise RuntimeError(f"No compatible SQL Server ODBC driver found. Available: {available}")
 
 
+def quote_sqlserver_identifier(value: str) -> str:
+    clean = str(value or "").strip()
+    if not clean:
+        raise RuntimeError("empty SQL Server identifier")
+    return "[" + clean.replace("]", "]]") + "]"
+
+
+def source_sales_view_name() -> str:
+    schema = os.getenv("SOURCE_DB_SCHEMA", "dbo")
+    view = os.getenv("SOURCE_DB_VIEW", "GREENBRAIN_VIEW_SALES_RAW")
+    return f"{quote_sqlserver_identifier(schema)}.{quote_sqlserver_identifier(view)}"
+
+
 def sqlserver_connection():
     driver = get_best_sql_driver()
     host = os.getenv("SOURCE_DB_HOST")
@@ -119,6 +132,7 @@ def get_last_progressivo(engine):
 
 
 def extract_incremental(last_progressivo):
+    source_view = source_sales_view_name()
     query = f"""
     SELECT
         Progressivo,
@@ -132,7 +146,7 @@ def extract_incremental(last_progressivo):
         DATA AS data_movimento,
         DISATTIVATO,
         MOVIM_CASSA
-    FROM GREENHOUSE_VIEW_STAT
+    FROM {source_view}
     WHERE
         MOVIM_CASSA = 1
         AND Progressivo > {int(last_progressivo)}
@@ -211,7 +225,7 @@ def load_to_local_postgres(engine, df: pd.DataFrame):
 
 def run():
     load_envs()
-    log(f"Source DB import start | client={SOURCE_CLIENT_CODE}")
+    log(f"Source DB import start | client={SOURCE_CLIENT_CODE} | view={source_sales_view_name()}")
 
     engine = pg_engine()
     try:
