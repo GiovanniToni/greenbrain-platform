@@ -5,6 +5,8 @@ from typing import Any, Dict
 import hashlib
 import secrets
 
+from app.repositories.customer_source_db_repository import update_source_db_technical_test_result
+
 from app.repositories.customer_runtime_repository import (
     get_customer_by_tenant_code,
     get_runtime_status_by_tenant,
@@ -397,3 +399,48 @@ def ack_password_sync(payload: Dict[str, Any], runtime_token: str | None = None)
         "password_version": int(password_version),
         "ack": result,
     }
+
+def ack_source_db_technical_check(payload: Dict[str, Any], runtime_token: str | None = None) -> Dict[str, Any]:
+    tenant_code = (payload.get("tenant_code") or "").strip()
+    installation_id = (payload.get("installation_id") or "").strip()
+    status = (payload.get("status") or "").strip()
+
+    if not tenant_code:
+        raise RuntimeError("tenant_code_missing")
+    if not installation_id:
+        raise RuntimeError("installation_id_missing")
+    if status not in {"technical_test_ok", "technical_test_failed"}:
+        raise RuntimeError("source_db_technical_test_status_invalid")
+
+    _validate_runtime_sync_token(runtime_token or payload.get("provisioning_token"), tenant_code, installation_id)
+
+    customer = get_customer_by_tenant_code(tenant_code)
+    customer_id = customer.get("customer_id") if customer else None
+    if not customer_id:
+        raise RuntimeError("customer_not_found")
+
+    now_iso = _now_iso()
+    result = payload.get("result") or {}
+    report = (payload.get("report") or "").strip()
+    error = (payload.get("error") or "").strip() or None
+
+    update_payload = {
+        "technical_test_status": status,
+        "technical_test_report": report or None,
+        "technical_test_result": result,
+        "technical_test_at": now_iso,
+        "last_error_report": error if status == "technical_test_failed" else None,
+        "last_error_at": now_iso if status == "technical_test_failed" else None,
+        "updated_at": now_iso,
+    }
+
+    update_source_db_technical_test_result(customer_id, update_payload)
+
+    return {
+        "status": "source_db_technical_test_recorded",
+        "tenant_code": tenant_code,
+        "installation_id": installation_id,
+        "technical_test_status": status,
+        "technical_test_at": now_iso,
+    }
+

@@ -22,6 +22,7 @@ from app.services.customer_runtime_service import (
     register_runtime,
     get_pending_password_sync,
     ack_password_sync,
+    ack_source_db_technical_check,
 )
 
 router = APIRouter(prefix="/api/v1/customer-runtime", tags=["customer-runtime"])
@@ -84,6 +85,16 @@ class RuntimeHeartbeatPayload(BaseModel):
     runtime: Dict[str, Any] = Field(default_factory=dict)
     last_etl: str | None = None
     last_sync_status: str | None = None
+
+
+class SourceDbTechnicalCheckPayload(BaseModel):
+    tenant_code: str
+    installation_id: str
+    status: str
+    report: str | None = None
+    result: Dict[str, Any] = Field(default_factory=dict)
+    error: str | None = None
+    provisioning_token: str | None = None
 
 
 def _runtime_env_value(name: str) -> str:
@@ -239,6 +250,25 @@ def heartbeat_runtime_route(payload: RuntimeHeartbeatPayload):
         raise HTTPException(status_code=500, detail=f"runtime_heartbeat_failed: {exc}")
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"runtime_heartbeat_failed: {exc}")
+
+
+@router.post("/source-db/technical-check")
+def source_db_technical_check_route(
+    payload: SourceDbTechnicalCheckPayload,
+    authorization: str | None = Header(default=None),
+):
+    try:
+        token = None
+        if authorization and authorization.lower().startswith("bearer "):
+            token = authorization[7:].strip()
+        return ack_source_db_technical_check(payload.model_dump(), runtime_token=token)
+    except RuntimeError as exc:
+        msg = str(exc)
+        if msg.endswith("_missing") or msg.endswith("_invalid") or msg.endswith("_mismatch") or msg.endswith("_expired") or msg.endswith("_not_found"):
+            raise HTTPException(status_code=400, detail=msg)
+        raise HTTPException(status_code=500, detail=f"source_db_technical_check_failed: {exc}")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"source_db_technical_check_failed: {exc}")
 
 
 @router.get("/status/{tenant_code}")

@@ -109,3 +109,30 @@ def update_customer_db_integration_status(customer_id: str, status: str) -> Dict
     if not rows:
         raise RuntimeError(f"customer_db_integration_status_update_failed:{customer_id}")
     return rows[0]
+
+
+def update_source_db_technical_test_result(customer_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    client = get_supabase_client()
+
+    existing = get_source_db_integration(customer_id)
+    if existing:
+        resp = (
+            client.table("gb_customer_db_integrations")
+            .update(payload)
+            .eq("customer_id", customer_id)
+            .execute()
+        )
+    else:
+        insert_payload = dict(payload)
+        insert_payload["customer_id"] = customer_id
+        resp = (
+            client.table("gb_customer_db_integrations")
+            .insert(insert_payload)
+            .execute()
+        )
+
+    rows = resp.data or []
+    if not rows:
+        raise RuntimeError(f"source_db_technical_test_update_failed:{customer_id}")
+
+    return rows[0]
