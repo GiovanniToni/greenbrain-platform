@@ -133,6 +133,7 @@ fi
 
 grep_required "ghcr.io/giovannitoni/greenbrain-customer-backend" "$PKG/docker-compose.prebuilt.yml"
 grep_required "ghcr.io/giovannitoni/greenbrain-customer-ml-worker" "$PKG/docker-compose.prebuilt.yml"
+grep_required "ghcr.io/giovannitoni/greenbrain-customer-source-db-importer" "$PKG/docker-compose.prebuilt.yml"
 grep_required "GREENBRAIN_IMAGE_TAG" "$PKG/docker-compose.prebuilt.yml"
 
 section "VALIDATE UNIVERSAL ZIP STRUCTURE"

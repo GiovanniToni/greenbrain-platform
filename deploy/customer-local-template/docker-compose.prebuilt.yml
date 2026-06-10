@@ -46,6 +46,22 @@ services:
               echo GREENBRAIN_SCHEDULER_START &&
               crond -f -l 8"
 
+  source-db-importer:
+    image: ${GREENBRAIN_SOURCE_DB_IMPORTER_IMAGE:-ghcr.io/giovannitoni/greenbrain-customer-source-db-importer:${GREENBRAIN_IMAGE_TAG:-latest}}
+    container_name: greenbrain_local_source_db_importer
+    restart: "no"
+    env_file:
+      - ./overlay/env/customer-local.env
+    depends_on:
+      - postgres
+    volumes:
+      - ./:/workspace:rw
+    working_dir: /workspace/base/apps/source-db-importer
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+
   ml-worker:
     image: ${GREENBRAIN_ML_WORKER_IMAGE:-ghcr.io/giovannitoni/greenbrain-customer-ml-worker:${GREENBRAIN_IMAGE_TAG:-latest}}
     container_name: greenbrain_local_ml_worker

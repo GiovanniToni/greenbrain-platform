@@ -18,15 +18,18 @@ TEMPLATE="$ROOT/deploy/customer-local-template"
 
 BACKEND_IMAGE="$REGISTRY_NAMESPACE/greenbrain-customer-backend:$VERSION"
 ML_WORKER_IMAGE="$REGISTRY_NAMESPACE/greenbrain-customer-ml-worker:$VERSION"
+SOURCE_DB_IMPORTER_IMAGE="$REGISTRY_NAMESPACE/greenbrain-customer-source-db-importer:$VERSION"
 
 echo "== GreenBrain customer-local image build/push =="
 echo "version: $VERSION"
 echo "backend: $BACKEND_IMAGE"
 echo "ml-worker: $ML_WORKER_IMAGE"
+echo "source-db-importer: $SOURCE_DB_IMPORTER_IMAGE"
 echo
 
 [ -d "$TEMPLATE/base/backend-src" ] || { echo "Missing backend context"; exit 1; }
 [ -d "$TEMPLATE/base/apps/ml-worker" ] || { echo "Missing ml-worker context"; exit 1; }
+[ -d "$TEMPLATE/base/apps/source-db-importer" ] || { echo "Missing source-db-importer context"; exit 1; }
 
 echo "== Build backend image =="
 docker build \
@@ -43,8 +46,16 @@ docker build \
   "$TEMPLATE/base/apps/ml-worker"
 
 echo
+echo "== Build source-db-importer image =="
+docker build \
+  -f "$TEMPLATE/base/apps/source-db-importer/Dockerfile" \
+  -t "$SOURCE_DB_IMPORTER_IMAGE" \
+  -t "$REGISTRY_NAMESPACE/greenbrain-customer-source-db-importer:latest" \
+  "$TEMPLATE/base/apps/source-db-importer"
+
+echo
 echo "== Local images =="
-docker images | grep -E "greenbrain-customer-(backend|ml-worker)|REPOSITORY" || true
+docker images | grep -E "greenbrain-customer-(backend|ml-worker|source-db-importer)|REPOSITORY" || true
 
 if [ "${GREENBRAIN_PUSH_IMAGES:-0}" != "1" ]; then
   echo
@@ -64,6 +75,11 @@ echo
 echo "== Push ml-worker image =="
 docker push "$ML_WORKER_IMAGE"
 docker push "$REGISTRY_NAMESPACE/greenbrain-customer-ml-worker:latest"
+
+echo
+echo "== Push source-db-importer image =="
+docker push "$SOURCE_DB_IMPORTER_IMAGE"
+docker push "$REGISTRY_NAMESPACE/greenbrain-customer-source-db-importer:latest"
 
 echo
 echo "IMAGE_PUSH_OK"

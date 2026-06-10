@@ -12,6 +12,7 @@ managed_paths:
   - release-manifest.yml
 
   - base/apps/ml-worker
+  - base/apps/source-db-importer
   - base/infra/scripts
   - base/infra/systemd
   - base/client-runtime

@@ -26,7 +26,7 @@ fi
 
 set +e
 if command -v docker >/dev/null 2>&1; then
-  docker compose -f "$ROOT/docker-compose.local.yml" --env-file "$ENV" run --rm ml-worker \
+  docker compose -f "$ROOT/docker-compose.local.yml" --env-file "$ENV" run --rm source-db-importer \
     bash -lc 'cd /workspace && python base/apps/source-db-importer/import_sales_raw.py' 2>&1 | tee "$LOG"
 else
   cd "$ROOT"

@@ -145,6 +145,7 @@ grep -n "^git_commit=$EXPECTED_COMMIT$" "$REL/BUILD-INFO.txt"
 section "VALIDATE GHCR IMAGES EXIST LOCALLY OR REMOTELY"
 docker pull "ghcr.io/giovannitoni/greenbrain-customer-backend:$VERSION"
 docker pull "ghcr.io/giovannitoni/greenbrain-customer-ml-worker:$VERSION"
+docker pull "ghcr.io/giovannitoni/greenbrain-customer-source-db-importer:$VERSION"
 
 section "LOGIN CUSTOMER PORTAL"
 curl --max-time 30 -sS -o /tmp/gb_validate_fresh_login.json -w 'HTTP=%{http_code}\n' \
@@ -216,7 +217,7 @@ echo "TOKEN_HINT=$TOKEN_HINT"
 test -n "$TOKEN_HINT" || { echo "TOKEN_HINT_MISSING"; exit 1; }
 
 section "CLEAN STANDARD LOCAL TEST RUNTIME"
-if docker ps -a --format '{{.Names}}' | grep -E '^(greenbrain_local_backend|greenbrain_local_frontend|greenbrain_local_postgres|greenbrain_local_ml_worker|gb_customer_scheduler)$' >/dev/null; then
+if docker ps -a --format '{{.Names}}' | grep -E '^(greenbrain_local_backend|greenbrain_local_frontend|greenbrain_local_postgres|greenbrain_local_ml_worker|greenbrain_local_source_db_importer|gb_customer_scheduler)$' >/dev/null; then
   TPL_ACTIVE="$(docker inspect greenbrain_local_frontend \
     --format '{{range .Mounts}}{{if eq .Destination "/usr/share/nginx/html"}}{{.Source}}{{end}}{{end}}' 2>/dev/null \
     | sed 's#/base/frontend-dist##' || true)"
@@ -236,6 +237,7 @@ docker rm -f \
   greenbrain_local_frontend \
   greenbrain_local_postgres \
   greenbrain_local_ml_worker \
+  greenbrain_local_source_db_importer \
   gb_customer_scheduler \
   2>/dev/null || true
 
@@ -262,9 +264,11 @@ grep -n "proxy_pass http://backend:8000;" overlay/frontend-nginx/default.conf
 docker compose -f docker-compose.prebuilt.yml --env-file overlay/env/customer-local.env ps
 docker inspect greenbrain_local_backend --format 'BACKEND_IMAGE={{.Config.Image}}'
 docker inspect greenbrain_local_ml_worker --format 'ML_IMAGE={{.Config.Image}}'
+docker inspect greenbrain_local_source_db_importer --format 'SOURCE_DB_IMPORTER_IMAGE={{.Config.Image}}'
 
 docker inspect greenbrain_local_backend --format '{{.Config.Image}}' | grep ":$VERSION$"
 docker inspect greenbrain_local_ml_worker --format '{{.Config.Image}}' | grep ":$VERSION$"
+docker inspect greenbrain_local_source_db_importer --format '{{.Config.Image}}' | grep ":$VERSION$"
 
 section "VALIDATE ROUTES"
 curl -sS -i http://localhost:8008/health | sed -n '1,80p'

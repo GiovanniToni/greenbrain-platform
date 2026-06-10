@@ -48,6 +48,24 @@ services:
               echo GREENBRAIN_SCHEDULER_START &&
               crond -f -l 8"
 
+  source-db-importer:
+    build:
+      context: ./base/apps/source-db-importer
+      dockerfile: Dockerfile
+    container_name: greenbrain_local_source_db_importer
+    restart: "no"
+    env_file:
+      - ./overlay/env/customer-local.env
+    depends_on:
+      - postgres
+    volumes:
+      - ./:/workspace:rw
+    working_dir: /workspace/base/apps/source-db-importer
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+
   ml-worker:
     build:
       context: ./base/apps/ml-worker

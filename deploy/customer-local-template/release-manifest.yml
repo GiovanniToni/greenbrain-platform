@@ -10,6 +10,9 @@ components:
   backend:
     source: apps/backend
     delivery: docker-build
+  source-db-importer:
+    source: base/apps/source-db-importer
+    delivery: docker-build
   postgres:
     delivery: docker-image
   tunnel:

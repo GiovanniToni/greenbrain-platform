@@ -11,6 +11,7 @@ fi
 
 BACKEND_IMAGE="ghcr.io/giovannitoni/greenbrain-customer-backend:${VERSION}"
 ML_WORKER_IMAGE="ghcr.io/giovannitoni/greenbrain-customer-ml-worker:${VERSION}"
+SOURCE_DB_IMPORTER_IMAGE="ghcr.io/giovannitoni/greenbrain-customer-source-db-importer:${VERSION}"
 
 section() {
   echo
@@ -36,12 +37,18 @@ docker pull "$BACKEND_IMAGE"
 section "PULL ML-WORKER IMAGE"
 docker pull "$ML_WORKER_IMAGE"
 
+section "PULL SOURCE-DB-IMPORTER IMAGE"
+docker pull "$SOURCE_DB_IMPORTER_IMAGE"
+
 section "IMAGE DIGESTS"
 docker image inspect "$BACKEND_IMAGE" \
   --format 'BACKEND_IMAGE_ID={{.Id}} RepoDigests={{json .RepoDigests}}'
 
 docker image inspect "$ML_WORKER_IMAGE" \
   --format 'ML_WORKER_IMAGE_ID={{.Id}} RepoDigests={{json .RepoDigests}}'
+
+docker image inspect "$SOURCE_DB_IMPORTER_IMAGE" \
+    --format 'SOURCE_DB_IMPORTER_IMAGE_ID={{.Id}} RepoDigests={{json .RepoDigests}}'
 
 section "VALIDATE BACKEND IMAGE ROUTE MARKERS"
 grep_required_in_image "$BACKEND_IMAGE" "/app/app/api/v1/customer_runtime.py" \
@@ -65,6 +72,20 @@ python - <<PY
 import sys
 print("python", sys.version.split()[0])
 print("ML_WORKER_IMAGE_BASIC_SMOKE_OK")
+PY
+'
+
+
+section "VALIDATE SOURCE-DB-IMPORTER IMAGE BASIC SMOKE"
+docker run --rm --entrypoint sh "$SOURCE_DB_IMPORTER_IMAGE" -lc '
+python - <<PY
+import pyodbc
+import pandas
+import sqlalchemy
+drivers = pyodbc.drivers()
+print("odbc_drivers", drivers)
+assert "ODBC Driver 18 for SQL Server" in drivers, drivers
+print("SOURCE_DB_IMPORTER_IMAGE_BASIC_SMOKE_OK")
 PY
 '
 
