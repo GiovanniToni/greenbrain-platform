@@ -123,6 +123,19 @@ do
   fi
 done
 
+section "VALIDATE SOURCE DB TECHNICAL FLOW"
+require_file "$PKG/base/scripts/test-source-db-technical.sh"
+require_file "$PKG/base/scripts/upload-source-db-technical-report.sh"
+require_file "$PKG/base/apps/source-db-importer/technical_check_source_db.py"
+require_file "$PKG/base/apps/source-db-importer/import_sales_raw.py"
+
+grep_required "technical_check_latest.json" "$PKG/base/apps/source-db-importer/technical_check_source_db.py"
+grep_required "upload-source-db-technical-report.sh" "$PKG/base/scripts/test-source-db-technical.sh"
+grep_required "SOURCE_DB_TECHNICAL_REPORT_UPLOAD_NON_BLOCKING_OK" "$PKG/base/scripts/test-source-db-technical.sh"
+grep_required "SOURCE_DB_TECHNICAL_REPORT_UPLOAD_NON_BLOCKING_FAILED" "$PKG/base/scripts/test-source-db-technical.sh"
+grep_required "source-db/technical-check" "$PKG/base/scripts/upload-source-db-technical-report.sh"
+grep_required "SOURCE_DB_TECHNICAL_REPORT_UPLOAD_OK" "$PKG/base/scripts/upload-source-db-technical-report.sh"
+
 section "VALIDATE PREBUILT COMPOSE"
 if grep -RIn "build:" "$PKG/docker-compose.prebuilt.yml"; then
   echo "ERROR_PREBUILT_COMPOSE_HAS_BUILD"
@@ -166,6 +179,19 @@ grep_required "^package_version: $VERSION$" "$ZPKG/release-manifest.yml"
 grep_required "proxy_pass http://backend:8000;" "$ZPKG/overlay/frontend-nginx/default.conf"
 grep_required "@router.post\\(\"/password-sync/run-local\"\\)" "$ZPKG/base/backend-src/app/api/v1/customer_runtime.py"
 grep_required "cloud_unreachable" "$ZPKG/base/backend-src/app/api/v1/customer_runtime.py"
+
+section "VALIDATE ZIP SOURCE DB TECHNICAL FLOW"
+require_file "$ZPKG/base/scripts/test-source-db-technical.sh"
+require_file "$ZPKG/base/scripts/upload-source-db-technical-report.sh"
+require_file "$ZPKG/base/apps/source-db-importer/technical_check_source_db.py"
+require_file "$ZPKG/base/apps/source-db-importer/import_sales_raw.py"
+
+grep_required "technical_check_latest.json" "$ZPKG/base/apps/source-db-importer/technical_check_source_db.py"
+grep_required "upload-source-db-technical-report.sh" "$ZPKG/base/scripts/test-source-db-technical.sh"
+grep_required "SOURCE_DB_TECHNICAL_REPORT_UPLOAD_NON_BLOCKING_OK" "$ZPKG/base/scripts/test-source-db-technical.sh"
+grep_required "SOURCE_DB_TECHNICAL_REPORT_UPLOAD_NON_BLOCKING_FAILED" "$ZPKG/base/scripts/test-source-db-technical.sh"
+grep_required "source-db/technical-check" "$ZPKG/base/scripts/upload-source-db-technical-report.sh"
+grep_required "SOURCE_DB_TECHNICAL_REPORT_UPLOAD_OK" "$ZPKG/base/scripts/upload-source-db-technical-report.sh"
 
 if grep -RIn "proxy_pass http://host.docker.internal:8008;" "$ZPKG" >/tmp/gb_validate_zip_old_proxy_matches.txt 2>/dev/null; then
   echo "ERROR_OLD_PROXY_TARGET_FOUND_IN_ZIP_PAYLOAD"
