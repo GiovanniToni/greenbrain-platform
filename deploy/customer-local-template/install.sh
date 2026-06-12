@@ -42,6 +42,31 @@ chmod +x "$ROOT"/base/scripts/*.sh
 export GREENBRAIN_IMAGE_TAG="${GREENBRAIN_IMAGE_TAG:-$(cat "$ROOT/VERSION" 2>/dev/null || echo latest)}"
 echo "Docker image tag: $GREENBRAIN_IMAGE_TAG"
 
+persist_runtime_image_tag() {
+  ENV_FILE="$ROOT/overlay/env/customer-local.env"
+  if [ ! -f "$ENV_FILE" ]; then
+    echo "ERROR: missing customer env before image tag persistence: $ENV_FILE"
+    exit 3
+  fi
+
+  if grep -qE "^GREENBRAIN_IMAGE_TAG=" "$ENV_FILE"; then
+    tmp_file="${ENV_FILE}.tmp"
+    awk -v tag="$GREENBRAIN_IMAGE_TAG" '
+      BEGIN { done=0 }
+      /^GREENBRAIN_IMAGE_TAG=/ { print "GREENBRAIN_IMAGE_TAG=" tag; done=1; next }
+      { print }
+      END { if (!done) print "GREENBRAIN_IMAGE_TAG=" tag }
+    ' "$ENV_FILE" > "$tmp_file"
+    mv "$tmp_file" "$ENV_FILE"
+  else
+    printf "\nGREENBRAIN_IMAGE_TAG=%s\n" "$GREENBRAIN_IMAGE_TAG" >> "$ENV_FILE"
+  fi
+
+  echo "Persisted Docker image tag in customer env: $GREENBRAIN_IMAGE_TAG"
+}
+
+persist_runtime_image_tag
+
 
 preserve_existing_local_secrets() {
   OLD_ENV="$ROOT/overlay/env/customer-local.env"
