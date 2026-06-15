@@ -128,6 +128,29 @@ export type SourceDbIntegrationPayload = {
   notes?: string;
 };
 
+export type SourceDbRequestTemplate = {
+  status: string;
+  tenant_code?: string | null;
+  company_name?: string | null;
+  subject: string;
+  body: string;
+  standard_view_name: string;
+  required_columns: string[];
+  recommended_columns: string[];
+};
+
+export type SourceDbParseResponseResult = {
+  status: string;
+  parsed: Partial<SourceDbIntegrationPayload>;
+  missing: string[];
+  warnings: string[];
+  password_detected: boolean;
+  manager_response_raw_text: string;
+  suggested_payload: SourceDbIntegrationPayload & {
+    manager_response_raw_text?: string;
+  };
+};
+
 export async function getCustomerSourceDbState(): Promise<SourceDbPortalState> {
   return apiGet("/api/v1/customer-portal/source-db");
 }
@@ -136,5 +159,18 @@ export async function saveCustomerSourceDbState(
   payload: SourceDbIntegrationPayload,
 ): Promise<SourceDbPortalState> {
   return apiPost("/api/v1/customer-portal/source-db", payload);
+}
+
+
+export async function getCustomerSourceDbRequestTemplate(): Promise<SourceDbRequestTemplate> {
+  return apiGet("/api/v1/customer-portal/source-db/request-template");
+}
+
+export async function parseCustomerSourceDbManagerResponse(
+  managerResponseRawText: string,
+): Promise<SourceDbParseResponseResult> {
+  return apiPost("/api/v1/customer-portal/source-db/parse-response", {
+    manager_response_raw_text: managerResponseRawText,
+  });
 }
 
