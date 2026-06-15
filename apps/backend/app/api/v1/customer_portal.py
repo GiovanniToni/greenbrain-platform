@@ -20,6 +20,8 @@ from app.services.customer_portal_service import (
     cancel_customer_portal_subscription,
     confirm_customer_data_ok,
     get_customer_source_db_state,
+    build_source_db_manager_request,
+    parse_source_db_manager_response,
     save_customer_source_db_state,
 )
 
@@ -76,6 +78,34 @@ class SourceDbIntegrationPayload(BaseModel):
 def customer_portal_health():
     return {"status": "ok", "service": "customer-portal"}
 
+
+
+
+class SourceDbManagerResponseParsePayload(BaseModel):
+    manager_response_raw_text: str
+
+
+@router.get("/source-db/request-template")
+def get_source_db_request_template_route(email: str = Depends(get_portal_email_from_bearer)):
+    try:
+        return build_source_db_manager_request(email)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"get_source_db_request_template_failed: {exc}")
+
+
+@router.post("/source-db/parse-response")
+def parse_source_db_response_route(
+    payload: SourceDbManagerResponseParsePayload,
+    email: str = Depends(get_portal_email_from_bearer),
+):
+    try:
+        return parse_source_db_manager_response(email, payload.model_dump())
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"parse_source_db_response_failed: {exc}")
 
 
 @router.get("/source-db")

@@ -19,6 +19,7 @@ from app.services.customer_billing_service import (
     cancel_subscription_at_period_end_for_portal_email,
 )
 from app.services.customer_delivery_service import get_latest_available_release_version
+import re
 
 _SLOT_STATES_ALREADY_BOOKED = {
     "slot_requested",
@@ -249,6 +250,282 @@ def _clean_bool(value: Any) -> bool | None:
         if clean in {"0", "false", "no", "n"}:
             return False
     return bool(value)
+
+
+
+SOURCE_DB_STANDARD_VIEW_NAME = "GREENBRAIN_VIEW_SALES_RAW"
+
+SOURCE_DB_REQUIRED_COLUMNS = [
+    "progressivo",
+    "codart",
+    "descrizione",
+    "quantita",
+    "imponibile_netto",
+    "data_movimento",
+]
+
+SOURCE_DB_RECOMMENDED_COLUMNS = [
+    "tipo",
+    "fascia",
+    "categoria",
+    "disattivato",
+    "movim_cassa",
+]
+
+
+def build_source_db_manager_request(user_email: str) -> Dict[str, Any]:
+    """Build the request text the customer can send to the DB/software manager."""
+    row = get_customer_by_portal_email(user_email)
+    if not row:
+        raise RuntimeError(f"customer_portal_profile_not_found_for_email: {user_email}")
+
+    company_name = row.get("company_name") or row.get("tenant_code") or "cliente GreenBrain"
+    tenant_code = row.get("tenant_code") or ""
+
+    subject = f"Richiesta dati tecnici per collegamento GreenBrain al gestionale - {company_name}"
+
+    body = f"""Buongiorno,
+
+stiamo configurando GreenBrain per leggere in sola lettura i dati di vendita dal gestionale/database SQL Server.
+
+Per completare la configurazione servono queste informazioni:
+
+1. Server SQL / istanza raggiungibile dal computer locale dove verrà installato GreenBrain
+   Esempio: SERVERGREEN\\FLORINFO oppure 192.168.1.10
+
+2. Porta SQL Server
+   Esempio: 1433, oppure indicare se si usa istanza nominata/dinamica
+
+3. Nome database
+   Esempio: AZIEN001
+
+4. Schema
+   Esempio: dbo
+
+5. Nome vista vendite da usare per GreenBrain
+   Standard consigliato: {SOURCE_DB_STANDARD_VIEW_NAME}
+
+6. Utente SQL Server dedicato in sola lettura
+   L'utente deve poter eseguire SELECT sulla vista indicata.
+   Non usare preferibilmente utenti amministrativi come sa.
+
+7. Conferma se la connessione richiede Encrypt e TrustServerCertificate.
+
+Vista standard consigliata:
+
+CREATE VIEW dbo.{SOURCE_DB_STANDARD_VIEW_NAME} AS
+SELECT
+  Progressivo AS progressivo,
+  CodArt AS codart,
+  DESCRIZIONE AS descrizione,
+  TIPO AS tipo,
+  FASCIA AS fascia,
+  CATEGORIA AS categoria,
+  QUANTITA AS quantita,
+  IMPONIBILENETTO AS imponibile_netto,
+  DATA AS data_movimento,
+  DISATTIVATO AS disattivato,
+  MOVIM_CASSA AS movim_cassa
+FROM dbo.GREENHOUSE_VIEW_STAT;
+
+Colonne obbligatorie richieste da GreenBrain:
+- progressivo
+- codart
+- descrizione
+- quantita
+- imponibile_netto
+- data_movimento
+
+Colonne raccomandate:
+- tipo
+- fascia
+- categoria
+- disattivato
+- movim_cassa
+
+Per favore rispondere compilando, se possibile, questo schema:
+
+Server SQL / istanza:
+Porta:
+Database:
+Schema:
+Vista:
+Utente read-only:
+Encrypt:
+TrustServerCertificate:
+Note rete/VPN/firewall:
+
+Grazie.
+"""
+
+    return {
+        "status": "request_ready",
+        "tenant_code": tenant_code,
+        "company_name": company_name,
+        "subject": subject,
+        "body": body,
+        "standard_view_name": SOURCE_DB_STANDARD_VIEW_NAME,
+        "required_columns": SOURCE_DB_REQUIRED_COLUMNS,
+        "recommended_columns": SOURCE_DB_RECOMMENDED_COLUMNS,
+    }
+
+
+def _normalize_manager_response_line_value(value: str | None) -> str | None:
+    clean = str(value or "").strip().strip("`").strip()
+    if not clean:
+        return None
+    return clean.strip(" ,;.")
+
+
+def _extract_labeled_value(text: str, labels: list[str]) -> str | None:
+    for label in labels:
+        pattern = re.compile(rf"(?im)^\s*(?:{label})\s*(?:\:|\=|\-|\u2013|\u2014)\s*(.+?)\s*$")
+        match = pattern.search(text)
+        if match:
+            return _normalize_manager_response_line_value(match.group(1))
+    return None
+
+
+def _extract_first_pattern(text: str, pattern: str) -> str | None:
+    match = re.search(pattern, text, flags=re.IGNORECASE | re.MULTILINE)
+    if match:
+        return _normalize_manager_response_line_value(match.group(1))
+    return None
+
+
+def _parse_bool_hint(value: str | None) -> bool | None:
+    if value is None:
+        return None
+    clean = value.strip().lower()
+    if clean in {"1", "true", "yes", "y", "si", "sì", "attivo", "abilitato", "obbligatorio"}:
+        return True
+    if clean in {"0", "false", "no", "n", "non", "disattivo", "disabilitato"}:
+        return False
+    return None
+
+
+def parse_source_db_manager_response(user_email: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Parse free-text response from DB/software manager.
+
+    Passwords are intentionally not extracted from free text.
+    """
+    row = get_customer_by_portal_email(user_email)
+    if not row:
+        raise RuntimeError(f"customer_portal_profile_not_found_for_email: {user_email}")
+
+    text = str(payload.get("manager_response_raw_text") or "").strip()
+
+    suggested_payload: Dict[str, Any] = {
+        "db_type": "sqlserver",
+        "source_client_code": row.get("tenant_code") or None,
+        "db_port": 1433,
+        "db_schema": "dbo",
+        "db_view_name": SOURCE_DB_STANDARD_VIEW_NAME,
+        "db_encrypt": True,
+        "db_trust_server_certificate": True,
+        "manager_response_raw_text": text,
+    }
+
+    if not text:
+        return {
+            "status": "parse_failed",
+            "parsed": {},
+            "missing": ["risposta gestore DB"],
+            "warnings": [],
+            "password_detected": False,
+            "manager_response_raw_text": "",
+            "suggested_payload": suggested_payload,
+        }
+
+    parsed: Dict[str, Any] = {}
+
+    host = _extract_labeled_value(text, [
+        r"server(?:\s+sql)?(?:\s*/\s*istanza)?",
+        r"server\s*sql\s*/\s*istanza",
+        r"sql\s*server",
+        r"host",
+        r"istanza",
+    ])
+    if not host:
+        host = _extract_first_pattern(text, r"\b([A-Z0-9_.-]+\\[A-Z0-9_.-]+)\b")
+    if not host:
+        host = _extract_first_pattern(text, r"\b((?:\d{1,3}\.){3}\d{1,3})\b")
+    if host:
+        parsed["db_host"] = host
+
+    port = _extract_labeled_value(text, [r"porta", r"port"])
+    if port:
+        port_digits = re.sub(r"[^0-9]", "", port)
+        if port_digits:
+            parsed["db_port"] = int(port_digits)
+
+    db_name = _extract_labeled_value(text, [r"database", r"nome\s+database", r"db"])
+    if not db_name:
+        db_name = _extract_first_pattern(text, r"\b(AZIEN[0-9A-Z_]+)\b")
+    if db_name:
+        parsed["db_name"] = db_name
+
+    schema = _extract_labeled_value(text, [r"schema"])
+    if schema:
+        parsed["db_schema"] = schema
+
+    view_name = _extract_labeled_value(text, [r"vista", r"view", r"vista\s+vendite", r"nome\s+vista"])
+    if not view_name:
+        if re.search(r"\bGREENBRAIN_VIEW_SALES_RAW\b", text, flags=re.IGNORECASE):
+            view_name = SOURCE_DB_STANDARD_VIEW_NAME
+        elif re.search(r"\bGREENHOUSE_VIEW_STAT\b", text, flags=re.IGNORECASE):
+            view_name = "GREENHOUSE_VIEW_STAT"
+    if view_name:
+        parsed["db_view_name"] = view_name
+
+    username = _extract_labeled_value(text, [r"utente(?:\s+read-only)?", r"user", r"username", r"login", r"uid"])
+    if username:
+        parsed["db_username"] = username
+
+    encrypt = _extract_labeled_value(text, [r"encrypt", r"crittografia"])
+    trust = _extract_labeled_value(text, [r"trustservercertificate", r"trust\s+server\s+certificate", r"trust\s+cert"])
+    parsed_encrypt = _parse_bool_hint(encrypt)
+    parsed_trust = _parse_bool_hint(trust)
+    if parsed_encrypt is not None:
+        parsed["db_encrypt"] = parsed_encrypt
+    if parsed_trust is not None:
+        parsed["db_trust_server_certificate"] = parsed_trust
+
+    password_detected = bool(re.search(r"(?im)^\s*(password|pwd|pass|secret)\s*(\:|\=|\-)", text))
+
+    suggested_payload.update(parsed)
+
+    missing = []
+    for key, label in {
+        "db_host": "server/host gestionale",
+        "db_name": "nome database",
+        "db_view_name": "nome vista",
+        "db_username": "utente read-only",
+    }.items():
+        if not suggested_payload.get(key):
+            missing.append(label)
+
+    warnings = []
+    if password_detected:
+        warnings.append("La risposta sembra contenere una password: per sicurezza non viene precompilata. Inseriscila solo nel campo password DB.")
+    if str(suggested_payload.get("db_username") or "").strip().lower() == "sa":
+        warnings.append("L'utente indicato sembra essere 'sa': usare preferibilmente un utente dedicato in sola lettura.")
+    if str(suggested_payload.get("db_view_name") or "").strip().upper() == "GREENHOUSE_VIEW_STAT":
+        warnings.append("Vista legacy GREENHOUSE_VIEW_STAT rilevata; preferibile creare alias standard GREENBRAIN_VIEW_SALES_RAW.")
+
+    status = "parse_ok" if parsed else "parse_failed"
+    if parsed and missing:
+        status = "parse_partial"
+
+    return {
+        "status": status,
+        "parsed": parsed,
+        "missing": missing,
+        "warnings": warnings,
+        "password_detected": password_detected,
+        "manager_response_raw_text": text,
+        "suggested_payload": suggested_payload,
+    }
 
 
 def _build_source_db_formal_validation(payload: Dict[str, Any], *, password_set: bool) -> Dict[str, Any]:
