@@ -18,8 +18,11 @@ import {
   bookSetupSlot,
   confirmDataOk,
   getCustomerSourceDbState,
+  getCustomerSourceDbRequestTemplate,
+  parseCustomerSourceDbManagerResponse,
   saveCustomerSourceDbState,
   type SourceDbPortalState,
+  type SourceDbRequestTemplate,
 } from "@/lib/customerPortalApi";
 import { planDisplayName, planDisplayPrice } from "@/lib/planConfig";
 import { createSetupSession } from "@/lib/customerBillingApi";
@@ -531,6 +534,10 @@ export default function CustomerPortalDashboard() {
   const [sourceDbManagerEmail, setSourceDbManagerEmail] = useState("");
   const [sourceDbManagerResponse, setSourceDbManagerResponse] = useState("");
   const [sourceDbNotes, setSourceDbNotes] = useState("");
+  const [sourceDbRequestTemplate, setSourceDbRequestTemplate] = useState<SourceDbRequestTemplate | null>(null);
+  const [sourceDbRequestCopied, setSourceDbRequestCopied] = useState(false);
+  const [sourceDbParseMissing, setSourceDbParseMissing] = useState<string[]>([]);
+  const [sourceDbParseWarnings, setSourceDbParseWarnings] = useState<string[]>([]);
 
   const [slotDate, setSlotDate] = useState("");
   const [slotTime, setSlotTime] = useState("morning");
@@ -870,6 +877,105 @@ export default function CustomerPortalDashboard() {
   const subscriptionCurrentPeriodEnd = data?.subscription_current_period_end || null;
   const subscriptionActivatedAt = data?.subscription_activated_at || null;
   const isSubscriptionActive = (data?.subscription_status || "").toLowerCase() === "active";
+  async function handleGenerateSourceDbRequest() {
+    try {
+      setSourceDbBusy(true);
+      setSourceDbMessage(null);
+      setSourceDbRequestCopied(false);
+
+      const template = await getCustomerSourceDbRequestTemplate();
+      setSourceDbRequestTemplate(template);
+      setSourceDbMessage("Richiesta pronta: copiala e inviala al referente del gestionale.");
+    } catch (err) {
+      setSourceDbMessage(err instanceof Error ? err.message : "Impossibile generare la richiesta per il gestionale");
+    } finally {
+      setSourceDbBusy(false);
+    }
+  }
+
+  async function handleCopySourceDbRequest() {
+    if (!sourceDbRequestTemplate) {
+      setSourceDbMessage("Genera prima la richiesta per il gestore DB.");
+      return;
+    }
+
+    const text = `Oggetto: ${sourceDbRequestTemplate.subject}\n\n${sourceDbRequestTemplate.body}`;
+
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+
+      setSourceDbRequestCopied(true);
+      setSourceDbMessage("Richiesta copiata. Ora puoi inviarla al referente del gestionale.");
+    } catch {
+      setSourceDbMessage("Impossibile copiare automaticamente. Seleziona e copia manualmente il testo della richiesta.");
+    }
+  }
+
+  async function handleParseSourceDbManagerResponse() {
+    const raw = sourceDbManagerResponse.trim();
+
+    if (!raw) {
+      setSourceDbMessage("Incolla prima la risposta del gestore DB / gestionale.");
+      return;
+    }
+
+    try {
+      setSourceDbBusy(true);
+      setSourceDbMessage(null);
+      setSourceDbParseMissing([]);
+      setSourceDbParseWarnings([]);
+
+      const result = await parseCustomerSourceDbManagerResponse(raw);
+      const suggested = result.suggested_payload || {};
+
+      if (suggested.db_host) setSourceDbHost(String(suggested.db_host));
+      if (suggested.db_port) setSourceDbPort(String(suggested.db_port));
+      if (suggested.db_name) setSourceDbName(String(suggested.db_name));
+      if (suggested.db_schema) setSourceDbSchema(String(suggested.db_schema));
+      if (suggested.source_client_code) setSourceDbClientCode(String(suggested.source_client_code));
+      if (suggested.db_view_name) setSourceDbViewName(String(suggested.db_view_name));
+      if (suggested.db_username) setSourceDbUsername(String(suggested.db_username));
+      if (typeof suggested.db_encrypt === "boolean") setSourceDbEncrypt(suggested.db_encrypt);
+      if (typeof suggested.db_trust_server_certificate === "boolean") {
+        setSourceDbTrustCert(suggested.db_trust_server_certificate);
+      }
+      if (suggested.manager_response_raw_text) {
+        setSourceDbManagerResponse(String(suggested.manager_response_raw_text));
+      }
+
+      setSourceDbParseMissing(result.missing || []);
+      setSourceDbParseWarnings(result.warnings || []);
+
+      if (result.status === "parse_ok") {
+        setSourceDbMessage(
+          result.password_detected
+            ? "Risposta analizzata e campi precompilati. La password non è stata copiata: inseriscila solo nel campo Password DB."
+            : "Risposta analizzata e campi tecnici precompilati. Controlla i dati e salva.",
+        );
+      } else if (result.status === "parse_partial") {
+        setSourceDbMessage("Risposta analizzata parzialmente: completa i campi mancanti e poi salva.");
+      } else {
+        setSourceDbMessage("Non sono riuscito a leggere automaticamente la risposta: compila i campi manualmente.");
+      }
+    } catch (err) {
+      setSourceDbMessage(err instanceof Error ? err.message : "Impossibile analizzare la risposta del gestore DB");
+    } finally {
+      setSourceDbBusy(false);
+    }
+  }
+
   const sourceDbIntegration = sourceDbState?.source_db_integration || null;
   const sourceDbStatus = sourceDbState?.db_integration_status
     || sourceDbIntegration?.formal_validation_status
@@ -1571,6 +1677,47 @@ export default function CustomerPortalDashboard() {
             </div>
           )}
 
+          <div className="rounded-xl border bg-muted/20 p-4 space-y-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p className="text-sm font-semibold">1. Richiedi i dati al referente del gestionale</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Genera un testo già pronto da copiare e inviare al tecnico del gestionale / database.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleGenerateSourceDbRequest}
+                  disabled={sourceDbBusy}
+                >
+                  {sourceDbBusy ? "Generazione..." : "Genera richiesta"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleCopySourceDbRequest}
+                  disabled={!sourceDbRequestTemplate || sourceDbBusy}
+                >
+                  {sourceDbRequestCopied ? "Copiata" : "Copia richiesta"}
+                </Button>
+              </div>
+            </div>
+
+            {sourceDbRequestTemplate && (
+              <div className="space-y-2">
+                <div className="rounded-lg border bg-background px-3 py-2">
+                  <p className="text-xs font-semibold text-muted-foreground">Oggetto email</p>
+                  <p className="text-sm">{sourceDbRequestTemplate.subject}</p>
+                </div>
+                <pre className="max-h-72 overflow-auto rounded-lg border bg-background p-3 text-xs whitespace-pre-wrap font-sans">
+                  {sourceDbRequestTemplate.body}
+                </pre>
+              </div>
+            )}
+          </div>
+
           <form onSubmit={handleSaveSourceDb} className="space-y-5">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
@@ -1722,6 +1869,47 @@ export default function CustomerPortalDashboard() {
                 className="min-h-[110px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 placeholder="Incolla qui server, database, vista, utente read-only ed eventuali note su VPN/rete."
               />
+            </div>
+
+            <div className="rounded-xl border bg-muted/20 p-4 space-y-3">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-sm font-semibold">2. Analizza la risposta ricevuta</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Incolla la risposta del tecnico e lascia che GreenBrain precompili i campi tecnici.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleParseSourceDbManagerResponse}
+                  disabled={sourceDbBusy || !sourceDbManagerResponse.trim()}
+                >
+                  {sourceDbBusy ? "Analisi..." : "Analizza risposta"}
+                </Button>
+              </div>
+
+              {(sourceDbParseMissing.length > 0 || sourceDbParseWarnings.length > 0) && (
+                <div className="grid gap-3 md:grid-cols-2">
+                  {sourceDbParseMissing.length > 0 && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                      <p className="font-semibold mb-1">Campi da completare</p>
+                      <ul className="list-disc pl-4 space-y-1">
+                        {sourceDbParseMissing.map((item) => <li key={item}>{item}</li>)}
+                      </ul>
+                    </div>
+                  )}
+
+                  {sourceDbParseWarnings.length > 0 && (
+                    <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-primary">
+                      <p className="font-semibold mb-1">Note di sicurezza</p>
+                      <ul className="list-disc pl-4 space-y-1">
+                        {sourceDbParseWarnings.map((item) => <li key={item}>{item}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {sourceDbIntegration?.formal_validation_report && (
