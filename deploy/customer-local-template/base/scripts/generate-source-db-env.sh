@@ -40,7 +40,7 @@ SOURCE_DB_NAME="$(ask "SQL Server database name" "CHANGE_ME_DB")"
 SOURCE_DB_USER="$(ask "SQL Server readonly user" "CHANGE_ME_USER")"
 SOURCE_DB_PASSWORD="$(ask_secret "SQL Server password")"
 SOURCE_DB_SCHEMA="$(ask "SQL Server schema" "dbo")"
-SOURCE_DB_VIEW="$(ask "Sales view name" "GREENHOUSE_VIEW_STAT")"
+SOURCE_DB_VIEW="$(ask "Sales view name" "GREENBRAIN_VIEW_SALES_RAW")"
 SOURCE_DB_ENCRYPT="$(ask "Encrypt connection? yes/no" "no")"
 SOURCE_DB_TRUST_CERT="$(ask "Trust server certificate? yes/no" "yes")"
 
