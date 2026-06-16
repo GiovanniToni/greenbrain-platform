@@ -17,7 +17,10 @@ LOG_DIR = ROOT / "overlay/logs/source-db"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 DEST_TABLE = "source_import.sales_raw"
-SOURCE_CLIENT_CODE = os.getenv("SOURCE_CLIENT_CODE", "greenhouse")
+
+
+def source_client_code() -> str:
+    return os.getenv("SOURCE_CLIENT_CODE") or os.getenv("SOURCE_DB_CLIENT_CODE") or "greenhouse"
 
 
 def log(msg: str):
@@ -78,6 +81,112 @@ def source_sales_view_name() -> str:
     return f"{quote_sqlserver_identifier(schema)}.{quote_sqlserver_identifier(view)}"
 
 
+
+
+SOURCE_COLUMN_CANDIDATES = {
+    "progressivo": ["progressivo", "Progressivo"],
+    "codart": ["codart", "CodArt"],
+    "descrizione": ["descrizione", "DESCRIZIONE"],
+    "tipo": ["tipo", "TIPO"],
+    "fascia": ["fascia", "FASCIA"],
+    "categoria": ["categoria", "CATEGORIA"],
+    "quantita": ["quantita", "QUANTITA"],
+    "imponibile_netto": ["imponibile_netto", "IMPONIBILENETTO"],
+    "data_movimento": ["data_movimento", "DATA"],
+    "disattivato": ["disattivato", "DISATTIVATO"],
+    "movim_cassa": ["movim_cassa", "MOVIM_CASSA"],
+}
+
+REQUIRED_IMPORT_COLUMNS = [
+    "progressivo",
+    "codart",
+    "descrizione",
+    "quantita",
+    "imponibile_netto",
+    "data_movimento",
+]
+
+OPTIONAL_IMPORT_COLUMNS = [
+    "tipo",
+    "fascia",
+    "categoria",
+    "disattivato",
+    "movim_cassa",
+]
+
+
+def normalize_column_key(value: str) -> str:
+    return str(value or "").strip().strip("[]").lower()
+
+
+def fetch_source_columns(conn, source_view: str):
+    cursor = conn.cursor()
+    cursor.execute(f"SELECT TOP 0 * FROM {source_view}")
+    return [col[0] for col in cursor.description or []]
+
+
+def pick_source_column(columns, candidates, *, required=False, logical_name=""):
+    lookup = {normalize_column_key(col): col for col in columns}
+    for candidate in candidates:
+        found = lookup.get(normalize_column_key(candidate))
+        if found:
+            return found
+    if required:
+        raise RuntimeError(f"missing_import_required_columns:{logical_name}")
+    return None
+
+
+def build_source_select_query(source_view: str, columns, last_progressivo: int):
+    resolved = {}
+    missing = []
+
+    for logical in REQUIRED_IMPORT_COLUMNS:
+        try:
+            resolved[logical] = pick_source_column(
+                columns,
+                SOURCE_COLUMN_CANDIDATES[logical],
+                required=True,
+                logical_name=logical,
+            )
+        except RuntimeError:
+            missing.append(logical)
+
+    if missing:
+        raise RuntimeError("missing_import_required_columns:" + ",".join(missing))
+
+    for logical in OPTIONAL_IMPORT_COLUMNS:
+        found = pick_source_column(
+            columns,
+            SOURCE_COLUMN_CANDIDATES[logical],
+            required=False,
+            logical_name=logical,
+        )
+        if found:
+            resolved[logical] = found
+
+    select_parts = []
+    for logical, source_col in resolved.items():
+        select_parts.append(
+            f"{quote_sqlserver_identifier(source_col)} AS {quote_sqlserver_identifier(logical)}"
+        )
+
+    progressivo_col = quote_sqlserver_identifier(resolved["progressivo"])
+    where_parts = [f"{progressivo_col} > {int(last_progressivo)}"]
+
+    if resolved.get("movim_cassa"):
+        movim_col = quote_sqlserver_identifier(resolved["movim_cassa"])
+        where_parts.append(f"{movim_col} = 1")
+
+    query = (
+        "SELECT\\n        "
+        + ",\\n        ".join(select_parts)
+        + f"\\n    FROM {source_view}\\n    WHERE\\n        "
+        + "\\n        AND ".join(where_parts)
+    )
+
+    return query, resolved
+
+
 def sqlserver_connection():
     driver = get_best_sql_driver()
     host = os.getenv("SOURCE_DB_HOST")
@@ -126,40 +235,28 @@ def get_last_progressivo(engine):
                 FROM source_import.sales_raw
                 WHERE source_client_code = :client
             """),
-            {"client": SOURCE_CLIENT_CODE},
+            {"client": source_client_code()},
         ).fetchone()
     return int(row[0] or 0)
 
 
 def extract_incremental(last_progressivo):
     source_view = source_sales_view_name()
-    query = f"""
-    SELECT
-        Progressivo,
-        CodArt,
-        DESCRIZIONE,
-        TIPO,
-        FASCIA,
-        CATEGORIA,
-        QUANTITA,
-        IMPONIBILENETTO,
-        DATA AS data_movimento,
-        DISATTIVATO,
-        MOVIM_CASSA
-    FROM {source_view}
-    WHERE
-        MOVIM_CASSA = 1
-        AND Progressivo > {int(last_progressivo)}
-    """
     conn = sqlserver_connection()
     try:
+        columns = fetch_source_columns(conn, source_view)
+        query, resolved_columns = build_source_select_query(source_view, columns, last_progressivo)
+        log(
+            "Source DB columns resolved: "
+            + ", ".join(f"{logical}={source}" for logical, source in resolved_columns.items())
+        )
         return pd.read_sql(query, conn)
     finally:
         conn.close()
 
-
 def normalize(df: pd.DataFrame) -> pd.DataFrame:
     df = df.rename(columns={
+        # Legacy FLORINFO / GREENHOUSE_VIEW_STAT names
         "Progressivo": "progressivo",
         "CodArt": "codart",
         "DESCRIZIONE": "descrizione",
@@ -167,10 +264,40 @@ def normalize(df: pd.DataFrame) -> pd.DataFrame:
         "FASCIA": "fascia",
         "CATEGORIA": "categoria",
         "QUANTITA": "quantita",
-        "IMPONIBILENETTO": "imponibilenetto",
+        "IMPONIBILENETTO": "imponibile_netto",
+        "DATA": "data_movimento",
         "DISATTIVATO": "disattivato",
         "MOVIM_CASSA": "movim_cassa",
+        # Standard GREENBRAIN_VIEW_SALES_RAW names are already lower-case.
+        "imponibile_netto": "imponibile_netto",
     })
+
+    if "imponibile_netto" in df.columns and "imponibilenetto" not in df.columns:
+        df["imponibilenetto"] = df["imponibile_netto"]
+
+    required_normalized = [
+        "progressivo",
+        "codart",
+        "descrizione",
+        "quantita",
+        "imponibilenetto",
+        "data_movimento",
+    ]
+    missing = [col for col in required_normalized if col not in df.columns]
+    if missing:
+        raise RuntimeError("missing_normalized_import_columns:" + ",".join(missing))
+
+    for col in ["tipo", "fascia", "categoria"]:
+        if col not in df.columns:
+            df[col] = None
+
+    for col in ["disattivato", "movim_cassa"]:
+        if col not in df.columns:
+            df[col] = 0
+
+    df["progressivo"] = pd.to_numeric(df["progressivo"], errors="coerce")
+    df = df.dropna(subset=["progressivo"])
+    df["progressivo"] = df["progressivo"].astype("int64")
 
     for col in ["quantita", "imponibilenetto"]:
         if col in df.columns:
@@ -178,7 +305,7 @@ def normalize(df: pd.DataFrame) -> pd.DataFrame:
                 df[col]
                 .astype(str)
                 .str.replace(",", ".", regex=False)
-                .replace({"None": None, "nan": None})
+                .replace({"None": None, "nan": None, "NaT": None})
             )
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
@@ -186,7 +313,10 @@ def normalize(df: pd.DataFrame) -> pd.DataFrame:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
 
-    df["source_client_code"] = SOURCE_CLIENT_CODE
+    if "data_movimento" in df.columns:
+        df["data_movimento"] = pd.to_datetime(df["data_movimento"], errors="coerce")
+
+    df["source_client_code"] = source_client_code()
     df["load_timestamp"] = datetime.now()
     df["raw_payload"] = df.astype(str).apply(lambda row: json.dumps(row.to_dict(), ensure_ascii=False), axis=1)
     df = df.drop_duplicates(subset=["source_client_code", "progressivo"])
@@ -196,8 +326,7 @@ def normalize(df: pd.DataFrame) -> pd.DataFrame:
         "fascia", "categoria", "quantita", "imponibilenetto", "data_movimento",
         "disattivato", "movim_cassa", "load_timestamp", "raw_payload"
     ]
-    return df[[c for c in cols if c in df.columns]]
-
+    return df[cols]
 
 def load_to_local_postgres(engine, df: pd.DataFrame):
     if df.empty:
@@ -225,7 +354,7 @@ def load_to_local_postgres(engine, df: pd.DataFrame):
 
 def run():
     load_envs()
-    log(f"Source DB import start | client={SOURCE_CLIENT_CODE} | view={source_sales_view_name()}")
+    log(f"Source DB import start | client={source_client_code()} | view={source_sales_view_name()}")
 
     engine = pg_engine()
     try:
