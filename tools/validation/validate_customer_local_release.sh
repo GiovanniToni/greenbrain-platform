@@ -136,6 +136,13 @@ grep_required "SOURCE_DB_TECHNICAL_REPORT_UPLOAD_NON_BLOCKING_FAILED" "$PKG/base
 grep_required "source-db/technical-check" "$PKG/base/scripts/upload-source-db-technical-report.sh"
 grep_required "SOURCE_DB_TECHNICAL_REPORT_UPLOAD_OK" "$PKG/base/scripts/upload-source-db-technical-report.sh"
 
+grep_required "SOURCE_DB_NAME" "$PKG/base/apps/local-installer-wizard/wizard.py"
+grep_required "SOURCE_DB_SCHEMA" "$PKG/base/apps/local-installer-wizard/wizard.py"
+grep_required "SOURCE_DB_VIEW" "$PKG/base/apps/local-installer-wizard/wizard.py"
+grep_required "SOURCE_DB_CLIENT_CODE" "$PKG/base/apps/local-installer-wizard/wizard.py"
+grep_required "SOURCE_DB_TRUST_CERT" "$PKG/base/apps/local-installer-wizard/wizard.py"
+echo "SOURCE_DB_WIZARD_ENV_KEYS_OK"
+
 section "VALIDATE PREBUILT COMPOSE"
 if grep -RIn "build:" "$PKG/docker-compose.prebuilt.yml"; then
   echo "ERROR_PREBUILT_COMPOSE_HAS_BUILD"
@@ -192,6 +199,13 @@ grep_required "SOURCE_DB_TECHNICAL_REPORT_UPLOAD_NON_BLOCKING_OK" "$ZPKG/base/sc
 grep_required "SOURCE_DB_TECHNICAL_REPORT_UPLOAD_NON_BLOCKING_FAILED" "$ZPKG/base/scripts/test-source-db-technical.sh"
 grep_required "source-db/technical-check" "$ZPKG/base/scripts/upload-source-db-technical-report.sh"
 grep_required "SOURCE_DB_TECHNICAL_REPORT_UPLOAD_OK" "$ZPKG/base/scripts/upload-source-db-technical-report.sh"
+
+grep_required "SOURCE_DB_NAME" "$ZPKG/base/apps/local-installer-wizard/wizard.py"
+grep_required "SOURCE_DB_SCHEMA" "$ZPKG/base/apps/local-installer-wizard/wizard.py"
+grep_required "SOURCE_DB_VIEW" "$ZPKG/base/apps/local-installer-wizard/wizard.py"
+grep_required "SOURCE_DB_CLIENT_CODE" "$ZPKG/base/apps/local-installer-wizard/wizard.py"
+grep_required "SOURCE_DB_TRUST_CERT" "$ZPKG/base/apps/local-installer-wizard/wizard.py"
+echo "SOURCE_DB_ZIP_WIZARD_ENV_KEYS_OK"
 
 if grep -RIn "proxy_pass http://host.docker.internal:8008;" "$ZPKG" >/tmp/gb_validate_zip_old_proxy_matches.txt 2>/dev/null; then
   echo "ERROR_OLD_PROXY_TARGET_FOUND_IN_ZIP_PAYLOAD"
