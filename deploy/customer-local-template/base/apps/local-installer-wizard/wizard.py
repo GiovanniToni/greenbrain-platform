@@ -185,10 +185,18 @@ class WizardHandler(http.server.BaseHTTPRequestHandler):
             p.write_text("\n".join([
                 f"SOURCE_DB_HOST={data.get('host', '')}",
                 f"SOURCE_DB_PORT={data.get('port', 1433)}",
+                f"SOURCE_DB_NAME={data.get('database', '')}",
                 f"SOURCE_DB_DATABASE={data.get('database', '')}",
+                f"SOURCE_DB_SCHEMA={data.get('schema', 'dbo')}",
+                f"SOURCE_DB_VIEW={data.get('view', 'GREENBRAIN_VIEW_SALES_RAW')}",
+                f"SOURCE_DB_TYPE={data.get('type', 'sqlserver')}",
+                f"SOURCE_CLIENT_CODE={data.get('source_client_code', 'greenhouse')}",
+                f"SOURCE_DB_CLIENT_CODE={data.get('source_client_code', 'greenhouse')}",
                 f"SOURCE_DB_USER={data.get('username', '')}",
                 f"SOURCE_DB_PASSWORD={data.get('password', '')}",
                 "SOURCE_DB_DRIVER=ODBC Driver 18 for SQL Server",
+                f"SOURCE_DB_ENCRYPT={data.get('encrypt', 'no')}",
+                f"SOURCE_DB_TRUST_CERT={data.get('trust_cert', 'yes')}",
             ]) + "\n")
             self._send(200, json.dumps({"ok": True}), "application/json")
             return
