@@ -400,6 +400,160 @@ def ack_password_sync(payload: Dict[str, Any], runtime_token: str | None = None)
         "ack": result,
     }
 
+
+def _classify_source_db_technical_failure(message: str) -> Dict[str, Any]:
+    """Classify Source DB technical failures for admin/customer UX.
+
+    The local runtime already classifies new technical reports. This cloud-side
+    helper backfills stable fields for older or incomplete reports before DB
+    persistence.
+    """
+    msg = str(message or "")
+    low = msg.lower()
+
+    if "missing_source_db_env:" in low:
+        return {
+            "failure_code": "missing_source_db_env",
+            "failure_message": "Configurazione Source DB locale non trovata.",
+            "action_required": "Genera o copia il file overlay/env/source-db.env con i dati del gestionale prima di eseguire il test tecnico.",
+        }
+
+    if "missing_source_db_env_values:" in low:
+        missing = msg.split(":", 1)[1] if ":" in msg else ""
+        return {
+            "failure_code": "missing_source_db_env_values",
+            "failure_message": f"Configurazione Source DB incompleta: {missing}".strip(),
+            "action_required": "Completa host, database, utente e password SQL Server nel file source-db.env.",
+        }
+
+    if "no_compatible_sqlserver_odbc_driver" in low:
+        return {
+            "failure_code": "missing_odbc_driver",
+            "failure_message": "Driver ODBC SQL Server non disponibile nel runtime locale.",
+            "action_required": "Verificare l'immagine source-db-importer e la presenza di ODBC Driver 18/17 per SQL Server.",
+        }
+
+    if "missing_required_columns" in low:
+        missing = msg.split(":", 1)[1] if ":" in msg else ""
+        return {
+            "failure_code": "missing_required_columns",
+            "failure_message": f"La vista SQL non espone tutte le colonne obbligatorie: {missing}".strip(),
+            "action_required": "Chiedere al gestore DB di creare/correggere la vista GREENBRAIN_VIEW_SALES_RAW con le colonne standard richieste.",
+        }
+
+    if "login failed" in low or "authentication" in low or "28000" in low:
+        return {
+            "failure_code": "sql_auth_failed",
+            "failure_message": "Autenticazione SQL Server non riuscita.",
+            "action_required": "Verificare utente read-only e password SQL Server nel file source-db.env.",
+        }
+
+    if (
+        "timeout" in low
+        or "timed out" in low
+        or "08001" in low
+        or "could not open a connection" in low
+        or "network-related" in low
+        or "server is not found" in low
+    ):
+        return {
+            "failure_code": "sql_network_unreachable",
+            "failure_message": "SQL Server non raggiungibile dal runtime locale.",
+            "action_required": "Verificare host, porta, rete locale/VPN, firewall e abilitazione TCP/IP di SQL Server.",
+        }
+
+    if (
+        "invalid object name" in low
+        or "object not found" in low
+        or "42s02" in low
+        or "does not exist" in low
+    ):
+        return {
+            "failure_code": "source_view_not_found",
+            "failure_message": "Vista Source DB non trovata nel database indicato.",
+            "action_required": "Verificare schema e nome vista; lo standard consigliato è dbo.GREENBRAIN_VIEW_SALES_RAW.",
+        }
+
+    if "permission" in low or "select permission" in low or "42000" in low:
+        return {
+            "failure_code": "sql_permission_denied",
+            "failure_message": "L'utente SQL non ha i permessi necessari sulla vista.",
+            "action_required": "Concedere SELECT all'utente read-only sulla vista vendite configurata.",
+        }
+
+    if "data_movimento" in low:
+        return {
+            "failure_code": "data_movimento_query_failed",
+            "failure_message": "Controllo sulla colonna data_movimento non riuscito.",
+            "action_required": "Verificare che la vista esponga data_movimento come data valida e interrogabile.",
+        }
+
+    return {
+        "failure_code": "unknown_source_db_error",
+        "failure_message": msg[:500] if msg else "Errore tecnico Source DB non classificato.",
+        "action_required": "Controllare il report tecnico completo e verificare configurazione SQL Server, vista, permessi e rete.",
+    }
+
+
+def _normalize_source_db_technical_result(
+    status: str,
+    result: Any,
+    report: str | None = None,
+    error: str | None = None,
+) -> Dict[str, Any]:
+    """Normalize Source DB technical result before persisting it in Supabase."""
+    normalized = dict(result) if isinstance(result, dict) else {}
+    normalized["status"] = str(status or normalized.get("status") or "").strip() or "technical_test_failed"
+
+    if normalized["status"] != "technical_test_failed":
+        normalized.setdefault("failure_code", None)
+        normalized.setdefault("failure_message", None)
+        normalized.setdefault("action_required", None)
+        return normalized
+
+    if (
+        normalized.get("failure_code")
+        and normalized.get("failure_message")
+        and normalized.get("action_required")
+    ):
+        return normalized
+
+    errors = normalized.get("errors") or []
+    if isinstance(errors, list) and errors:
+        source_message = str(errors[0])
+    elif error:
+        source_message = str(error)
+    elif report:
+        source_message = str(report)
+    else:
+        source_message = ""
+
+    normalized.update(_classify_source_db_technical_failure(source_message))
+    return normalized
+
+
+def _source_db_last_error_from_result(
+    status: str,
+    error: str | None,
+    normalized_result: Dict[str, Any],
+) -> str | None:
+    if status != "technical_test_failed":
+        return None
+
+    if error:
+        return error
+
+    failure_code = normalized_result.get("failure_code")
+    failure_message = normalized_result.get("failure_message")
+
+    if failure_code and failure_message:
+        return f"{failure_code}:{failure_message}"
+
+    if failure_code:
+        return str(failure_code)
+
+    return "technical_test_failed"
+
 def ack_source_db_technical_check(payload: Dict[str, Any], runtime_token: str | None = None) -> Dict[str, Any]:
     tenant_code = (payload.get("tenant_code") or "").strip()
     installation_id = (payload.get("installation_id") or "").strip()
@@ -420,16 +574,22 @@ def ack_source_db_technical_check(payload: Dict[str, Any], runtime_token: str | 
         raise RuntimeError("customer_not_found")
 
     now_iso = _now_iso()
-    result = payload.get("result") or {}
     report = (payload.get("report") or "").strip()
     error = (payload.get("error") or "").strip() or None
+    result = _normalize_source_db_technical_result(
+        status=status,
+        result=payload.get("result") or {},
+        report=report,
+        error=error,
+    )
+    last_error_report = _source_db_last_error_from_result(status, error, result)
 
     update_payload = {
         "technical_test_status": status,
         "technical_test_report": report or None,
         "technical_test_result": result,
         "technical_test_at": now_iso,
-        "last_error_report": error if status == "technical_test_failed" else None,
+        "last_error_report": last_error_report,
         "last_error_at": now_iso if status == "technical_test_failed" else None,
         "updated_at": now_iso,
     }
@@ -442,5 +602,7 @@ def ack_source_db_technical_check(payload: Dict[str, Any], runtime_token: str | 
         "installation_id": installation_id,
         "technical_test_status": status,
         "technical_test_at": now_iso,
+        "failure_code": result.get("failure_code"),
+        "action_required": result.get("action_required"),
     }
 
