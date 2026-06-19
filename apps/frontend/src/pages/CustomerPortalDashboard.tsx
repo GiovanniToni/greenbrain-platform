@@ -706,6 +706,50 @@ export default function CustomerPortalDashboard() {
     return " Usa il pulsante qui sotto per sincronizzare subito GreenBrain locale; in ogni caso si allineerà automaticamente al prossimo controllo.";
   }
 
+  // SOURCE_DB_TAB_REFRESH_ON_OPEN: keep Gestionale tab aligned with the dedicated Source DB API payload.
+  useEffect(() => {
+    if (activeTab !== "sourceDb") return;
+
+    let cancelled = false;
+
+    async function refreshSourceDbTabState() {
+      try {
+        const sourceDb = await getCustomerSourceDbState();
+        if (cancelled) return;
+
+        setSourceDbState(sourceDb);
+
+        const integration = sourceDb?.source_db_integration;
+        if (integration) {
+          setSourceDbHost(integration.db_host || "");
+          setSourceDbPort(String(integration.db_port || 1433));
+          setSourceDbName(integration.db_name || "");
+          setSourceDbSchema(integration.db_schema || "dbo");
+          setSourceDbClientCode(integration.source_client_code || data?.tenant_code || "");
+          setSourceDbViewName(integration.db_view_name || "GREENBRAIN_VIEW_SALES_RAW");
+          setSourceDbUsername(integration.db_username || "");
+          setSourceDbEncrypt(Boolean(integration.db_encrypt ?? true));
+          setSourceDbTrustCert(Boolean(integration.db_trust_server_certificate ?? true));
+          setSourceDbManagerEmail(integration.manager_contact_email || "");
+          setSourceDbManagerResponse(integration.manager_response_raw_text || "");
+          setSourceDbNotes(integration.notes || "");
+        } else {
+          setSourceDbClientCode(data?.tenant_code || "");
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setSourceDbMessage(err instanceof Error ? err.message : "Impossibile aggiornare stato collegamento gestionale");
+        }
+      }
+    }
+
+    refreshSourceDbTabState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, data?.tenant_code]);
+
   async function handleSaveSourceDb(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
