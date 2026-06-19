@@ -495,6 +495,16 @@ function LocalRuntimeAccount() {
 
 // ── main component ────────────────────────────────────────────────────────────
 
+
+function formatDateTime(value?: string | null): string {
+  if (!value) return "—";
+  try {
+    return new Date(value).toLocaleString("it-IT");
+  } catch {
+    return String(value);
+  }
+}
+
 export default function CustomerPortalDashboard() {
   if (isLocalRuntimeHost()) {
     return <LocalRuntimeAccount />;
