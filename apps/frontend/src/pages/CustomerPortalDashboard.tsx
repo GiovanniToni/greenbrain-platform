@@ -988,6 +988,18 @@ export default function CustomerPortalDashboard() {
     ? sourceDbIntegration?.formal_validation_result?.warnings || []
     : [];
 
+  const sourceDbTechnicalResult = (sourceDbIntegration?.technical_test_result || {}) as Record<string, unknown>;
+  const sourceDbTextValue = (value: unknown): string | null => {
+    if (value === null || value === undefined) return null;
+    const text = String(value).trim();
+    return text.length > 0 ? text : null;
+  };
+  const sourceDbFailureCode = sourceDbTextValue(sourceDbTechnicalResult.failure_code);
+  const sourceDbFailureMessage = sourceDbTextValue(sourceDbTechnicalResult.failure_message);
+  const sourceDbActionRequired = sourceDbTextValue(sourceDbTechnicalResult.action_required);
+  const sourceDbLastError = sourceDbIntegration?.last_error_report || null;
+  const sourceDbLastErrorAt = sourceDbIntegration?.last_error_at || null;
+
   const platformReady = Boolean(data?.platform_ready);
   const installationStatusLabel = data?.installation_status_label || (
     platformReady ? "Piattaforma attiva" : "Installazione non ancora completata"
@@ -1655,6 +1667,32 @@ export default function CustomerPortalDashboard() {
               </p>
             </div>
           </div>
+
+          {(sourceDbFailureCode || sourceDbFailureMessage || sourceDbLastError || sourceDbActionRequired) && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 mb-5">
+              <p className="font-semibold mb-2">Problema tecnico Source DB</p>
+              <div className="space-y-1 text-xs">
+                {sourceDbFailureCode && (
+                  <p><span className="font-semibold">Codice errore tecnico:</span> {sourceDbFailureCode}</p>
+                )}
+                {sourceDbFailureMessage && (
+                  <p><span className="font-semibold">Errore tecnico:</span> {sourceDbFailureMessage}</p>
+                )}
+                {sourceDbLastError && (
+                  <p><span className="font-semibold">Ultimo errore:</span> {sourceDbLastError}</p>
+                )}
+                {sourceDbLastErrorAt && (
+                  <p><span className="font-semibold">Ultimo errore il:</span> {formatDateTime(sourceDbLastErrorAt)}</p>
+                )}
+              </div>
+              {sourceDbActionRequired && (
+                <div className="mt-3 rounded-lg border border-amber-200 bg-white/70 px-3 py-2">
+                  <p className="text-xs font-semibold mb-1">Azione richiesta</p>
+                  <p className="text-xs whitespace-pre-wrap">{sourceDbActionRequired}</p>
+                </div>
+              )}
+            </div>
+          )}
 
           {(sourceDbMissing.length > 0 || sourceDbWarnings.length > 0) && (
             <div className="grid gap-3 md:grid-cols-2 mb-5">
