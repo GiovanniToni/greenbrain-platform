@@ -59,6 +59,12 @@ function fmtDt(iso: string | null | undefined, mode: "date" | "datetime" = "date
   } catch { return iso; }
 }
 
+function textFromUnknown(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  return text.length > 0 ? text : null;
+}
+
 
 function sourceDbStatusLabel(status: string | null | undefined) {
   const s = (status || "not_started").toLowerCase();
@@ -276,6 +282,13 @@ export default function CustomerDetail() {
   const sourceDbWarnings = Array.isArray(sourceDbIntegration?.formal_validation_result?.warnings)
     ? sourceDbIntegration?.formal_validation_result?.warnings || []
     : [];
+
+  const sourceDbTechnicalResult = (sourceDbIntegration?.technical_test_result || {}) as Record<string, unknown>;
+  const sourceDbFailureCode = textFromUnknown(sourceDbTechnicalResult.failure_code);
+  const sourceDbFailureMessage = textFromUnknown(sourceDbTechnicalResult.failure_message);
+  const sourceDbActionRequired = textFromUnknown(sourceDbTechnicalResult.action_required);
+  const sourceDbLastError = sourceDbIntegration?.last_error_report || null;
+  const sourceDbLastErrorAt = sourceDbIntegration?.last_error_at || null;
 
   const effectiveDbIntegrationStatus =
     item.db_integration_status === "not_started" && item.data_validated_at
@@ -851,6 +864,10 @@ export default function CustomerDetail() {
             <Row label="Dettaglio stato formale" value={sourceDbStatusLabel(sourceDbFormalStatus)} />
             <Row label="Test tecnico" value={badge(sourceDbStatusForBadge(sourceDbTechnicalStatus))} />
             <Row label="Dettaglio test tecnico" value={sourceDbStatusLabel(sourceDbTechnicalStatus)} />
+            <Row label="Codice errore tecnico" value={sourceDbFailureCode} />
+            <Row label="Errore tecnico" value={sourceDbFailureMessage} />
+            <Row label="Ultimo errore tecnico" value={sourceDbLastError} />
+            <Row label="Ultimo errore tecnico il" value={fmtDt(sourceDbLastErrorAt, "datetime")} />
             <Row label="Server SQL" value={sourceDbIntegration?.db_host || "Non configurato"} />
             <Row label="Porta" value={sourceDbIntegration?.db_port ? String(sourceDbIntegration.db_port) : null} />
             <Row label="Database" value={sourceDbIntegration?.db_name || null} />
@@ -864,6 +881,32 @@ export default function CustomerDetail() {
             <Row label="Email referente gestionale" value={sourceDbIntegration?.manager_contact_email || null} />
             <Row label="Validazione formale il" value={fmtDt(sourceDbIntegration?.formal_validation_at, "datetime")} />
             <Row label="Test tecnico il" value={fmtDt(sourceDbIntegration?.technical_test_at, "datetime")} />
+
+            {sourceDbActionRequired && (
+              <div style={{
+                gridColumn: "1 / -1",
+                background: "#fff7ed",
+                border: "1px solid #fed7aa",
+                borderRadius: 8,
+                padding: 10,
+              }}>
+                <div style={{
+                  fontSize: 11,
+                  fontWeight: 800,
+                  color: "#9a3412",
+                  marginBottom: 4,
+                }}>
+                  Azione richiesta Source DB
+                </div>
+                <div style={{
+                  fontSize: 12,
+                  color: "#7c2d12",
+                  whiteSpace: "pre-wrap",
+                }}>
+                  {sourceDbActionRequired}
+                </div>
+              </div>
+            )}
 
             {sourceDbMissing.length > 0 && (
               <div style={{ gridColumn: "1 / -1", background: "#fee2e2", border: "1px solid #fecaca", borderRadius: 8, padding: 10 }}>
