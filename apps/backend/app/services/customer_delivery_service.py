@@ -394,6 +394,9 @@ def _render_source_db_env_for_customer(customer_profile: Dict[str, Any]) -> str 
         "SOURCE_DB_HOST": integration.get("db_host"),
         "SOURCE_DB_PORT": integration.get("db_port") or "1433",
         "SOURCE_DB_NAME": integration.get("db_name"),
+        # SOURCE_DB_DATABASE_ALIAS: align cloud precompiled bundles with the
+        # wizard/manual Source DB env format. Runtime still reads SOURCE_DB_NAME.
+        "SOURCE_DB_DATABASE": integration.get("db_name"),
         "SOURCE_DB_USER": integration.get("db_username"),
         "SOURCE_DB_PASSWORD": source_db_password,
         "SOURCE_DB_SCHEMA": integration.get("db_schema") or "dbo",
