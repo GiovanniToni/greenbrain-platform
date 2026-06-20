@@ -997,6 +997,10 @@ export default function CustomerPortalDashboard() {
       return;
     }
 
+    if (!beginSourceDbEdit()) {
+      return;
+    }
+
     try {
       setSourceDbBusy(true);
       setSourceDbMessage(null);
@@ -1005,7 +1009,6 @@ export default function CustomerPortalDashboard() {
 
       const result = await parseCustomerSourceDbManagerResponse(raw);
       const suggested = result.suggested_payload || {};
-      sourceDbDraftDirtyRef.current = true;
 
       if (suggested.db_host) setSourceDbHost(String(suggested.db_host));
       if (suggested.db_port) setSourceDbPort(String(suggested.db_port));
@@ -1066,6 +1069,44 @@ export default function CustomerPortalDashboard() {
   const sourceDbActionRequired = sourceDbTextValue(sourceDbTechnicalResult.action_required);
   const sourceDbLastError = sourceDbIntegration?.last_error_report || null;
   const sourceDbLastErrorAt = sourceDbIntegration?.last_error_at || null;
+
+  // SOURCE_DB_SAVED_EDIT_CONFIRMATION: once Source DB data exists, require
+  // explicit confirmation before creating a new editable draft.
+  function hasSavedSourceDbConfiguration(): boolean {
+    return Boolean(
+      sourceDbIntegration?.db_host ||
+      sourceDbIntegration?.db_name ||
+      sourceDbIntegration?.db_username ||
+      sourceDbIntegration?.db_view_name ||
+      sourceDbIntegration?.source_client_code ||
+      sourceDbIntegration?.manager_contact_email ||
+      sourceDbIntegration?.manager_response_raw_text ||
+      sourceDbIntegration?.db_password_set ||
+      sourceDbStatus === "formal_validation_ok" ||
+      sourceDbStatus === "technical_test_pending" ||
+      sourceDbStatus === "technical_test_failed" ||
+      sourceDbStatus === "technical_test_ok"
+    );
+  }
+
+  function beginSourceDbEdit(): boolean {
+    if (sourceDbDraftDirtyRef.current) {
+      return true;
+    }
+
+    if (hasSavedSourceDbConfiguration()) {
+      const confirmed = window.confirm(
+        "Stai per modificare dati gestionali già salvati. Dopo la modifica dovrai salvare nuovamente il collegamento: verrà rieseguita la validazione formale cloud e il runtime locale dovrà ripetere il test tecnico. Vuoi continuare?"
+      );
+
+      if (!confirmed) {
+        return false;
+      }
+    }
+
+    sourceDbDraftDirtyRef.current = true;
+    return true;
+  }
 
   const platformReady = Boolean(data?.platform_ready);
   const installationStatusLabel = data?.installation_status_label || (
@@ -1830,7 +1871,7 @@ export default function CustomerPortalDashboard() {
                 <Input
                   id="source-db-host"
                   value={sourceDbHost}
-                  onChange={(e) => { sourceDbDraftDirtyRef.current = true; setSourceDbHost(e.target.value) } }
+                  onChange={(e) => { if (!beginSourceDbEdit()) return; setSourceDbHost(e.target.value); }}
                   placeholder="SERVERGREEN\\FLORINFO"
                 />
               </div>
@@ -1840,7 +1881,7 @@ export default function CustomerPortalDashboard() {
                 <Input
                   id="source-db-port"
                   value={sourceDbPort}
-                  onChange={(e) => { sourceDbDraftDirtyRef.current = true; setSourceDbPort(e.target.value) } }
+                  onChange={(e) => { if (!beginSourceDbEdit()) return; setSourceDbPort(e.target.value); }}
                   placeholder="1433"
                   inputMode="numeric"
                 />
@@ -1851,7 +1892,7 @@ export default function CustomerPortalDashboard() {
                 <Input
                   id="source-db-name"
                   value={sourceDbName}
-                  onChange={(e) => { sourceDbDraftDirtyRef.current = true; setSourceDbName(e.target.value) } }
+                  onChange={(e) => { if (!beginSourceDbEdit()) return; setSourceDbName(e.target.value); }}
                   placeholder="AZIEN001"
                 />
               </div>
@@ -1861,7 +1902,7 @@ export default function CustomerPortalDashboard() {
                 <Input
                   id="source-db-schema"
                   value={sourceDbSchema}
-                  onChange={(e) => { sourceDbDraftDirtyRef.current = true; setSourceDbSchema(e.target.value) } }
+                  onChange={(e) => { if (!beginSourceDbEdit()) return; setSourceDbSchema(e.target.value); }}
                   placeholder="dbo"
                 />
               </div>
@@ -1871,7 +1912,7 @@ export default function CustomerPortalDashboard() {
                 <Input
                   id="source-db-client-code"
                   value={sourceDbClientCode}
-                  onChange={(e) => { sourceDbDraftDirtyRef.current = true; setSourceDbClientCode(e.target.value) } }
+                  onChange={(e) => { if (!beginSourceDbEdit()) return; setSourceDbClientCode(e.target.value); }}
                   placeholder={data?.tenant_code || "codice cliente"}
                 />
               </div>
@@ -1881,7 +1922,7 @@ export default function CustomerPortalDashboard() {
                 <Input
                   id="source-db-view"
                   value={sourceDbViewName}
-                  onChange={(e) => { sourceDbDraftDirtyRef.current = true; setSourceDbViewName(e.target.value) } }
+                  onChange={(e) => { if (!beginSourceDbEdit()) return; setSourceDbViewName(e.target.value); }}
                   placeholder="GREENBRAIN_VIEW_SALES_RAW"
                 />
                 <p className="text-xs text-muted-foreground">
@@ -1894,7 +1935,7 @@ export default function CustomerPortalDashboard() {
                 <Input
                   id="source-db-username"
                   value={sourceDbUsername}
-                  onChange={(e) => { sourceDbDraftDirtyRef.current = true; setSourceDbUsername(e.target.value) } }
+                  onChange={(e) => { if (!beginSourceDbEdit()) return; setSourceDbUsername(e.target.value); }}
                   placeholder="greenbrain_reader"
                   autoComplete="username"
                 />
@@ -1907,7 +1948,7 @@ export default function CustomerPortalDashboard() {
                 <PasswordInput
                   id="source-db-password"
                   value={sourceDbPassword}
-                  onChange={(e) => { sourceDbDraftDirtyRef.current = true; setSourceDbPassword(e.target.value) } }
+                  onChange={(e) => { if (!beginSourceDbEdit()) return; setSourceDbPassword(e.target.value); }}
                   placeholder={sourceDbIntegration?.db_password_set ? "Password già salvata" : "Password utente read-only"}
                   autoComplete="new-password"
                 />
@@ -1919,7 +1960,7 @@ export default function CustomerPortalDashboard() {
                 <input
                   type="checkbox"
                   checked={sourceDbEncrypt}
-                  onChange={(e) => setSourceDbEncrypt(e.target.checked)}
+                  onChange={(e) => { if (!beginSourceDbEdit()) return; setSourceDbEncrypt(e.target.checked); }}
                   className="mt-1"
                 />
                 <span>
@@ -1932,7 +1973,7 @@ export default function CustomerPortalDashboard() {
                 <input
                   type="checkbox"
                   checked={sourceDbTrustCert}
-                  onChange={(e) => setSourceDbTrustCert(e.target.checked)}
+                  onChange={(e) => { if (!beginSourceDbEdit()) return; setSourceDbTrustCert(e.target.checked); }}
                   className="mt-1"
                 />
                 <span>
@@ -1948,7 +1989,7 @@ export default function CustomerPortalDashboard() {
                 <Input
                   id="source-db-manager-email"
                   value={sourceDbManagerEmail}
-                  onChange={(e) => { sourceDbDraftDirtyRef.current = true; setSourceDbManagerEmail(e.target.value) } }
+                  onChange={(e) => { if (!beginSourceDbEdit()) return; setSourceDbManagerEmail(e.target.value); }}
                   placeholder="tecnico@gestionale.it"
                   type="email"
                 />
@@ -1959,7 +2000,7 @@ export default function CustomerPortalDashboard() {
                 <Input
                   id="source-db-notes"
                   value={sourceDbNotes}
-                  onChange={(e) => { sourceDbDraftDirtyRef.current = true; setSourceDbNotes(e.target.value) } }
+                  onChange={(e) => { if (!beginSourceDbEdit()) return; setSourceDbNotes(e.target.value); }}
                   placeholder="Es. dati ricevuti dal tecnico il..."
                 />
               </div>
@@ -1970,7 +2011,7 @@ export default function CustomerPortalDashboard() {
               <textarea
                 id="source-db-manager-response"
                 value={sourceDbManagerResponse}
-                onChange={(e) => { sourceDbDraftDirtyRef.current = true; setSourceDbManagerResponse(e.target.value) } }
+                onChange={(e) => { if (!beginSourceDbEdit()) return; setSourceDbManagerResponse(e.target.value); }}
                 className="min-h-[110px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 placeholder="Incolla qui server, database, vista, utente read-only ed eventuali note su VPN/rete."
               />
