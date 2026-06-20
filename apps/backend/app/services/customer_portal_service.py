@@ -393,6 +393,15 @@ def _extract_first_pattern(text: str, pattern: str) -> str | None:
     return None
 
 
+# INLINE_SOURCE_DB_PARSE_FALLBACKS: accept common Italian/free-text replies
+# such as "server 192.0.2.10 porta 1433 database X utente Y".
+# Password values are intentionally never extracted or returned.
+def _extract_inline_token_after_label(text: str, labels: list[str], token_pattern: str = r"[^\s,;]+") -> str | None:
+    label_alt = "|".join(labels)
+    pattern = rf"(?i)\b(?:{label_alt})\b\s*(?:\:|\=|\-|\u2013|\u2014|è|e'|is)?\s*({token_pattern})"
+    return _extract_first_pattern(text, pattern)
+
+
 def _parse_bool_hint(value: str | None) -> bool | None:
     if value is None:
         return None
@@ -454,6 +463,8 @@ def parse_source_db_manager_response(user_email: str, payload: Dict[str, Any]) -
         parsed["db_host"] = host
 
     port = _extract_labeled_value(text, [r"porta", r"port"])
+    if not port:
+        port = _extract_inline_token_after_label(text, [r"porta", r"port"], r"[0-9]{2,5}")
     if port:
         port_digits = re.sub(r"[^0-9]", "", port)
         if port_digits:
@@ -461,15 +472,21 @@ def parse_source_db_manager_response(user_email: str, payload: Dict[str, Any]) -
 
     db_name = _extract_labeled_value(text, [r"database", r"nome\s+database", r"db"])
     if not db_name:
+        db_name = _extract_inline_token_after_label(text, [r"database", r"nome\s+database", r"db"], r"[A-Z0-9_.-]+")
+    if not db_name:
         db_name = _extract_first_pattern(text, r"\b(AZIEN[0-9A-Z_]+)\b")
     if db_name:
         parsed["db_name"] = db_name
 
     schema = _extract_labeled_value(text, [r"schema"])
+    if not schema:
+        schema = _extract_inline_token_after_label(text, [r"schema"], r"[A-Z0-9_.-]+")
     if schema:
         parsed["db_schema"] = schema
 
     view_name = _extract_labeled_value(text, [r"vista", r"view", r"vista\s+vendite", r"nome\s+vista"])
+    if not view_name:
+        view_name = _extract_inline_token_after_label(text, [r"vista", r"view", r"vista\s+vendite", r"nome\s+vista"], r"[A-Z0-9_.-]+")
     if not view_name:
         if re.search(r"\bGREENBRAIN_VIEW_SALES_RAW\b", text, flags=re.IGNORECASE):
             view_name = SOURCE_DB_STANDARD_VIEW_NAME
@@ -478,7 +495,13 @@ def parse_source_db_manager_response(user_email: str, payload: Dict[str, Any]) -
     if view_name:
         parsed["db_view_name"] = view_name
 
-    username = _extract_labeled_value(text, [r"utente(?:\s+read-only)?", r"user", r"username", r"login", r"uid"])
+    username = _extract_labeled_value(text, [r"utente(?:\s+sql)?(?:\s+read-only)?", r"utente(?:\s+read-only)?", r"user", r"username", r"login", r"uid"])
+    if not username:
+        username = _extract_inline_token_after_label(
+            text,
+            [r"utente(?:\s+sql)?(?:\s+read-only)?", r"utente(?:\s+read-only)?", r"user", r"username", r"login", r"uid"],
+            r"[A-Z0-9_.\\@-]+",
+        )
     if username:
         parsed["db_username"] = username
 
@@ -491,7 +514,10 @@ def parse_source_db_manager_response(user_email: str, payload: Dict[str, Any]) -
     if parsed_trust is not None:
         parsed["db_trust_server_certificate"] = parsed_trust
 
-    password_detected = bool(re.search(r"(?im)^\s*(password|pwd|pass|secret)\s*(\:|\=|\-)", text))
+    password_detected = bool(re.search(
+        r"(?im)(^|\b)(password|pwd|pw|pass|secret|parola\s+chiave)\b\s*(\:|\=|\-|\u2013|\u2014|\s+)",
+        text,
+    ))
 
     suggested_payload.update(parsed)
 
