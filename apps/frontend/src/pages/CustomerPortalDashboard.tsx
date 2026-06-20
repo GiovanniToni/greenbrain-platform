@@ -581,7 +581,9 @@ export default function CustomerPortalDashboard() {
           setSourceDbEncrypt(Boolean(integration.db_encrypt ?? true));
           setSourceDbTrustCert(Boolean(integration.db_trust_server_certificate ?? true));
           setSourceDbManagerEmail(integration.manager_contact_email || "");
-          setSourceDbManagerResponse(integration.manager_response_raw_text || "");
+          // SOURCE_DB_MANAGER_RESPONSE_PRESERVE_NONEMPTY: do not overwrite a reply
+          // the user has pasted/typed while Source DB state refreshes.
+          setSourceDbManagerResponse((prev) => prev.trim() ? prev : (integration.manager_response_raw_text || ""));
           setSourceDbNotes(integration.notes || "");
         } else {
           setSourceDbClientCode(profile?.tenant_code || "");
@@ -741,7 +743,9 @@ export default function CustomerPortalDashboard() {
           setSourceDbEncrypt(Boolean(integration.db_encrypt ?? true));
           setSourceDbTrustCert(Boolean(integration.db_trust_server_certificate ?? true));
           setSourceDbManagerEmail(integration.manager_contact_email || "");
-          setSourceDbManagerResponse(integration.manager_response_raw_text || "");
+          // SOURCE_DB_MANAGER_RESPONSE_PRESERVE_NONEMPTY: do not overwrite a reply
+          // the user has pasted/typed while Source DB state refreshes.
+          setSourceDbManagerResponse((prev) => prev.trim() ? prev : (integration.manager_response_raw_text || ""));
           setSourceDbNotes(integration.notes || "");
         } else {
           setSourceDbClientCode(data?.tenant_code || "");
