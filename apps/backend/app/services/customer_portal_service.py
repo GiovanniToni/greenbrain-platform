@@ -378,12 +378,14 @@ def _normalize_manager_response_line_value(value: str | None) -> str | None:
 
 
 def _extract_labeled_value(text: str, labels: list[str]) -> str | None:
-    for label in labels:
-        pattern = re.compile(rf"(?im)^\s*(?:{label})\s*(?:\:|\=|\-|\u2013|\u2014)\s*(.+?)\s*$")
-        match = pattern.search(text)
-        if match:
-            return _normalize_manager_response_line_value(match.group(1))
-    return None
+    """Extract a labelled value from the same line only.
+
+    Do not consume the next line when a label is empty, for example:
+    "Database\nSchema:" must not parse db_name="Schema".
+    """
+    label_alt = "|".join(labels)
+    pattern = rf"(?im)^[ \t]*(?:{label_alt})[ \t]*(?:\:|\=|\-|\u2013|\u2014)[ \t]*([^\r\n]+)[ \t]*$"
+    return _extract_first_pattern(text, pattern)
 
 
 def _extract_first_pattern(text: str, pattern: str) -> str | None:
@@ -397,8 +399,13 @@ def _extract_first_pattern(text: str, pattern: str) -> str | None:
 # such as "server 192.0.2.10 porta 1433 database X utente Y".
 # Password values are intentionally never extracted or returned.
 def _extract_inline_token_after_label(text: str, labels: list[str], token_pattern: str = r"[^\s,;]+") -> str | None:
+    """Extract inline tokens without crossing line boundaries.
+
+    This avoids parsing UI/template labels such as:
+    "Database\nSchema:" as database="Schema".
+    """
     label_alt = "|".join(labels)
-    pattern = rf"(?i)\b(?:{label_alt})\b\s*(?:\:|\=|\-|\u2013|\u2014|è|e'|is)?\s*({token_pattern})"
+    pattern = rf"(?i)\b(?:{label_alt})\b[ \t]*(?:\:|\=|\-|\u2013|\u2014|è|e'|is)?[ \t]*({token_pattern})"
     return _extract_first_pattern(text, pattern)
 
 
@@ -502,6 +509,26 @@ def parse_source_db_manager_response(user_email: str, payload: Dict[str, Any]) -
             [r"utente(?:\s+sql)?(?:\s+read-only)?", r"utente(?:\s+read-only)?", r"user", r"username", r"login", r"uid"],
             r"[A-Z0-9_.\\@-]+",
         )
+    if username:
+        # SOURCE_DB_USERNAME_LABEL_GUARD: avoid treating UI/template labels
+        # such as "Utente read-only:" as the actual SQL username.
+        username_clean = username.strip().lower().strip(":")
+        if username_clean in {
+            "read-only",
+            "readonly",
+            "utente",
+            "utente read-only",
+            "user",
+            "username",
+            "login",
+            "uid",
+            "encrypt",
+            "password",
+            "pwd",
+            "pw",
+        }:
+            username = None
+
     if username:
         parsed["db_username"] = username
 
