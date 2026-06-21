@@ -73,6 +73,7 @@ LOG_DIR.mkdir(parents=True, exist_ok=True)
 DEST_TABLE = "source_import.sales_raw"
 
 
+
 def source_client_code() -> str:
     return (
         os.getenv("SOURCE_DB_CLIENT_CODE")
@@ -82,6 +83,24 @@ def source_client_code() -> str:
         or "greenbrain"
     )
 
+
+def _env_int(name: str, default: int, *, minimum: int = 0) -> int:
+    raw = os.getenv(name, str(default))
+    try:
+        value = int(str(raw).strip())
+    except Exception:
+        value = default
+    return max(minimum, value)
+
+
+def source_import_batch_size() -> int:
+    return _env_int("SOURCE_DB_IMPORT_BATCH_SIZE", 50000, minimum=1)
+
+
+def source_import_max_batches() -> int:
+    # 0 means unlimited; useful for production/full import.
+    # 1 or N is useful for smoke tests and controlled partial imports.
+    return _env_int("SOURCE_DB_IMPORT_MAX_BATCHES", 0, minimum=0)
 
 def log(msg: str):
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -197,7 +216,8 @@ def pick_source_column(columns, candidates, *, required=False, logical_name=""):
     return None
 
 
-def build_source_select_query(source_view: str, columns, last_progressivo: int):
+
+def build_source_select_query(source_view: str, columns, last_progressivo: int, batch_size: int):
     resolved = {}
     missing = []
 
@@ -238,15 +258,17 @@ def build_source_select_query(source_view: str, columns, last_progressivo: int):
         movim_col = quote_sqlserver_identifier(resolved["movim_cassa"])
         where_parts.append(f"{movim_col} = 1")
 
+    safe_batch_size = max(1, int(batch_size))
+
     query = (
-        "SELECT\\n        "
-        + ",\\n        ".join(select_parts)
-        + f"\\n    FROM {source_view}\\n    WHERE\\n        "
-        + "\\n        AND ".join(where_parts)
+        f"SELECT TOP ({safe_batch_size})\n        "
+        + ",\n        ".join(select_parts)
+        + f"\n    FROM {source_view}\n    WHERE\n        "
+        + "\n        AND ".join(where_parts)
+        + f"\n    ORDER BY {progressivo_col}"
     )
 
     return query, resolved
-
 
 def sqlserver_connection():
     driver = get_best_sql_driver()
@@ -301,12 +323,13 @@ def get_last_progressivo(engine):
     return int(row[0] or 0)
 
 
-def extract_incremental(last_progressivo):
+
+def extract_incremental(last_progressivo, batch_size: int):
     source_view = source_sales_view_name()
     conn = sqlserver_connection()
     try:
         columns = fetch_source_columns(conn, source_view)
-        query, resolved_columns = build_source_select_query(source_view, columns, last_progressivo)
+        query, resolved_columns = build_source_select_query(source_view, columns, last_progressivo, batch_size)
         log(
             "Source DB columns resolved: "
             + ", ".join(f"{logical}={source}" for logical, source in resolved_columns.items())
@@ -413,28 +436,77 @@ def load_to_local_postgres(engine, df: pd.DataFrame):
         return result.rowcount if result.rowcount is not None else 0
 
 
+
 def run():
     load_envs()
-    log(f"Source DB import start | client={source_client_code()} | view={source_sales_view_name()}")
+    batch_size = source_import_batch_size()
+    max_batches = source_import_max_batches()
+
+    log(
+        f"Source DB import start | client={source_client_code()} | "
+        f"view={source_sales_view_name()} | batch_size={batch_size} | "
+        f"max_batches={max_batches or 'unlimited'}"
+    )
 
     engine = pg_engine()
+    total_extracted = 0
+    total_inserted = 0
+    batches = 0
+
     try:
         last_prog = get_last_progressivo(engine)
         log(f"Last progressivo local: {last_prog}")
 
-        df = extract_incremental(last_prog)
-        log(f"Rows extracted: {len(df)}")
+        while True:
+            if max_batches and batches >= max_batches:
+                log(f"Max batches reached | max_batches={max_batches}")
+                break
 
-        if df.empty:
-            log("No new rows")
-            return
+            batches += 1
+            log(f"Batch {batches} start | last_progressivo={last_prog}")
 
-        clean = normalize(df)
-        inserted = load_to_local_postgres(engine, clean)
-        log(f"Import completed | inserted={inserted}")
+            df = extract_incremental(last_prog, batch_size)
+            extracted = len(df)
+            total_extracted += extracted
+            log(f"Batch {batches} rows extracted: {extracted}")
+
+            if df.empty:
+                log("No new rows")
+                break
+
+            clean = normalize(df)
+            if clean.empty:
+                log(f"Batch {batches} normalized rows empty; stopping to avoid infinite loop")
+                break
+
+            batch_max_progressivo = int(clean["progressivo"].max())
+
+            inserted = load_to_local_postgres(engine, clean)
+            total_inserted += inserted
+
+            if batch_max_progressivo <= last_prog:
+                log(
+                    f"Batch {batches} did not advance progressivo "
+                    f"({batch_max_progressivo} <= {last_prog}); stopping"
+                )
+                break
+
+            last_prog = batch_max_progressivo
+            log(
+                f"Batch {batches} completed | inserted={inserted} | "
+                f"new_last_progressivo={last_prog}"
+            )
+
+            if extracted < batch_size:
+                log(f"Final batch reached | rows_extracted={extracted} < batch_size={batch_size}")
+                break
+
+        log(
+            f"Import completed | batches={batches} | "
+            f"extracted={total_extracted} | inserted={total_inserted}"
+        )
     finally:
         engine.dispose()
-
 
 if __name__ == "__main__":
     max_retries = int(os.getenv("SOURCE_DB_IMPORT_RETRIES", "3"))
