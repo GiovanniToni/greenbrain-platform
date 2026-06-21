@@ -4,6 +4,59 @@ import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
+def _source_db_env_value(key):
+    try:
+        source_env = Path(__file__).resolve().parents[3] / "overlay/env/source-db.env"
+        if not source_env.exists():
+            return None
+        prefix = key + "="
+        for line in source_env.read_text(encoding="utf-8").splitlines():
+            clean = line.strip()
+            if not clean or clean.startswith("#") or "=" not in clean:
+                continue
+            if clean.startswith(prefix):
+                return clean.split("=", 1)[1].strip()
+    except Exception:
+        return None
+    return None
+
+
+def configure_legacy_openssl_for_sqlserver():
+    """Apply process-local OpenSSL compatibility only when explicitly enabled.
+
+    Enable with SOURCE_DB_ODBC_LEGACY_TLS=yes for old on-prem SQL Servers
+    that fail with ODBC Driver 18 and "SSL Provider: unsupported protocol".
+    """
+    mode = str(
+        os.getenv("SOURCE_DB_ODBC_LEGACY_TLS")
+        or _source_db_env_value("SOURCE_DB_ODBC_LEGACY_TLS")
+        or "no"
+    ).strip().lower()
+    if mode not in ("1", "true", "yes", "y", "on", "enabled"):
+        return False
+
+    path = Path(os.getenv("SOURCE_DB_OPENSSL_CONF", "/tmp/greenbrain_openssl_legacy.cnf"))
+    path.write_text(
+        """openssl_conf = openssl_init
+
+[openssl_init]
+ssl_conf = ssl_sect
+
+[ssl_sect]
+system_default = system_default_sect
+
+[system_default_sect]
+MinProtocol = TLSv1
+CipherString = DEFAULT@SECLEVEL=0
+""",
+        encoding="utf-8",
+    )
+    os.environ.setdefault("OPENSSL_CONF", str(path))
+    return True
+
+
+OPENSSL_LEGACY_CONF_APPLIED = configure_legacy_openssl_for_sqlserver()
+
 import pyodbc
 from dotenv import load_dotenv
 
@@ -29,6 +82,64 @@ RECOMMENDED_COLUMNS = {
     "disattivato",
     "movim_cassa",
 }
+
+
+SOURCE_COLUMN_CANDIDATES = {
+    "progressivo": ["progressivo", "Progressivo", "PROGRESSIVO"],
+    "codart": ["codart", "CodArt", "CODART"],
+    "descrizione": ["descrizione", "DESCRIZIONE"],
+    "quantita": ["quantita", "QUANTITA", "qta", "QTA"],
+    "imponibile_netto": ["imponibile_netto", "IMPONIBILE_NETTO", "IMPONIBILENETTO"],
+    "data_movimento": ["data_movimento", "DATA_MOVIMENTO", "DATA"],
+    "tipo": ["tipo", "TIPO"],
+    "fascia": ["fascia", "FASCIA"],
+    "categoria": ["categoria", "CATEGORIA"],
+    "disattivato": ["disattivato", "DISATTIVATO"],
+    "movim_cassa": ["movim_cassa", "MOVIM_CASSA"],
+}
+
+
+def normalize_column_key(value):
+    return (
+        str(value or "")
+        .strip()
+        .strip("[]")
+        .replace(" ", "")
+        .replace("-", "")
+        .replace("_", "")
+        .lower()
+    )
+
+
+def resolve_column_mapping(columns):
+    lookup = {normalize_column_key(col): col for col in columns}
+    resolved = {}
+    missing_required = []
+    missing_recommended = []
+
+    for logical in sorted(REQUIRED_COLUMNS):
+        found = None
+        for candidate in SOURCE_COLUMN_CANDIDATES.get(logical, [logical]):
+            found = lookup.get(normalize_column_key(candidate))
+            if found:
+                break
+        if found:
+            resolved[logical] = found
+        else:
+            missing_required.append(logical)
+
+    for logical in sorted(RECOMMENDED_COLUMNS):
+        found = None
+        for candidate in SOURCE_COLUMN_CANDIDATES.get(logical, [logical]):
+            found = lookup.get(normalize_column_key(candidate))
+            if found:
+                break
+        if found:
+            resolved[logical] = found
+        else:
+            missing_recommended.append(logical)
+
+    return resolved, sorted(missing_required), sorted(missing_recommended)
 
 
 def utc_now():
@@ -275,7 +386,13 @@ def run_check():
         load_envs()
 
         view_sql = source_view_name()
-        source_client_code = os.getenv("SOURCE_CLIENT_CODE") or os.getenv("SOURCE_DB_CLIENT_CODE") or "greenhouse"
+        source_client_code = (
+            os.getenv("SOURCE_DB_CLIENT_CODE")
+            or os.getenv("SOURCE_CLIENT_CODE")
+            or os.getenv("TENANT_CODE")
+            or os.getenv("CUSTOMER_TENANT_CODE")
+            or "greenbrain"
+        )
 
         report.update({
             "source_client_code": source_client_code,
@@ -294,12 +411,11 @@ def run_check():
         report["connection_ok"] = True
 
         columns = fetch_columns(conn, view_sql)
-        columns_lower = {c.lower(): c for c in columns}
         report["columns"] = columns
 
-        missing_required = sorted([c for c in REQUIRED_COLUMNS if c not in columns_lower])
-        missing_recommended = sorted([c for c in RECOMMENDED_COLUMNS if c not in columns_lower])
+        effective_mapping, missing_required, missing_recommended = resolve_column_mapping(columns)
 
+        report["effective_column_mapping"] = effective_mapping
         report["missing_required_columns"] = missing_required
         report["missing_recommended_columns"] = missing_recommended
         report["required_columns_ok"] = not missing_required
@@ -309,8 +425,9 @@ def run_check():
             report["warnings"].append("missing_recommended_columns")
 
         if not missing_required:
+            data_movimento_col = quote_sqlserver_identifier(effective_mapping["data_movimento"])
             report["row_count"] = int(scalar(conn, f"SELECT COUNT_BIG(*) FROM {view_sql}") or 0)
-            report["max_data_movimento"] = scalar(conn, f"SELECT MAX(data_movimento) FROM {view_sql}")
+            report["max_data_movimento"] = scalar(conn, f"SELECT MAX({data_movimento_col}) FROM {view_sql}")
             report["failure_code"] = None
             report["failure_message"] = None
             report["action_required"] = None

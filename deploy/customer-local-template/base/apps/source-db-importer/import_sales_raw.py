@@ -5,8 +5,62 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-import pandas as pd
+def _source_db_env_value(key):
+    try:
+        source_env = Path(__file__).resolve().parents[3] / "overlay/env/source-db.env"
+        if not source_env.exists():
+            return None
+        prefix = key + "="
+        for line in source_env.read_text(encoding="utf-8").splitlines():
+            clean = line.strip()
+            if not clean or clean.startswith("#") or "=" not in clean:
+                continue
+            if clean.startswith(prefix):
+                return clean.split("=", 1)[1].strip()
+    except Exception:
+        return None
+    return None
+
+
+def configure_legacy_openssl_for_sqlserver():
+    """Apply process-local OpenSSL compatibility only when explicitly enabled.
+
+    Enable with SOURCE_DB_ODBC_LEGACY_TLS=yes for old on-prem SQL Servers
+    that fail with ODBC Driver 18 and "SSL Provider: unsupported protocol".
+    """
+    mode = str(
+        os.getenv("SOURCE_DB_ODBC_LEGACY_TLS")
+        or _source_db_env_value("SOURCE_DB_ODBC_LEGACY_TLS")
+        or "no"
+    ).strip().lower()
+    if mode not in ("1", "true", "yes", "y", "on", "enabled"):
+        return False
+
+    path = Path(os.getenv("SOURCE_DB_OPENSSL_CONF", "/tmp/greenbrain_openssl_legacy.cnf"))
+    path.write_text(
+        """openssl_conf = openssl_init
+
+[openssl_init]
+ssl_conf = ssl_sect
+
+[ssl_sect]
+system_default = system_default_sect
+
+[system_default_sect]
+MinProtocol = TLSv1
+CipherString = DEFAULT@SECLEVEL=0
+""",
+        encoding="utf-8",
+    )
+    os.environ.setdefault("OPENSSL_CONF", str(path))
+    return True
+
+
+OPENSSL_LEGACY_CONF_APPLIED = configure_legacy_openssl_for_sqlserver()
+
 import pyodbc
+
+import pandas as pd
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 
@@ -20,7 +74,13 @@ DEST_TABLE = "source_import.sales_raw"
 
 
 def source_client_code() -> str:
-    return os.getenv("SOURCE_CLIENT_CODE") or os.getenv("SOURCE_DB_CLIENT_CODE") or "greenhouse"
+    return (
+        os.getenv("SOURCE_DB_CLIENT_CODE")
+        or os.getenv("SOURCE_CLIENT_CODE")
+        or os.getenv("TENANT_CODE")
+        or os.getenv("CUSTOMER_TENANT_CODE")
+        or "greenbrain"
+    )
 
 
 def log(msg: str):
@@ -64,6 +124,7 @@ def get_best_sql_driver():
     for drv in preferred:
         if drv in available:
             log(f"SQL Server ODBC driver: {drv}")
+            log(f"OpenSSL legacy TLS compatibility: {OPENSSL_LEGACY_CONF_APPLIED}")
             return drv
     raise RuntimeError(f"No compatible SQL Server ODBC driver found. Available: {available}")
 
