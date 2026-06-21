@@ -547,6 +547,9 @@ export default function CustomerPortalDashboard() {
   // SOURCE_DB_FORM_DRAFT_GUARD: while the user is reviewing parsed/manual Source DB data,
   // automatic refreshes must not overwrite the visible draft before save.
   const sourceDbDraftDirtyRef = useRef(false);
+  // SOURCE_DB_SAVED_CONFIG_REF_AFTER_SAVE: after a successful save, require
+  // confirmation for the next edit even before React/API refresh has re-rendered.
+  const sourceDbSavedConfigRef = useRef(false);
   const [sourceDbRequestTemplate, setSourceDbRequestTemplate] = useState<SourceDbRequestTemplate | null>(null);
   const [sourceDbRequestCopied, setSourceDbRequestCopied] = useState(false);
   const [sourceDbParseMissing, setSourceDbParseMissing] = useState<string[]>([]);
@@ -796,6 +799,8 @@ export default function CustomerPortalDashboard() {
       });
 
       setSourceDbState(res);
+
+      sourceDbSavedConfigRef.current = true;
       sourceDbDraftDirtyRef.current = false;
       setSourceDbPassword("");
       setSourceDbMessage(
@@ -1094,7 +1099,7 @@ export default function CustomerPortalDashboard() {
       return true;
     }
 
-    if (hasSavedSourceDbConfiguration()) {
+    if (sourceDbSavedConfigRef.current || hasSavedSourceDbConfiguration()) {
       const confirmed = window.confirm(
         "Stai per modificare dati gestionali già salvati. Dopo la modifica dovrai salvare nuovamente il collegamento: verrà rieseguita la validazione formale cloud e il runtime locale dovrà ripetere il test tecnico. Vuoi continuare?"
       );
