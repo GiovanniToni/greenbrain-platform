@@ -29,6 +29,33 @@ def _read_file(path):
         return ""
 
 
+def _read_raw_env_value(path, key):
+    try:
+        if not path.exists():
+            return ""
+        prefix = key + "="
+        for line in path.read_text(errors="replace").splitlines():
+            clean = line.strip()
+            if not clean or clean.startswith("#") or "=" not in clean:
+                continue
+            if clean.startswith(prefix):
+                return clean.split("=", 1)[1].strip()
+    except Exception:
+        return ""
+    return ""
+
+
+def _quote_source_env_value(value):
+    raw = "" if value is None else str(value).strip()
+    if raw == "":
+        return ""
+    if (raw.startswith("'") and raw.endswith("'")) or (raw.startswith('"') and raw.endswith('"')):
+        return raw
+    if any(ch.isspace() for ch in raw) or any(ch in raw for ch in "#$`\\\"'"):
+        return "'" + raw.replace("'", "'\"'\"'") + "'"
+    return raw
+
+
 def _write_customer_env_if_missing(data):
     """Scrive overlay/env/customer-local.env dal form wizard se non esiste già.
     Se il file esiste (bundle cloud personalizzato) non viene toccato."""
@@ -112,7 +139,14 @@ class WizardHandler(http.server.BaseHTTPRequestHandler):
 
         elif path == "/api/precompiled-info":
             env = _read_env_file(ROOT / "overlay/env/customer-local.env")
+            source_env = _read_env_file(ROOT / "overlay/env/source-db.env")
             tc = (env.get("TENANT_CODE") or env.get("LOCAL_CUSTOMER_TENANT_CODE") or env.get("CENTRAL_TENANT_CODE") or "")
+            source_db_name = source_env.get("SOURCE_DB_NAME") or source_env.get("SOURCE_DB_DATABASE") or ""
+            source_db_configured = bool(
+                source_env.get("SOURCE_DB_HOST")
+                and source_db_name
+                and source_env.get("SOURCE_DB_USER")
+            )
             self._send(200, json.dumps({
                 "is_personalized": bool(
                     env.get("LOCAL_CUSTOMER_EMAIL")
@@ -128,6 +162,19 @@ class WizardHandler(http.server.BaseHTTPRequestHandler):
                 "backend_port":      env.get("LOCAL_BACKEND_PORT", "8008"),
                 "frontend_port":     env.get("LOCAL_FRONTEND_PORT", "8088"),
                 "version":           _read_file(ROOT / "VERSION").strip(),
+                "source_db_configured": source_db_configured,
+                "source_db_host": source_env.get("SOURCE_DB_HOST", ""),
+                "source_db_port": source_env.get("SOURCE_DB_PORT", "1433"),
+                "source_db_name": source_db_name,
+                "source_db_schema": source_env.get("SOURCE_DB_SCHEMA", "dbo"),
+                "source_db_view": source_env.get("SOURCE_DB_VIEW", "GREENBRAIN_VIEW_SALES_RAW"),
+                "source_db_type": source_env.get("SOURCE_DB_TYPE", "sqlserver"),
+                "source_db_client_code": source_env.get("SOURCE_DB_CLIENT_CODE") or source_env.get("SOURCE_CLIENT_CODE") or tc,
+                "source_db_user": source_env.get("SOURCE_DB_USER", ""),
+                "source_db_encrypt": source_env.get("SOURCE_DB_ENCRYPT", "no"),
+                "source_db_trust_cert": source_env.get("SOURCE_DB_TRUST_CERT", "yes"),
+                "source_db_odbc_legacy_tls": source_env.get("SOURCE_DB_ODBC_LEGACY_TLS", "yes"),
+                "source_db_password_included": bool(source_env.get("SOURCE_DB_PASSWORD")),
             }), "application/json")
 
         elif path == "/api/local-credentials":
@@ -182,22 +229,39 @@ class WizardHandler(http.server.BaseHTTPRequestHandler):
         if parsed == "/api/save-source-db":
             p = ROOT / "overlay/env/source-db.env"
             p.parent.mkdir(parents=True, exist_ok=True)
-            p.write_text("\n".join([
-                f"SOURCE_DB_HOST={data.get('host', '')}",
-                f"SOURCE_DB_PORT={data.get('port', 1433)}",
-                f"SOURCE_DB_NAME={data.get('database', '')}",
-                f"SOURCE_DB_DATABASE={data.get('database', '')}",
-                f"SOURCE_DB_SCHEMA={data.get('schema', 'dbo')}",
-                f"SOURCE_DB_VIEW={data.get('view', 'GREENBRAIN_VIEW_SALES_RAW')}",
-                f"SOURCE_DB_TYPE={data.get('type', 'sqlserver')}",
-                f"SOURCE_CLIENT_CODE={data.get('source_client_code', 'greenhouse')}",
-                f"SOURCE_DB_CLIENT_CODE={data.get('source_client_code', 'greenhouse')}",
-                f"SOURCE_DB_USER={data.get('username', '')}",
-                f"SOURCE_DB_PASSWORD={data.get('password', '')}",
-                "SOURCE_DB_DRIVER=ODBC Driver 18 for SQL Server",
-                f"SOURCE_DB_ENCRYPT={data.get('encrypt', 'no')}",
-                f"SOURCE_DB_TRUST_CERT={data.get('trust_cert', 'yes')}",
-            ]) + "\n")
+            existing = _read_env_file(p)
+            customer_env = _read_env_file(ROOT / "overlay/env/customer-local.env")
+            tenant_for_source = (
+                data.get("source_client_code")
+                or existing.get("SOURCE_DB_CLIENT_CODE")
+                or existing.get("SOURCE_CLIENT_CODE")
+                or customer_env.get("TENANT_CODE")
+                or customer_env.get("LOCAL_CUSTOMER_TENANT_CODE")
+                or "greenbrain"
+            )
+            db_name = data.get("database") or existing.get("SOURCE_DB_NAME") or existing.get("SOURCE_DB_DATABASE") or ""
+            password_value = data.get("password") or _read_raw_env_value(p, "SOURCE_DB_PASSWORD")
+            values = [
+                ("SOURCE_DB_ENABLED", data.get("enabled", "yes")),
+                ("SOURCE_DB_TYPE", data.get("type") or existing.get("SOURCE_DB_TYPE") or "sqlserver"),
+                ("SOURCE_DB_HOST", data.get("host") or existing.get("SOURCE_DB_HOST") or ""),
+                ("SOURCE_DB_PORT", data.get("port") or existing.get("SOURCE_DB_PORT") or "1433"),
+                ("SOURCE_DB_NAME", db_name),
+                ("SOURCE_DB_DATABASE", db_name),
+                ("SOURCE_DB_SCHEMA", data.get("schema") or existing.get("SOURCE_DB_SCHEMA") or "dbo"),
+                ("SOURCE_DB_VIEW", data.get("view") or existing.get("SOURCE_DB_VIEW") or "GREENBRAIN_VIEW_SALES_RAW"),
+                ("SOURCE_CLIENT_CODE", tenant_for_source),
+                ("SOURCE_DB_CLIENT_CODE", tenant_for_source),
+                ("SOURCE_DB_USER", data.get("username") or existing.get("SOURCE_DB_USER") or ""),
+                ("SOURCE_DB_PASSWORD", password_value),
+                ("SOURCE_DB_DRIVER", "ODBC Driver 18 for SQL Server"),
+                ("SOURCE_DB_ENCRYPT", data.get("encrypt") or existing.get("SOURCE_DB_ENCRYPT") or "no"),
+                ("SOURCE_DB_TRUST_CERT", data.get("trust_cert") or existing.get("SOURCE_DB_TRUST_CERT") or "yes"),
+                ("SOURCE_DB_ODBC_LEGACY_TLS", data.get("odbc_legacy_tls") or existing.get("SOURCE_DB_ODBC_LEGACY_TLS") or "yes"),
+            ]
+            p.write_text("\n".join(
+                f"{key}={_quote_source_env_value(value)}" for key, value in values
+            ) + "\n")
             self._send(200, json.dumps({"ok": True}), "application/json")
             return
 

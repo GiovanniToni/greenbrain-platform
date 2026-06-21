@@ -403,6 +403,7 @@ def _render_source_db_env_for_customer(customer_profile: Dict[str, Any]) -> str 
         "SOURCE_DB_VIEW": integration.get("db_view_name") or "GREENBRAIN_VIEW_SALES_RAW",
         "SOURCE_DB_ENCRYPT": _source_db_bool(integration.get("db_encrypt"), default=False),
         "SOURCE_DB_TRUST_CERT": _source_db_bool(integration.get("db_trust_server_certificate"), default=True),
+        "SOURCE_DB_ODBC_LEGACY_TLS": "yes" if (str(integration.get("db_type") or "sqlserver").strip().lower() == "sqlserver") else "no",
     }
 
     lines = [

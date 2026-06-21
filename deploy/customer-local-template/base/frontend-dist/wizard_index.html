@@ -154,6 +154,7 @@
       <input id="sql_pass" type="password">
       <button type="button" class="passwordToggle" onclick="togglePasswordVisibility('sql_pass', this)" aria-label="Mostra password" title="Mostra password">Mostra</button>
     </div>
+    <div id="sqlPassHint" class="hint" style="display:none;margin-top:6px">Password SQL già inclusa nel bundle personalizzato. Lascia il campo vuoto per mantenerla.</div>
     <div style="margin-top:14px">
       <button class="secondary" onclick="testSourceDb()">Testa connessione</button>
       <span id="sqlResult" class="testResult"></span>
@@ -186,6 +187,14 @@
 
 <script>
 var _fp = '8088';
+var _sourceDbSchema = 'dbo';
+var _sourceDbView = 'GREENBRAIN_VIEW_SALES_RAW';
+var _sourceDbType = 'sqlserver';
+var _sourceDbClientCode = '';
+var _sourceDbEncrypt = 'no';
+var _sourceDbTrustCert = 'yes';
+var _sourceDbOdbcLegacyTls = 'yes';
+var _sourceDbPasswordIncluded = false;
 
 function go(n){
   document.querySelectorAll('.step').forEach(x=>x.classList.remove('active'));
@@ -359,7 +368,14 @@ async function saveSourceDbAndGo(){
         port:parseInt(document.getElementById('sql_port').value)||1433,
         database:document.getElementById('sql_db').value,
         username:document.getElementById('sql_user').value,
-        password:document.getElementById('sql_pass').value})});
+        password:document.getElementById('sql_pass').value,
+        schema:_sourceDbSchema,
+        view:_sourceDbView,
+        type:_sourceDbType,
+        source_client_code:_sourceDbClientCode||document.getElementById('tenant_code').value||'greenbrain',
+        encrypt:_sourceDbEncrypt,
+        trust_cert:_sourceDbTrustCert,
+        odbc_legacy_tls:_sourceDbOdbcLegacyTls})});
   }
   go(5);
 }
@@ -391,6 +407,28 @@ window.addEventListener('load', async function(){
     if(d.postgres_password)document.getElementById('postgres_password').value= d.postgres_password;
     if(d.backend_port)     document.getElementById('backend_port').value     = d.backend_port;
     if(d.frontend_port)   {document.getElementById('frontend_port').value    = d.frontend_port; _fp=d.frontend_port;}
+    if(d.source_db_configured){
+      if(d.source_db_host) document.getElementById('sql_host').value = d.source_db_host;
+      if(d.source_db_port) document.getElementById('sql_port').value = d.source_db_port;
+      if(d.source_db_name) document.getElementById('sql_db').value = d.source_db_name;
+      if(d.source_db_user) document.getElementById('sql_user').value = d.source_db_user;
+      _sourceDbSchema = d.source_db_schema || 'dbo';
+      _sourceDbView = d.source_db_view || 'GREENBRAIN_VIEW_SALES_RAW';
+      _sourceDbType = d.source_db_type || 'sqlserver';
+      _sourceDbClientCode = d.source_db_client_code || d.tenant_code || '';
+      _sourceDbEncrypt = d.source_db_encrypt || 'no';
+      _sourceDbTrustCert = d.source_db_trust_cert || 'yes';
+      _sourceDbOdbcLegacyTls = d.source_db_odbc_legacy_tls || 'yes';
+      _sourceDbPasswordIncluded = !!d.source_db_password_included;
+      if(_sourceDbPasswordIncluded){
+        document.getElementById('sql_pass').placeholder = 'Password già inclusa nel bundle';
+        document.getElementById('sqlPassHint').style.display = 'block';
+      }
+      if(d.source_db_view){
+        document.getElementById('sqlResult').textContent = 'Configurazione gestionale inclusa nel bundle';
+        document.getElementById('sqlResult').style.color = '#5a7a60';
+      }
+    }
   }catch(e){}
 });
 </script>
