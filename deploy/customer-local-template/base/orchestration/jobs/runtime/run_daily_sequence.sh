@@ -26,6 +26,16 @@ ln -sfn "$(basename "$LOG")" "$GB_LOG_DIR/daily_sequence_latest.log"
     fi
   fi
 
+  gb_log "STEP 0b source db raw promotion"
+  if bash "$GB_LOCAL_ROOT/base/scripts/promote-source-db-raw.sh"; then
+    gb_log "SOURCE_DB_RAW_PROMOTION_OK"
+  else
+    gb_log "SOURCE_DB_RAW_PROMOTION_FAILED_NON_BLOCKING"
+  fi
+
+  gb_log "STEP 0c source db data readiness"
+  bash "$GB_LOCAL_ROOT/base/scripts/check-source-db-data-readiness.sh" || true
+
   gb_log "STEP 1 pipeline"
   bash "$ROOT/orchestration/jobs/pipeline/run_daily_pipeline.sh"
 

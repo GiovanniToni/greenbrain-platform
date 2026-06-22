@@ -30,3 +30,12 @@ grep -E "STEP 0|SOURCE_DB_IMPORT|STEP 1|GREENBRAIN_LOCAL_DAILY_SEQUENCE_DONE" ov
 
 echo
 echo "POST_INSTALL_CHECK_OK"
+
+
+echo
+echo "== Source DB Data Readiness =="
+if [ -x base/scripts/check-source-db-data-readiness.sh ]; then
+  bash base/scripts/check-source-db-data-readiness.sh || true
+else
+  echo "SOURCE_DB_DATA_READINESS_CHECK_SCRIPT_MISSING"
+fi

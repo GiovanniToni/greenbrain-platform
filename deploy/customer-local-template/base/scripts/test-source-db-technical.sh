@@ -5,6 +5,12 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 ENV="$ROOT/overlay/env/customer-local.env"
 
 mkdir -p "$ROOT/overlay/logs/source-db"
+
+PERM_SCRIPT="$ROOT/base/scripts/fix-source-db-log-permissions.sh"
+if [ -x "$PERM_SCRIPT" ]; then
+  bash "$PERM_SCRIPT" || true
+fi
+
 TS="$(date -u +%Y%m%d_%H%M%S)"
 LOG="$ROOT/overlay/logs/source-db/technical_check_${TS}.log"
 LATEST="$ROOT/overlay/logs/source-db/technical_check_latest.log"
@@ -12,13 +18,18 @@ LATEST="$ROOT/overlay/logs/source-db/technical_check_latest.log"
 echo "== GreenBrain Source DB Technical Check ==" | tee "$LOG"
 
 set +e
+PREPARE_IMAGE_SCRIPT="$ROOT/base/scripts/prepare-source-db-importer-image.sh"
+if [ -x "$PREPARE_IMAGE_SCRIPT" ]; then
+  bash "$PREPARE_IMAGE_SCRIPT" || true
+fi
+
 if command -v docker >/dev/null 2>&1; then
   COMPOSE_FILE="$ROOT/docker-compose.local.yml"
   if [ -f "$ROOT/docker-compose.prebuilt.yml" ]; then
     COMPOSE_FILE="$ROOT/docker-compose.prebuilt.yml"
   fi
 
-  docker compose -f "$COMPOSE_FILE" --env-file "$ENV" run --rm --no-deps source-db-importer \
+  docker compose -f "$COMPOSE_FILE" --env-file "$ENV" run --rm --pull never --no-deps source-db-importer \
     bash -lc 'cd /workspace && python base/apps/source-db-importer/technical_check_source_db.py' 2>&1 | tee -a "$LOG"
 else
   cd "$ROOT"

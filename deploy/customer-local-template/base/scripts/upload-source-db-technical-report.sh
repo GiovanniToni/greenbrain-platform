@@ -8,6 +8,12 @@ LOG_DIR="$ROOT/overlay/logs/source-db"
 
 mkdir -p "$LOG_DIR"
 
+PERM_SCRIPT="$ROOT/base/scripts/fix-source-db-log-permissions.sh"
+if [ -x "$PERM_SCRIPT" ]; then
+  bash "$PERM_SCRIPT" || true
+fi
+
+
 TS="$(date -u +%Y%m%d_%H%M%S)"
 LOG="$LOG_DIR/technical_report_upload_${TS}.log"
 LATEST="$LOG_DIR/technical_report_upload_latest.log"
