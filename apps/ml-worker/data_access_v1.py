@@ -40,6 +40,81 @@ def _env_bool(name: str, default: str = "1") -> bool:
     return str(v).strip().lower() in ("1", "true", "yes", "y", "on")
 
 
+DEFAULT_FEATURE_TABLE = "public.greenhouse_forecast_features_dense"
+WEATHER_ML_FEATURE_TABLE = "public.v_greenhouse_forecast_features_weather_enriched"
+
+WEATHER_ML_EXTRA_COLS = [
+    "area_avg_tmin_c",
+    "area_avg_tmax_c",
+    "area_avg_tavg_c",
+    "area_min_tmin_c",
+    "area_max_tmax_c",
+    "area_temp_range_c",
+    "area_avg_apparent_tavg_c",
+    "area_avg_rain_mm",
+    "area_max_rain_mm",
+    "area_rainy_locations",
+    "area_heavy_rain_locations",
+    "area_avg_sun_hours",
+    "area_max_sun_hours",
+    "area_avg_et0_mm",
+    "area_avg_humidity_pct",
+    "area_avg_cloud_cover_pct",
+    "area_avg_wind_max_kmh",
+    "area_max_wind_gust_kmh",
+    "pistoia_tavg_c",
+    "pistoia_rain_mm",
+    "pistoia_sun_hours",
+    "pistoia_et0_mm",
+    "pistoia_humidity_pct",
+    "pistoia_cloud_cover_pct",
+    "is_rainy_day",
+    "is_heavy_rain_day",
+    "is_very_heavy_rain_day",
+    "is_dry_day",
+    "is_sunny_day",
+    "is_cloudy_day",
+    "is_hot_day",
+    "is_very_hot_day",
+    "rain_3d_mm",
+    "rain_7d_mm",
+    "rain_14d_mm",
+    "sun_hours_3d",
+    "sun_hours_7d",
+    "tavg_3d",
+    "tavg_7d",
+    "hot_days_7d",
+    "rainy_days_7d",
+    "dry_days_7d",
+    "garden_workability_score",
+    "garden_visit_score",
+    "planting_window_score",
+    "heat_stress_score",
+    "dryness_stress_score",
+    "rain_disruption_score",
+]
+
+
+def weather_ml_features_enabled() -> bool:
+    return _env_bool("GB_WEATHER_ML_FEATURES", "0")
+
+
+def weather_ml_feature_table() -> str:
+    return os.getenv("GB_WEATHER_ML_FEATURE_TABLE", WEATHER_ML_FEATURE_TABLE)
+
+
+def weather_ml_extra_feature_cols() -> List[str]:
+    if not weather_ml_features_enabled():
+        return []
+    return list(WEATHER_ML_EXTRA_COLS)
+
+
+def weather_ml_select_sql() -> str:
+    if not weather_ml_features_enabled():
+        return ""
+    return "\n" + "\n".join(f"          , {col}" for col in WEATHER_ML_EXTRA_COLS)
+
+
 def parquet_cache_dir() -> Path:
     base = os.getenv("PARQUET_CACHE_DIR", "")
     if base.strip():
@@ -117,18 +192,27 @@ def load_family_df_parquet_or_db(
     engine,
     famiglia: str,
     min_date: str,
-    feature_table: str = "public.greenhouse_forecast_features_dense",
+    feature_table: str = DEFAULT_FEATURE_TABLE,
     famiglia_slug=None,
 ) -> pd.DataFrame:
     """
     Train use-case: load full history for a family (>= min_date).
     Parquet-first if PARQUET_ENABLE=1, else DB.
+    If GB_WEATHER_ML_FEATURES=1, force DB and read the enriched weather view.
     """
     famiglia = normalize_family_name(famiglia)
     if not famiglia:
         return pd.DataFrame()
 
+    use_weather_ml = weather_ml_features_enabled()
     use_parquet = _env_bool("PARQUET_ENABLE", "1")
+
+    if use_weather_ml:
+        if feature_table == DEFAULT_FEATURE_TABLE:
+            feature_table = weather_ml_feature_table()
+        use_parquet = False
+
+    weather_extra_select = weather_ml_select_sql()
     fam_slug = safe_slug(famiglia_slug or famiglia)
 
     if use_parquet:
@@ -164,6 +248,9 @@ def load_family_df_parquet_or_db(
         # If parquet enabled but nothing found, fall back to DB.
         print(f"SOURCE=DB_FALLBACK (no parquet parts) train family='{famiglia}'", flush=True)
 
+    elif use_weather_ml:
+        print(f"SOURCE=DB_WEATHER_ML train family='{famiglia}' table='{feature_table}'", flush=True)
+
     else:
         print(f"SOURCE=DB train family='{famiglia}'", flush=True)
 
@@ -179,7 +266,7 @@ def load_family_df_parquet_or_db(
           tmin_c, tmax_c, tavg_c, rain_mm, sun_hours,
           is_holiday, dow, week_num, month_num, year_num,
           qty_lag_1, qty_lag_2, qty_lag_3, qty_lag_7, qty_lag_10, qty_lag_14,
-          qty_ma_3, qty_ma_7, qty_ma_10, qty_ma_14, qty_ma_28
+          qty_ma_3, qty_ma_7, qty_ma_10, qty_ma_14, qty_ma_28{weather_extra_select}
         FROM {feature_table}
         WHERE regexp_replace(lower(btrim(famiglia)), '\\s+', ' ', 'g')
               = regexp_replace(lower(:famiglia), '\\s+', ' ', 'g')
@@ -193,7 +280,7 @@ def load_family_df_parquet_or_db(
 def load_hist_for_predict_parquet_or_db(
     engine,
     famiglia: str,
-    feature_table: str = "public.greenhouse_forecast_features_dense",
+    feature_table: str = DEFAULT_FEATURE_TABLE,
     famiglia_slug=None,
 ) -> pd.DataFrame:
     """

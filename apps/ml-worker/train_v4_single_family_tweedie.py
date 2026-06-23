@@ -24,7 +24,7 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 
-from data_access_v1 import load_family_df_parquet_or_db
+from data_access_v1 import load_family_df_parquet_or_db, weather_ml_extra_feature_cols
 from jobs.family_resolver import resolve_family_and_slug
 
 
@@ -44,10 +44,15 @@ MIN_TRAIN_ROWS = int(os.getenv("V4_MIN_TRAIN_ROWS", "500"))
 POWER_GRID = os.getenv("V4_TWEEDIE_POWER_GRID", "1.1,1.2,1.3,1.4,1.5,1.6,1.7").split(",")
 POWER_GRID = [float(x.strip()) for x in POWER_GRID if x.strip()]
 
-MODELS_DIR = os.getenv("GH_MODELS_DIR", os.path.join(BASE_DIR, "models_v4"))
+WEATHER_ML_FEATURES = os.getenv("GB_WEATHER_ML_FEATURES", "0").strip().lower() in ("1", "true", "yes", "y", "on")
+_DEFAULT_MODELS_DIR = "models_v4_weather_vnext" if WEATHER_ML_FEATURES else "models_v4"
+MODELS_DIR = os.getenv("GH_MODELS_DIR", os.path.join(BASE_DIR, _DEFAULT_MODELS_DIR))
 os.makedirs(MODELS_DIR, exist_ok=True)
 
-FEATURE_TABLE = "public.greenhouse_forecast_features_dense"
+FEATURE_TABLE = os.getenv(
+    "GB_FEATURE_TABLE",
+    "public.v_greenhouse_forecast_features_weather_enriched" if WEATHER_ML_FEATURES else "public.greenhouse_forecast_features_dense",
+)
 TARGET_COL = "qty_venduta"
 
 MIN_DATE = os.getenv("V4_MIN_DATE", "2009-01-01")
@@ -63,6 +68,15 @@ LGBM_NUM_LEAVES = int(os.getenv("V4_LGBM_NUM_LEAVES", "63"))
 # =========================
 # DB
 # =========================
+
+def extend_feature_cols_for_weather_ml(feature_cols: list[str]) -> list[str]:
+    if not WEATHER_ML_FEATURES:
+        return feature_cols
+    for col in weather_ml_extra_feature_cols():
+        if col not in feature_cols:
+            feature_cols.append(col)
+    return feature_cols
+
 
 def add_season_features(df, date_col="data"):
     """
@@ -383,6 +397,7 @@ def train_one_family_fascia(engine, famiglia: str, famiglia_slug: str | None = N
 
             feature_cols.append(_c)
 
+    feature_cols = extend_feature_cols_for_weather_ml(feature_cols)
     numeric_cols = [c for c in feature_cols if c != "fascia_enc"]
     train_df, valid_df, medians = safe_fillna_by_median(train_df, valid_df, numeric_cols)
 
@@ -525,6 +540,13 @@ def train_one_family_fascia(engine, famiglia: str, famiglia_slug: str | None = N
 # FAMILY LEVEL TRAIN (same as your v4.2)
 # =========================
 def load_family_daily_agg(engine, famiglia: str) -> pd.DataFrame:
+    weather_ml_daily_select = ""
+    if WEATHER_ML_FEATURES:
+        weather_ml_daily_select = "\n".join(
+            f"          AVG({col}) as {col},"
+            for col in weather_ml_extra_feature_cols()
+        )
+
     q = text(f"""
         SELECT
           data,
@@ -535,6 +557,7 @@ def load_family_daily_agg(engine, famiglia: str) -> pd.DataFrame:
           AVG(tavg_c) as tavg_c,
           AVG(rain_mm) as rain_mm,
           AVG(sun_hours) as sun_hours,
+{weather_ml_daily_select}
           MAX(is_holiday::int) as is_holiday,
           MAX(dow) as dow
         FROM {FEATURE_TABLE}
@@ -623,6 +646,7 @@ def train_one_family_daily(engine, famiglia: str, famiglia_slug: str | None = No
         "prior_mean", "prior_pos_rate", "prior_n",
     ]
 
+    feature_cols = extend_feature_cols_for_weather_ml(feature_cols)
     train_df, valid_df, medians = safe_fillna_by_median(train_df, valid_df, feature_cols)
 
     # --- season features for TRAIN (M1) ---
