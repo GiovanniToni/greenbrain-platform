@@ -351,10 +351,12 @@ BEGIN
         + greatest(COALESCE(area_max_tmax_c, 0) - 30, 0) * 0.7
       )::numeric(6,2) AS dryness_stress_score,
 
-      greatest(0,
-        COALESCE(area_max_rain_mm, 0) * 1.5
-        + COALESCE(area_rainy_locations, 0) * 2
-        + CASE WHEN COALESCE(area_max_rain_mm, 0) >= 10 THEN 10 ELSE 0 END
+      least(100,
+        greatest(0,
+          COALESCE(area_max_rain_mm, 0) * 1.5
+          + COALESCE(area_rainy_locations, 0) * 2
+          + CASE WHEN COALESCE(area_max_rain_mm, 0) >= 10 THEN 10 ELSE 0 END
+        )
       )::numeric(6,2) AS rain_disruption_score
     FROM features_with_windows w
   ),
