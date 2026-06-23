@@ -53,6 +53,25 @@ while true; do
 done
 
 echo
+echo "===== STEP 0: WEATHER INGEST OPTIONAL ====="
+ENABLE_WEATHER_DAILY_INGEST="${ENABLE_WEATHER_DAILY_INGEST:-0}"
+if [ "$ENABLE_WEATHER_DAILY_INGEST" = "1" ]; then
+  if [ -x "$GB_BASE/orchestration/jobs/weather/run_daily_weather_ingest.sh" ]; then
+    echo "WEATHER_DAILY_INGEST_ENABLED"
+    if bash "$GB_BASE/orchestration/jobs/weather/run_daily_weather_ingest.sh"; then
+      echo "WEATHER_DAILY_INGEST_DONE"
+    else
+      WEATHER_RC=$?
+      echo "WEATHER_DAILY_INGEST_FAILED_NON_BLOCKING rc=$WEATHER_RC"
+    fi
+  else
+    echo "WEATHER_DAILY_INGEST_SKIPPED missing executable job"
+  fi
+else
+  echo "WEATHER_DAILY_INGEST_DISABLED"
+fi
+
+echo
 echo "===== STEP 1: DAILY PIPELINE ====="
 "$GB_BASE/orchestration/jobs/pipeline/run_daily_pipeline.sh"
 
