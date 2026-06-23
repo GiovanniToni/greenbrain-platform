@@ -9,6 +9,7 @@ from app.api.v1.cloud_sync import router as cloud_sync_router
 from app.api.v1.customer_ops import router as customer_ops_router
 from app.api.v1.dashboard import router as dashboard_router
 from app.api.v1.forecast import router as forecast_router
+from app.api.v1.weather import router as weather_router
 from app.api.v1.ops import router as ops_router
 from app.api.v1.planner import router as planner_router
 from app.api.v1.sales import router as sales_router
@@ -59,6 +60,7 @@ app.include_router(settings_router)
 app.include_router(system_router)
 app.include_router(catalog_router)
 app.include_router(forecast_router)
+app.include_router(weather_router)
 app.include_router(sales_router)
 app.include_router(analytics_router)
 app.include_router(planner_router)
