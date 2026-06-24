@@ -10,6 +10,8 @@ WEATHER_FORECAST_DAYS="${WEATHER_FORECAST_DAYS:-10}"
 WEATHER_RECENT_ACTUAL_DAYS="${WEATHER_RECENT_ACTUAL_DAYS:-7}"
 WEATHER_INGEST_CURRENT="${WEATHER_INGEST_CURRENT:-1}"
 WEATHER_LOCATION_CODES="${WEATHER_LOCATION_CODES:-}"
+WEATHER_REFRESH_FEATURE_STORE="${WEATHER_REFRESH_FEATURE_STORE:-1}"
+WEATHER_FEATURE_REFRESH_LOOKBACK_DAYS="${WEATHER_FEATURE_REFRESH_LOOKBACK_DAYS:-35}"
 
 LOG_DIR="${GB_BASE}/runtime-reports/weather_ingest"
 LOCK_DIR="${GB_BASE}/runtime-reports/tmp"
@@ -36,6 +38,8 @@ ln -sfn "$(basename "$LOG_FILE")" "${LOG_DIR}/weather_daily_ingest_latest.log"
   echo "WEATHER_RECENT_ACTUAL_DAYS=$WEATHER_RECENT_ACTUAL_DAYS"
   echo "WEATHER_INGEST_CURRENT=$WEATHER_INGEST_CURRENT"
   echo "WEATHER_LOCATION_CODES=${WEATHER_LOCATION_CODES:-all_active}"
+  echo "WEATHER_REFRESH_FEATURE_STORE=$WEATHER_REFRESH_FEATURE_STORE"
+  echo "WEATHER_FEATURE_REFRESH_LOOKBACK_DAYS=$WEATHER_FEATURE_REFRESH_LOOKBACK_DAYS"
   echo
 
   if ! docker inspect "$BACKEND_CONTAINER" >/dev/null 2>&1; then
@@ -54,13 +58,18 @@ ln -sfn "$(basename "$LOG_FILE")" "${LOG_DIR}/weather_daily_ingest_latest.log"
     -e WEATHER_RECENT_ACTUAL_DAYS="$WEATHER_RECENT_ACTUAL_DAYS" \
     -e WEATHER_INGEST_CURRENT="$WEATHER_INGEST_CURRENT" \
     -e WEATHER_LOCATION_CODES="$WEATHER_LOCATION_CODES" \
+    -e WEATHER_REFRESH_FEATURE_STORE="$WEATHER_REFRESH_FEATURE_STORE" \
+    -e WEATHER_FEATURE_REFRESH_LOOKBACK_DAYS="$WEATHER_FEATURE_REFRESH_LOOKBACK_DAYS" \
     -i "$BACKEND_CONTAINER" python - <<'PY'
 from __future__ import annotations
 
+from datetime import date, timedelta
 import json
 import os
 import sys
 from typing import Any
+
+from sqlalchemy import text
 
 from app.db.session import SessionLocal
 from app.repositories import weather_repository as repo
@@ -94,6 +103,13 @@ def enabled(name: str, default: str = "1") -> bool:
 forecast_days = bounded_int("WEATHER_FORECAST_DAYS", 10, 1, MAX_FORECAST_DAYS)
 recent_actual_days = bounded_int("WEATHER_RECENT_ACTUAL_DAYS", 7, 1, MAX_RECENT_ACTUAL_DAYS)
 ingest_current = enabled("WEATHER_INGEST_CURRENT", "1")
+refresh_feature_store = enabled("WEATHER_REFRESH_FEATURE_STORE", "1")
+feature_refresh_lookback_days = bounded_int(
+    "WEATHER_FEATURE_REFRESH_LOOKBACK_DAYS",
+    35,
+    21,
+    90,
+)
 
 wanted_codes_raw = os.environ.get("WEATHER_LOCATION_CODES", "").strip()
 wanted_codes = {
@@ -114,8 +130,11 @@ summary: dict[str, Any] = {
         "recent_actual_days": recent_actual_days,
         "ingest_current": ingest_current,
         "location_codes": sorted(wanted_codes) if wanted_codes else "all_active",
+        "refresh_feature_store": refresh_feature_store,
+        "feature_refresh_lookback_days": feature_refresh_lookback_days,
     },
     "locations": [],
+    "feature_store_refresh": None,
     "failures": [],
 }
 
@@ -136,6 +155,8 @@ try:
     print("forecast_days=", forecast_days)
     print("recent_actual_days=", recent_actual_days)
     print("ingest_current=", ingest_current)
+    print("refresh_feature_store=", refresh_feature_store)
+    print("feature_refresh_lookback_days=", feature_refresh_lookback_days)
     print()
 
     def commit_or_rollback_after_error() -> None:
@@ -237,6 +258,106 @@ try:
 
         summary["locations"].append(loc_summary)
         print()
+
+    if not summary["failures"]:
+        if refresh_feature_store:
+            print("===== WEATHER FEATURE STORE REFRESH =====")
+            try:
+                refresh_to = db.execute(text("""
+                    SELECT COALESCE(MAX(forecast_date), CURRENT_DATE)::date
+                    FROM gb_weather.daily_forecasts
+                    WHERE provider = 'open_meteo'
+                """)).scalar()
+
+                if refresh_to is None:
+                    refresh_to = date.today()
+
+                refresh_from = max(
+                    date(2009, 1, 1),
+                    refresh_to - timedelta(days=feature_refresh_lookback_days),
+                )
+
+                refresh_rows = [
+                    dict(row)
+                    for row in db.execute(
+                        text("""
+                            SELECT *
+                            FROM public.refresh_greenhouse_weather_ml_features_daily(
+                              CAST(:refresh_from AS date),
+                              CAST(:refresh_to AS date)
+                            )
+                        """),
+                        {
+                            "refresh_from": refresh_from,
+                            "refresh_to": refresh_to,
+                        },
+                    ).mappings().all()
+                ]
+
+                db.commit()
+
+                validation = dict(db.execute(
+                    text("""
+                        SELECT
+                          COUNT(*) AS rows,
+                          MIN(data) AS min_data,
+                          MAX(data) AS max_data,
+                          COUNT(*) FILTER (WHERE source_kind = 'actual') AS actual_rows,
+                          COUNT(*) FILTER (WHERE source_kind = 'forecast') AS forecast_rows,
+                          COUNT(*) FILTER (
+                            WHERE garden_workability_score < 0 OR garden_workability_score > 100
+                               OR garden_visit_score < 0 OR garden_visit_score > 100
+                               OR planting_window_score < 0 OR planting_window_score > 100
+                               OR heat_stress_score < 0 OR heat_stress_score > 100
+                               OR dryness_stress_score < 0 OR dryness_stress_score > 100
+                               OR rain_disruption_score < 0 OR rain_disruption_score > 100
+                          ) AS bad_score_rows,
+                          MIN(rain_disruption_score) AS min_rain_disruption_score,
+                          MAX(rain_disruption_score) AS max_rain_disruption_score
+                        FROM public.greenhouse_weather_ml_features_daily
+                        WHERE data BETWEEN CAST(:refresh_from AS date) AND CAST(:refresh_to AS date)
+                    """),
+                    {
+                        "refresh_from": refresh_from,
+                        "refresh_to": refresh_to,
+                    },
+                ).mappings().one())
+
+                if int(validation["rows"] or 0) <= 0:
+                    raise RuntimeError("weather_feature_store_refresh_zero_rows")
+
+                if int(validation["bad_score_rows"] or 0) != 0:
+                    raise RuntimeError(
+                        f"weather_feature_store_bad_score_rows:{validation['bad_score_rows']}"
+                    )
+
+                summary["feature_store_refresh"] = {
+                    "status": "ok",
+                    "refresh_from": refresh_from,
+                    "refresh_to": refresh_to,
+                    "lookback_days": feature_refresh_lookback_days,
+                    "function_result": refresh_rows,
+                    "validation": validation,
+                }
+
+                print("feature_store_refresh=", summary["feature_store_refresh"])
+                print("WEATHER_FEATURE_STORE_REFRESH_OK")
+
+            except Exception as exc:
+                db.rollback()
+                failure = {
+                    "location_code": None,
+                    "step": "feature_store_refresh",
+                    "error": str(exc),
+                }
+                summary["feature_store_refresh"] = {
+                    "status": "failed",
+                    "error": str(exc),
+                }
+                summary["failures"].append(failure)
+                print("feature_store_refresh_failed=", failure)
+        else:
+            summary["feature_store_refresh"] = {"status": "skipped"}
 
     summary["status"] = "partial" if summary["failures"] else "ok"
 
