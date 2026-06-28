@@ -43,6 +43,31 @@ def _env_bool(name: str, default: str = "1") -> bool:
 DEFAULT_FEATURE_TABLE = "public.greenhouse_forecast_features_dense"
 WEATHER_ML_FEATURE_TABLE = "public.v_greenhouse_forecast_features_weather_enriched"
 
+FEATURE_DATASET_VERSION_V1 = "v1"
+FEATURE_DATASET_VERSION_V2_WEATHER = "v2_weather"
+
+
+def normalize_feature_dataset_version(value: str | None = None) -> str:
+    raw = (value if value is not None else os.getenv("GB_FEATURE_DATASET_VERSION", FEATURE_DATASET_VERSION_V1))
+    raw = str(raw or FEATURE_DATASET_VERSION_V1).strip().lower()
+
+    if raw in ("", "1", "v1", "features_dense", "features_dense/v1"):
+        return FEATURE_DATASET_VERSION_V1
+
+    if raw in ("v2", "weather_v2", "v2_weather", "features_ml/v2_weather"):
+        return FEATURE_DATASET_VERSION_V2_WEATHER
+
+    raise ValueError(f"Unsupported GB_FEATURE_DATASET_VERSION={raw!r}")
+
+
+def feature_dataset_version() -> str:
+    return normalize_feature_dataset_version()
+
+
+def parquet_local_only_enabled() -> bool:
+    return _env_bool("PARQUET_LOCAL_ONLY", "0")
+
+
 WEATHER_ML_EXTRA_COLS = [
     "area_avg_tmin_c",
     "area_avg_tmax_c",
@@ -124,24 +149,47 @@ def parquet_cache_dir() -> Path:
 
 
 
-def _remote_parquet_path(year: int, famiglia_slug: str) -> str:
+def _remote_parquet_path(year: int, famiglia_slug: str, dataset_version: str | None = None) -> str:
+    dataset_version = normalize_feature_dataset_version(dataset_version)
+
+    if dataset_version == FEATURE_DATASET_VERSION_V2_WEATHER:
+        # Must match exporter: features_ml/v2_weather/data_year=YYYY/famiglia_slug=<slug>/part.parquet
+        return f"features_ml/v2_weather/data_year={int(year)}/famiglia_slug={famiglia_slug}/part.parquet"
+
     # Must match exporter: features_dense/v1/year=YYYY/famiglia_slug=<slug>/part.parquet
     return f"features_dense/v1/year={int(year)}/famiglia_slug={famiglia_slug}/part.parquet"
 
 
-def _local_parquet_path(year: int, famiglia_slug: str) -> Path:
-    d = parquet_cache_dir() / "features_dense" / "v1" / f"year={int(year)}" / f"famiglia_slug={famiglia_slug}"
+def _local_parquet_path(year: int, famiglia_slug: str, dataset_version: str | None = None) -> Path:
+    dataset_version = normalize_feature_dataset_version(dataset_version)
+
+    if dataset_version == FEATURE_DATASET_VERSION_V2_WEATHER:
+        d = parquet_cache_dir() / "features_ml" / "v2_weather" / f"data_year={int(year)}" / f"famiglia_slug={famiglia_slug}"
+    else:
+        d = parquet_cache_dir() / "features_dense" / "v1" / f"year={int(year)}" / f"famiglia_slug={famiglia_slug}"
+
     d.mkdir(parents=True, exist_ok=True)
     return d / "part.parquet"
 
 
-def _download_one_parquet(year: int, famiglia_slug: str, force: bool = False) -> Optional[Path]:
-    lp = _local_parquet_path(year, famiglia_slug)
+def _download_one_parquet(
+    year: int,
+    famiglia_slug: str,
+    force: bool = False,
+    dataset_version: str | None = None,
+) -> Optional[Path]:
+    dataset_version = normalize_feature_dataset_version(dataset_version)
+    lp = _local_parquet_path(year, famiglia_slug, dataset_version=dataset_version)
+
     if lp.exists() and not force:
         return lp
 
+    # Useful for local validation and shadow runs: never touch remote storage.
+    if parquet_local_only_enabled():
+        return lp if lp.exists() else None
+
     storage = get_storage()
-    rp = _remote_parquet_path(year, famiglia_slug)
+    rp = _remote_parquet_path(year, famiglia_slug, dataset_version=dataset_version)
 
     # legacy alternate: supporta slug con '_' invece di '-' (o viceversa)
     alt_slug = None
@@ -150,7 +198,7 @@ def _download_one_parquet(year: int, famiglia_slug: str, force: bool = False) ->
     elif "_" in str(famiglia_slug) and "-" not in str(famiglia_slug):
         alt_slug = str(famiglia_slug).replace("_", "-")
 
-    alt_rp = _remote_parquet_path(year, alt_slug) if alt_slug else None
+    alt_rp = _remote_parquet_path(year, alt_slug, dataset_version=dataset_version) if alt_slug else None
 
     data = None
     try:
@@ -174,7 +222,7 @@ def _download_one_parquet(year: int, famiglia_slug: str, force: bool = False) ->
     # canonizza cache LOCALE:
     # se mi hanno chiamato con '_' (legacy) e ho alt_slug con '-', salva anche il canonico con '-'
     if alt_slug and "_" in str(famiglia_slug) and "-" not in str(famiglia_slug):
-        canon_lp = _local_parquet_path(year, alt_slug)
+        canon_lp = _local_parquet_path(year, alt_slug, dataset_version=dataset_version)
         if not canon_lp.exists():
             canon_lp.write_bytes(data)
 
@@ -206,24 +254,28 @@ def load_family_df_parquet_or_db(
 
     use_weather_ml = weather_ml_features_enabled()
     use_parquet = _env_bool("PARQUET_ENABLE", "1")
+    dataset_version = feature_dataset_version()
 
     if use_weather_ml:
         if feature_table == DEFAULT_FEATURE_TABLE:
             feature_table = weather_ml_feature_table()
-        use_parquet = False
+        # Historical behavior: weather ML forced DB. New opt-in v2 parquet is allowed
+        # only when GB_FEATURE_DATASET_VERSION=v2_weather is explicitly selected.
+        if dataset_version != FEATURE_DATASET_VERSION_V2_WEATHER:
+            use_parquet = False
 
     weather_extra_select = weather_ml_select_sql()
     fam_slug = safe_slug(famiglia_slug or famiglia)
 
     if use_parquet:
-        print(f"SOURCE=PARQUET train family='{famiglia}' slug='{fam_slug}'", flush=True)
+        print(f"SOURCE=PARQUET dataset={dataset_version} train family='{famiglia}' slug='{fam_slug}'", flush=True)
         y0, y1 = _years_range(min_date)
         parts: List[pd.DataFrame] = []
         for y in range(y0, y1 + 1):
             force_flag = _env_bool("PARQUET_FORCE", "0")
             current_year = int(pd.Timestamp.utcnow().year)
             force_y = bool(force_flag) or (int(y) >= current_year - 1)
-            lp = _download_one_parquet(y, fam_slug, force=force_y)
+            lp = _download_one_parquet(y, fam_slug, force=force_y, dataset_version=dataset_version)
             if lp is None:
                 continue
             try:
@@ -292,10 +344,11 @@ def load_hist_for_predict_parquet_or_db(
         return pd.DataFrame()
 
     use_parquet = _env_bool("PARQUET_ENABLE", "1")
+    dataset_version = feature_dataset_version()
     fam_slug = safe_slug(famiglia_slug or famiglia)
 
     if use_parquet:
-        print(f"SOURCE=PARQUET predict family='{famiglia}' slug='{fam_slug}'", flush=True)
+        print(f"SOURCE=PARQUET dataset={dataset_version} predict family='{famiglia}' slug='{fam_slug}'", flush=True)
         # Predict wants full history; start from 2009
         y0, y1 = 2009, int(pd.Timestamp.utcnow().year) + 1
         parts: List[pd.DataFrame] = []
@@ -303,7 +356,7 @@ def load_hist_for_predict_parquet_or_db(
             force_flag = _env_bool("PARQUET_FORCE", "0")
             current_year = int(pd.Timestamp.utcnow().year)
             force_y = bool(force_flag) or (int(y) >= current_year - 1)
-            lp = _download_one_parquet(y, fam_slug, force=force_y)
+            lp = _download_one_parquet(y, fam_slug, force=force_y, dataset_version=dataset_version)
             if lp is None:
                 continue
             try:
