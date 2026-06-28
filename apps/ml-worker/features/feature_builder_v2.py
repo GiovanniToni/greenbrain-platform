@@ -139,11 +139,16 @@ def official_v2_relative_path(year: int, famiglia_slug: str) -> Path:
 
 
 def _copy_with_datetime_data(df: pd.DataFrame, *, name: str) -> pd.DataFrame:
-    if df is None or df.empty:
+    if df is None:
         return pd.DataFrame(columns=["data"])
+
     out = df.copy()
+
+    # Preserve empty dataframe schemas. This matters for stale families that
+    # have known price bands but no fact rows in the selected date window.
     if "data" not in out.columns:
         raise ValueError(f"{name} dataframe is missing required column: data")
+
     out["data"] = pd.to_datetime(out["data"])
     return out
 
