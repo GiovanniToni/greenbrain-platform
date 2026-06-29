@@ -796,6 +796,32 @@ def apply_microcap_and_warmup(
 # =========================
 # PREDICT ONE FAMILY
 # =========================
+
+def ensure_model_feature_frame(df: pd.DataFrame, feature_cols, medians, *, context: str = "") -> pd.DataFrame:
+    """Return df with exactly the model feature columns.
+
+    Inference must obey the bundle feature contract. Some prediction paths build
+    future feature rows manually and may not include weather/calendar columns
+    that were present during training. Missing columns are filled from the
+    medians stored in the bundle, falling back to 0.0.
+    """
+    out = df.copy()
+    missing = [c for c in feature_cols if c not in out.columns]
+    for c in missing:
+        out[c] = median_fallback(medians, c, 0.0)
+
+    for c in feature_cols:
+        out[c] = pd.to_numeric(out[c], errors="coerce").fillna(median_fallback(medians, c, 0.0))
+
+    if missing and os.getenv("V4_FEATURE_CONTRACT_DEBUG", "0") == "1":
+        print(
+            f"[FEATURE-CONTRACT] {context}: added_missing_cols={len(missing)} "
+            f"sample={missing[:12]}",
+            flush=True,
+        )
+
+    return out[list(feature_cols)]
+
 def predict_one_family(engine, famiglia: str) -> pd.DataFrame:
     fam_input = (famiglia or "").strip().lower()
     fam_name, fam_slug = resolve_family_and_slug(engine, fam_input)
@@ -1073,10 +1099,12 @@ def predict_one_family(engine, famiglia: str) -> pd.DataFrame:
                 ]
             )
 
-            for c in Xfam.columns:
-                Xfam[c] = pd.to_numeric(Xfam[c], errors="coerce").fillna(median_fallback(fam_medians, c, 0.0))
-
-            Xfam = Xfam[fam_cols]
+            Xfam = ensure_model_feature_frame(
+                Xfam,
+                fam_cols,
+                fam_medians,
+                context=f"family_level:{famiglia}",
+            )
             if HURDLE_DEBUG:
                 try:
                     print(f"[HURDLE-XFAM] Xfam shape={Xfam.shape}")
@@ -1348,7 +1376,12 @@ def predict_one_family(engine, famiglia: str) -> pd.DataFrame:
                 pass
 
 
-            X = Xrow[f_cols]
+            X = ensure_model_feature_frame(
+                    Xrow,
+                    f_cols,
+                    f_medians,
+                    context=f"fascia_level:{famiglia}",
+                )
             base_reg = float(np.clip(f_reg.predict(X)[0], 0, None)) * wk_strength
             if ENABLE_HURDLE and (clf_pos_family is not None):
                 p_pos = float(np.clip(clf_pos_fascia.predict_proba(X)[0, 1], 0, 1))
