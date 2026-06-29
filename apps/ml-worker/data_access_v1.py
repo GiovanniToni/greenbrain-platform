@@ -35,6 +35,29 @@ def safe_slug(s: str) -> str:
     return s
 
 
+
+def slug_candidates(value: str) -> list[str]:
+    """Return local parquet slug candidates.
+
+    safe_slug() keeps some punctuation. The V2 exporter slugifies punctuation
+    such as '.' into '-'. This helper lets predict find local parquet files such
+    as p.grasse -> p-grasse without falling back to DB.
+    """
+    raw = str(value or "").strip().lower()
+    candidates: list[str] = []
+
+    def add(x):
+        x = str(x or "").strip().lower()
+        if x and x not in candidates:
+            candidates.append(x)
+
+    add(safe_slug(raw))
+    add(re.sub(r"[^a-z0-9]+", "-", raw).strip("-"))
+    add(raw.replace(" ", "-").replace("_", "-").replace(".", "-"))
+    add(raw.replace(" ", "_").replace("-", "_").replace(".", "_"))
+
+    return candidates
+
 def _env_bool(name: str, default: str = "1") -> bool:
     v = os.getenv(name, default)
     return str(v).strip().lower() in ("1", "true", "yes", "y", "on")
@@ -147,6 +170,24 @@ def parquet_cache_dir() -> Path:
     return Path(__file__).resolve().parent / "parquet_cache"
 
 
+def parquet_cache_dirs() -> list[Path]:
+    """Return cache roots to search, with env root first and module-local fallback.
+
+    Router load_env() may set PARQUET_CACHE_DIR to a runtime/cache path while
+    local validation/backfill writes to apps/ml-worker/parquet_cache. Searching
+    both prevents unnecessary DB fallback when the local parquet exists.
+    """
+    roots: list[Path] = []
+
+    def add(p: Path):
+        p = Path(p).expanduser()
+        if p not in roots:
+            roots.append(p)
+
+    add(parquet_cache_dir())
+    add(Path(__file__).resolve().parent / "parquet_cache")
+
+    return roots
 
 
 def _remote_parquet_path(year: int, famiglia_slug: str, dataset_version: str | None = None) -> str:
@@ -172,6 +213,28 @@ def _local_parquet_path(year: int, famiglia_slug: str, dataset_version: str | No
     return d / "part.parquet"
 
 
+
+
+def _existing_local_parquet_path_for_candidates(
+    year: int,
+    famiglia_slug: str,
+    dataset_version: str | None = None,
+) -> Optional[Path]:
+    """Find an existing local parquet part across cache roots and slug forms."""
+    dataset_version = normalize_feature_dataset_version(dataset_version)
+
+    for root in parquet_cache_dirs():
+        for cand in slug_candidates(famiglia_slug):
+            if dataset_version == FEATURE_DATASET_VERSION_V2_WEATHER:
+                lp = root / "features_ml" / "v2_weather" / f"data_year={int(year)}" / f"famiglia_slug={cand}" / "part.parquet"
+            else:
+                lp = root / "features_dense" / "v1" / f"year={int(year)}" / f"famiglia_slug={cand}" / "part.parquet"
+
+            if lp.exists():
+                return lp
+
+    return None
+
 def _download_one_parquet(
     year: int,
     famiglia_slug: str,
@@ -179,19 +242,24 @@ def _download_one_parquet(
     dataset_version: str | None = None,
 ) -> Optional[Path]:
     dataset_version = normalize_feature_dataset_version(dataset_version)
-    lp = _local_parquet_path(year, famiglia_slug, dataset_version=dataset_version)
 
-    if lp.exists() and not force:
-        return lp
+    lp = _local_parquet_path(year, famiglia_slug, dataset_version=dataset_version)
+    local_candidate = _existing_local_parquet_path_for_candidates(
+        year,
+        famiglia_slug,
+        dataset_version=dataset_version,
+    )
+
+    if local_candidate is not None and not force:
+        return local_candidate
 
     # Useful for local validation and shadow runs: never touch remote storage.
     if parquet_local_only_enabled():
-        return lp if lp.exists() else None
+        return local_candidate if local_candidate is not None else None
 
     storage = get_storage()
     rp = _remote_parquet_path(year, famiglia_slug, dataset_version=dataset_version)
 
-    # legacy alternate: supporta slug con '_' invece di '-' (o viceversa)
     alt_slug = None
     if "-" in str(famiglia_slug) and "_" not in str(famiglia_slug):
         alt_slug = str(famiglia_slug).replace("-", "_")
@@ -202,10 +270,8 @@ def _download_one_parquet(
 
     data = None
     try:
-        # tenta slug primario
         data = storage.read(rp)
     except Exception:
-        # fallback legacy
         if alt_rp:
             try:
                 data = storage.read(alt_rp)
@@ -213,14 +279,10 @@ def _download_one_parquet(
                 data = None
 
     if data is None:
-        # non trovato né primario né legacy
         return None
 
-    # salva SEMPRE sul path richiesto
     lp.write_bytes(data)
 
-    # canonizza cache LOCALE:
-    # se mi hanno chiamato con '_' (legacy) e ho alt_slug con '-', salva anche il canonico con '-'
     if alt_slug and "_" in str(famiglia_slug) and "-" not in str(famiglia_slug):
         canon_lp = _local_parquet_path(year, alt_slug, dataset_version=dataset_version)
         if not canon_lp.exists():
@@ -329,6 +391,7 @@ def load_family_df_parquet_or_db(
     return pd.read_sql(q, engine, params={"famiglia": famiglia, "min_date": min_date})
 
 
+
 def load_hist_for_predict_parquet_or_db(
     engine,
     famiglia: str,
@@ -337,7 +400,13 @@ def load_hist_for_predict_parquet_or_db(
 ) -> pd.DataFrame:
     """
     Predict use-case: load full history for shares + queues.
-    Parquet-first if PARQUET_ENABLE=1, else DB.
+
+    V1 behavior is preserved: parquet predict history returns only:
+      data, fascia_prezzo_iva_inc, qty_venduta
+
+    V2 weather behavior returns the full parquet frame so backtest/predict
+    consumers can access qty_lag, qty_ma, calendar, event and weather features.
+    Classical engines can still select only the columns they need.
     """
     famiglia = normalize_family_name(famiglia)
     if not famiglia:
@@ -349,19 +418,27 @@ def load_hist_for_predict_parquet_or_db(
 
     if use_parquet:
         print(f"SOURCE=PARQUET dataset={dataset_version} predict family='{famiglia}' slug='{fam_slug}'", flush=True)
-        # Predict wants full history; start from 2009
+
         y0, y1 = 2009, int(pd.Timestamp.utcnow().year) + 1
         parts: List[pd.DataFrame] = []
+
         for y in range(y0, y1 + 1):
             force_flag = _env_bool("PARQUET_FORCE", "0")
             current_year = int(pd.Timestamp.utcnow().year)
             force_y = bool(force_flag) or (int(y) >= current_year - 1)
+
             lp = _download_one_parquet(y, fam_slug, force=force_y, dataset_version=dataset_version)
             if lp is None:
                 continue
+
             try:
                 dfy = pd.read_parquet(lp)
-                if not dfy.empty:
+                if dfy.empty:
+                    continue
+
+                if dataset_version == FEATURE_DATASET_VERSION_V2_WEATHER:
+                    parts.append(dfy.copy())
+                else:
                     parts.append(dfy[["data", "fascia_prezzo_iva_inc", "qty_venduta"]].copy())
             except Exception:
                 continue
@@ -369,7 +446,12 @@ def load_hist_for_predict_parquet_or_db(
         if parts:
             hist = pd.concat(parts, ignore_index=True)
             hist["data"] = pd.to_datetime(hist["data"], errors="coerce")
-            hist = hist.sort_values(["data", "fascia_prezzo_iva_inc"]).reset_index(drop=True)
+
+            sort_cols = ["data"]
+            if "fascia_prezzo_iva_inc" in hist.columns:
+                sort_cols.append("fascia_prezzo_iva_inc")
+
+            hist = hist.sort_values(sort_cols).reset_index(drop=True)
             return hist
 
         print(f"SOURCE=DB_FALLBACK (no parquet parts) predict family='{famiglia}'", flush=True)
@@ -377,7 +459,7 @@ def load_hist_for_predict_parquet_or_db(
     else:
         print(f"SOURCE=DB predict family='{famiglia}'", flush=True)
 
-    # Fallback DB (robust matching on whitespace)
+    # Fallback DB preserves legacy predict shape.
     from sqlalchemy import text
     q_hist = text(
         f"""
