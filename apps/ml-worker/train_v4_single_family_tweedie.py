@@ -179,6 +179,13 @@ def add_calendar(df: pd.DataFrame) -> pd.DataFrame:
 
 def add_holiday_neighborhood(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
+
+    # v2_weather parquet may already contain these columns from the calendar
+    # feature store. The historical trainer recomputes them from is_holiday.
+    # Drop pre-existing versions first to avoid pandas merge suffixes
+    # like is_pre_holiday_x/is_pre_holiday_y and preserve old v1 behavior.
+    df = df.drop(columns=["is_pre_holiday", "is_post_holiday"], errors="ignore")
+
     tmp = df[["data", "is_holiday"]].drop_duplicates("data").sort_values("data")
     tmp["is_holiday"] = tmp["is_holiday"].astype(int)
     tmp["is_pre_holiday"] = tmp["is_holiday"].shift(-1).fillna(0).astype(int)

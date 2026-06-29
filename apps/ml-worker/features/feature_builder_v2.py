@@ -215,6 +215,34 @@ def _add_training_aliases(df: pd.DataFrame) -> pd.DataFrame:
         df["year"] = df["year_num"]
     if "day_of_year" in df.columns:
         df["doy"] = df["day_of_year"]
+
+    # Legacy training compatibility:
+    # train_v4_single_family_tweedie.add_holiday_neighborhood expects these
+    # columns to exist before it normalizes them. Build them from the known
+    # holiday calendar so v2_weather remains compatible with the v4 trainer.
+    if "is_holiday" in df.columns and "data" in df.columns:
+        dates = pd.to_datetime(df["data"]).dt.normalize()
+        holiday_flags = df["is_holiday"].fillna(False).astype(bool)
+        holiday_dates = set(dates[holiday_flags].dropna().tolist())
+
+        pre_holiday = (dates + pd.Timedelta(days=1)).isin(holiday_dates)
+        post_holiday = (dates - pd.Timedelta(days=1)).isin(holiday_dates)
+
+        if "is_pre_holiday" in df.columns:
+            df["is_pre_holiday"] = df["is_pre_holiday"].fillna(pre_holiday).astype(bool)
+        else:
+            df["is_pre_holiday"] = pre_holiday.astype(bool)
+
+        if "is_post_holiday" in df.columns:
+            df["is_post_holiday"] = df["is_post_holiday"].fillna(post_holiday).astype(bool)
+        else:
+            df["is_post_holiday"] = post_holiday.astype(bool)
+    else:
+        if "is_pre_holiday" not in df.columns:
+            df["is_pre_holiday"] = False
+        if "is_post_holiday" not in df.columns:
+            df["is_post_holiday"] = False
+
     return df
 
 
