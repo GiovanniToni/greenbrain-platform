@@ -35,6 +35,7 @@ try:
         validate_run_id,
         validate_source,
     )
+    from .r3a_raw_extracts import R3ARawExtractConfig, build_raw_extracts
 except ImportError:  # Allows direct execution: python jobs/datasets/build_global.py
     from manifest import (
         BuildGlobalManifest,
@@ -49,6 +50,7 @@ except ImportError:  # Allows direct execution: python jobs/datasets/build_globa
         validate_run_id,
         validate_source,
     )
+    from r3a_raw_extracts import R3ARawExtractConfig, build_raw_extracts
 
 
 DEFAULT_OUTPUT_ROOT = Path("/opt/greenbrain-platform/runtime/ml-datasets/runs")
@@ -156,6 +158,31 @@ def main() -> int:
     run_dir = output_root / run_id
     ensure_run_layout(run_dir)
 
+    r3a_result = build_raw_extracts(
+        R3ARawExtractConfig(
+            run_id=run_id,
+            run_dir=run_dir,
+            database_url=None,
+            execute=False,
+        )
+    )
+    r3a_manifest_path = Path(r3a_result.manifest_path)
+    r3a_dataset_names = [dataset.name for dataset in r3a_result.datasets]
+    r3a_safety = dict(r3a_result.safety)
+
+    stages = planned_stages()
+    stages[0] = BuildGlobalStage(
+        name="R3A_RAW_EXTRACT",
+        status="PLANNED_BY_R3A_MODULE",
+        source_kind="repo_module_dry_run",
+        source_reference="jobs.datasets.r3a_raw_extracts",
+        output_reference=str(r3a_manifest_path),
+        notes=(
+            f"R3A module planned {len(r3a_dataset_names)} datasets with "
+            "execute=False; no DB read/write."
+        ),
+    )
+
     manifest = BuildGlobalManifest(
         run_id=run_id,
         command="gb dataset build-global",
@@ -177,10 +204,17 @@ def main() -> int:
             "legacy_final_write": "NO",
             "r3_pipeline_execution": "NO",
         },
-        stages=planned_stages(),
+        stages=stages,
         inputs={
-            "phase": "2B dry-run scaffold",
-            "note": "Runtime R3 scripts are not executed by this patch.",
+            "phase": "2D R3A dry-run integration",
+            "note": (
+                "R3A repo module is invoked with execute=False; "
+                "downstream R3B/R3C/R3D are not executed."
+            ),
+            "r3a_extract_manifest": str(r3a_manifest_path),
+            "r3a_datasets_planned": len(r3a_dataset_names),
+            "r3a_dataset_names": r3a_dataset_names,
+            "r3a_safety": r3a_safety,
         },
     )
 
