@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from datetime import date, datetime
 from pathlib import Path
 
@@ -37,7 +38,7 @@ try:
         validate_source,
     )
     from .r3a_raw_extracts import R3ARawExtractConfig, build_raw_extracts
-    from .r3a_validation import validate_plan_manifest
+    from .r3a_validation import validate_materialized_extract, validate_plan_manifest
 except ImportError:  # Allows direct execution: python jobs/datasets/build_global.py
     from manifest import (
         BuildGlobalManifest,
@@ -53,7 +54,7 @@ except ImportError:  # Allows direct execution: python jobs/datasets/build_globa
         validate_source,
     )
     from r3a_raw_extracts import R3ARawExtractConfig, build_raw_extracts
-    from r3a_validation import validate_plan_manifest
+    from r3a_validation import validate_materialized_extract, validate_plan_manifest
 
 
 DEFAULT_OUTPUT_ROOT = Path("/opt/greenbrain-platform/runtime/ml-datasets/runs")
@@ -139,11 +140,20 @@ def parse_args() -> argparse.Namespace:
         help="Required for this scaffold. Real execution is intentionally blocked.",
     )
     parser.add_argument(
+        "--execute-r3a-materialized",
+        action="store_true",
+        help=(
+            "Execute the gated R3A materialized DB read-only extraction. "
+            "Requires --enable-r3a-materialized, --confirm-db-read-only, "
+            "--database-url-env, and an explicit --run-id."
+        ),
+    )
+    parser.add_argument(
         "--enable-r3a-materialized",
         action="store_true",
         help=(
-            "Non-executing gate flag for future R3A materialized extraction. "
-            "This patch records intent only and never reads the DB."
+            "Gate flag for future R3A materialized extraction. Without "
+            "--execute-r3a-materialized this records intent only and never reads the DB."
         ),
     )
     parser.add_argument(
@@ -174,12 +184,14 @@ def _valid_env_var_name(value: str) -> bool:
 
 
 def materialized_gate_intent(args: argparse.Namespace) -> dict[str, object]:
+    execute_requested = bool(args.execute_r3a_materialized)
     enabled = bool(args.enable_r3a_materialized)
     confirmed_read_only = bool(args.confirm_db_read_only)
     database_url_env = str(args.database_url_env or "").strip()
 
     intent: dict[str, object] = {
         "enabled": enabled,
+        "execute_requested": execute_requested,
         "status": "DISABLED",
         "execute": False,
         "db_read": "NO",
@@ -196,6 +208,8 @@ def materialized_gate_intent(args: argparse.Namespace) -> dict[str, object]:
     issues: list[str] = []
 
     if not enabled:
+        if execute_requested:
+            issues.append("--execute-r3a-materialized requires --enable-r3a-materialized")
         if confirmed_read_only:
             issues.append("--confirm-db-read-only requires --enable-r3a-materialized")
         if database_url_env:
@@ -216,6 +230,9 @@ def materialized_gate_intent(args: argparse.Namespace) -> dict[str, object]:
     elif not _valid_env_var_name(database_url_env):
         issues.append("--database-url-env must be a valid environment variable name")
 
+    if execute_requested and not args.run_id:
+        issues.append("--execute-r3a-materialized requires an explicit --run-id")
+
     if issues:
         intent["status"] = "INVALID_ENABLED_GATE_FLAGS"
         intent["validation_issues"] = issues
@@ -223,22 +240,52 @@ def materialized_gate_intent(args: argparse.Namespace) -> dict[str, object]:
             "STOP: invalid R3A materialized gate flags: " + "; ".join(issues)
         )
 
+    if execute_requested:
+        intent["status"] = "MATERIALIZED_EXECUTION_AUTHORIZED"
+        intent["execute"] = True
+        intent["db_read"] = "YES"
+        intent["r3a_materialized_execution"] = "YES"
+        intent["r3a_validator_materialized_execution"] = "YES_AFTER_EXTRACT"
+        intent["parquet_read"] = "YES_FOR_VALIDATION"
+        intent["reason"] = (
+            "R3A materialized extraction was explicitly requested, confirmed "
+            "as DB read-only, and authorized by the gate."
+        )
+        return intent
+
     intent["status"] = "NON_EXECUTING_GATE_ACKNOWLEDGED"
     intent["reason"] = (
         "Future materialized R3A extraction was explicitly requested and "
-        "confirmed as read-only, but this patch intentionally records intent "
-        "only and never reads the DB."
+        "confirmed as read-only, but --execute-r3a-materialized was not supplied; "
+        "this run records intent only and never reads the DB."
     )
     return intent
 
 
+def _database_url_from_env(env_name: str) -> str:
+    if not _valid_env_var_name(env_name):
+        raise SystemExit("STOP: invalid database URL env var name.")
+
+    value = os.environ.get(env_name)
+    if not value:
+        raise SystemExit(
+            "STOP: database URL environment variable is missing or empty: "
+            f"{env_name}"
+        )
+    return value
+
 def main() -> int:
     args = parse_args()
 
-    if not args.dry_run:
+    if args.dry_run and args.execute_r3a_materialized:
         raise SystemExit(
-            "STOP: this scaffold only supports --dry-run. "
-            "Real R3 execution is intentionally not implemented yet."
+            "STOP: --dry-run and --execute-r3a-materialized are mutually exclusive."
+        )
+
+    if not args.dry_run and not args.execute_r3a_materialized:
+        raise SystemExit(
+            "STOP: use --dry-run for planning or --execute-r3a-materialized "
+            "for the explicitly gated R3A-only materialized execution."
         )
 
     r3a_materialized_gate = materialized_gate_intent(args)
@@ -254,35 +301,73 @@ def main() -> int:
     run_dir = output_root / run_id
     ensure_run_layout(run_dir)
 
-    r3a_result = build_raw_extracts(
-        R3ARawExtractConfig(
-            run_id=run_id,
-            run_dir=run_dir,
-            database_url=None,
-            execute=False,
+    if args.execute_r3a_materialized:
+        database_url = _database_url_from_env(str(args.database_url_env).strip())
+        r3a_result = build_raw_extracts(
+            R3ARawExtractConfig(
+                run_id=run_id,
+                run_dir=run_dir,
+                database_url=database_url,
+                execute=True,
+            )
         )
-    )
+    else:
+        r3a_result = build_raw_extracts(
+            R3ARawExtractConfig(
+                run_id=run_id,
+                run_dir=run_dir,
+                database_url=None,
+                execute=False,
+            )
+        )
+
     r3a_manifest_path = Path(r3a_result.manifest_path)
     r3a_dataset_names = [dataset.name for dataset in r3a_result.datasets]
     r3a_safety = dict(r3a_result.safety)
 
-    r3a_plan_validation_result = validate_plan_manifest(r3a_manifest_path)
-    r3a_plan_validation_path = run_dir / "analysis" / "r3a_plan_validation.json"
-    r3a_plan_validation_path.write_text(
-        json.dumps(
-            r3a_plan_validation_result.to_dict(),
-            indent=2,
-            sort_keys=True,
-            ensure_ascii=False,
+    r3a_plan_validation_result = None
+    r3a_plan_validation_path = None
+    r3a_materialized_validation_result = None
+    r3a_materialized_validation_path = None
+
+    if args.execute_r3a_materialized:
+        r3a_materialized_validation_result = validate_materialized_extract(run_dir)
+        r3a_materialized_validation_path = (
+            run_dir / "analysis" / "r3a_materialized_validation.json"
         )
-        + chr(10),
-        encoding="utf-8",
-    )
-    if not r3a_plan_validation_result.ok:
-        raise SystemExit(
-            "STOP: R3A plan validation failed. "
-            f"See {r3a_plan_validation_path}"
+        r3a_materialized_validation_path.write_text(
+            json.dumps(
+                r3a_materialized_validation_result.to_dict(),
+                indent=2,
+                sort_keys=True,
+                ensure_ascii=False,
+            )
+            + chr(10),
+            encoding="utf-8",
         )
+        if not r3a_materialized_validation_result.ok:
+            raise SystemExit(
+                "STOP: R3A materialized validation failed. "
+                f"See {r3a_materialized_validation_path}"
+            )
+    else:
+        r3a_plan_validation_result = validate_plan_manifest(r3a_manifest_path)
+        r3a_plan_validation_path = run_dir / "analysis" / "r3a_plan_validation.json"
+        r3a_plan_validation_path.write_text(
+            json.dumps(
+                r3a_plan_validation_result.to_dict(),
+                indent=2,
+                sort_keys=True,
+                ensure_ascii=False,
+            )
+            + chr(10),
+            encoding="utf-8",
+        )
+        if not r3a_plan_validation_result.ok:
+            raise SystemExit(
+                "STOP: R3A plan validation failed. "
+                f"See {r3a_plan_validation_path}"
+            )
 
     stages = planned_stages()
     stages[0] = BuildGlobalStage(
@@ -329,10 +414,46 @@ def main() -> int:
             "r3a_datasets_planned": len(r3a_dataset_names),
             "r3a_dataset_names": r3a_dataset_names,
             "r3a_safety": r3a_safety,
-            "r3a_plan_validation": str(r3a_plan_validation_path),
-            "r3a_plan_validation_ok": r3a_plan_validation_result.ok,
-            "r3a_plan_validation_issue_count": len(r3a_plan_validation_result.issues),
-            "r3a_plan_validation_safety": dict(r3a_plan_validation_result.safety),
+            "r3a_plan_validation": (
+                str(r3a_plan_validation_path)
+                if r3a_plan_validation_path is not None
+                else None
+            ),
+            "r3a_plan_validation_ok": (
+                r3a_plan_validation_result.ok
+                if r3a_plan_validation_result is not None
+                else None
+            ),
+            "r3a_plan_validation_issue_count": (
+                len(r3a_plan_validation_result.issues)
+                if r3a_plan_validation_result is not None
+                else None
+            ),
+            "r3a_plan_validation_safety": (
+                dict(r3a_plan_validation_result.safety)
+                if r3a_plan_validation_result is not None
+                else None
+            ),
+            "r3a_materialized_validation": (
+                str(r3a_materialized_validation_path)
+                if r3a_materialized_validation_path is not None
+                else None
+            ),
+            "r3a_materialized_validation_ok": (
+                r3a_materialized_validation_result.ok
+                if r3a_materialized_validation_result is not None
+                else None
+            ),
+            "r3a_materialized_validation_issue_count": (
+                len(r3a_materialized_validation_result.issues)
+                if r3a_materialized_validation_result is not None
+                else None
+            ),
+            "r3a_materialized_validation_safety": (
+                dict(r3a_materialized_validation_result.safety)
+                if r3a_materialized_validation_result is not None
+                else None
+            ),
             "r3a_materialized_gate": r3a_materialized_gate,
         },
     )
