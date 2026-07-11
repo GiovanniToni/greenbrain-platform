@@ -138,7 +138,98 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Required for this scaffold. Real execution is intentionally blocked.",
     )
+    parser.add_argument(
+        "--enable-r3a-materialized",
+        action="store_true",
+        help=(
+            "Non-executing gate flag for future R3A materialized extraction. "
+            "This patch records intent only and never reads the DB."
+        ),
+    )
+    parser.add_argument(
+        "--confirm-db-read-only",
+        action="store_true",
+        help=(
+            "Required confirmation for future R3A materialized extraction. "
+            "This patch still does not read the DB."
+        ),
+    )
+    parser.add_argument(
+        "--database-url-env",
+        default="",
+        help=(
+            "Name of the environment variable that would contain the DB URL "
+            "in a future execution patch. This patch does not read it."
+        ),
+    )
     return parser.parse_args()
+
+
+def _valid_env_var_name(value: str) -> bool:
+    if not value:
+        return False
+    if not (value[0].isalpha() or value[0] == "_"):
+        return False
+    return all(ch.isalnum() or ch == "_" for ch in value)
+
+
+def materialized_gate_intent(args: argparse.Namespace) -> dict[str, object]:
+    enabled = bool(args.enable_r3a_materialized)
+    confirmed_read_only = bool(args.confirm_db_read_only)
+    database_url_env = str(args.database_url_env or "").strip()
+
+    intent: dict[str, object] = {
+        "enabled": enabled,
+        "status": "DISABLED",
+        "execute": False,
+        "db_read": "NO",
+        "db_write": "NO",
+        "r3a_materialized_execution": "NO",
+        "r3a_validator_materialized_execution": "NO",
+        "parquet_read": "NO",
+        "database_url_env": database_url_env,
+        "confirm_db_read_only": confirmed_read_only,
+        "reason": "R3A materialized execution is not enabled.",
+        "validation_issues": [],
+    }
+
+    issues: list[str] = []
+
+    if not enabled:
+        if confirmed_read_only:
+            issues.append("--confirm-db-read-only requires --enable-r3a-materialized")
+        if database_url_env:
+            issues.append("--database-url-env requires --enable-r3a-materialized")
+        if issues:
+            intent["status"] = "INVALID_DISABLED_GATE_FLAGS"
+            intent["validation_issues"] = issues
+            raise SystemExit(
+                "STOP: invalid R3A materialized gate flags: " + "; ".join(issues)
+            )
+        return intent
+
+    if not confirmed_read_only:
+        issues.append("--enable-r3a-materialized requires --confirm-db-read-only")
+
+    if not database_url_env:
+        issues.append("--enable-r3a-materialized requires --database-url-env")
+    elif not _valid_env_var_name(database_url_env):
+        issues.append("--database-url-env must be a valid environment variable name")
+
+    if issues:
+        intent["status"] = "INVALID_ENABLED_GATE_FLAGS"
+        intent["validation_issues"] = issues
+        raise SystemExit(
+            "STOP: invalid R3A materialized gate flags: " + "; ".join(issues)
+        )
+
+    intent["status"] = "NON_EXECUTING_GATE_ACKNOWLEDGED"
+    intent["reason"] = (
+        "Future materialized R3A extraction was explicitly requested and "
+        "confirmed as read-only, but this patch intentionally records intent "
+        "only and never reads the DB."
+    )
+    return intent
 
 
 def main() -> int:
@@ -149,6 +240,8 @@ def main() -> int:
             "STOP: this scaffold only supports --dry-run. "
             "Real R3 execution is intentionally not implemented yet."
         )
+
+    r3a_materialized_gate = materialized_gate_intent(args)
 
     output_root = Path(args.output_root)
     run_id = args.run_id or default_run_id()
@@ -240,6 +333,7 @@ def main() -> int:
             "r3a_plan_validation_ok": r3a_plan_validation_result.ok,
             "r3a_plan_validation_issue_count": len(r3a_plan_validation_result.issues),
             "r3a_plan_validation_safety": dict(r3a_plan_validation_result.safety),
+            "r3a_materialized_gate": r3a_materialized_gate,
         },
     )
 
