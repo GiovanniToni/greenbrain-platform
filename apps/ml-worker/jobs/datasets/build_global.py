@@ -18,6 +18,7 @@ Safety guarantees in this version:
 from __future__ import annotations
 
 import argparse
+import json
 from datetime import date, datetime
 from pathlib import Path
 
@@ -36,6 +37,7 @@ try:
         validate_source,
     )
     from .r3a_raw_extracts import R3ARawExtractConfig, build_raw_extracts
+    from .r3a_validation import validate_plan_manifest
 except ImportError:  # Allows direct execution: python jobs/datasets/build_global.py
     from manifest import (
         BuildGlobalManifest,
@@ -51,6 +53,7 @@ except ImportError:  # Allows direct execution: python jobs/datasets/build_globa
         validate_source,
     )
     from r3a_raw_extracts import R3ARawExtractConfig, build_raw_extracts
+    from r3a_validation import validate_plan_manifest
 
 
 DEFAULT_OUTPUT_ROOT = Path("/opt/greenbrain-platform/runtime/ml-datasets/runs")
@@ -170,6 +173,24 @@ def main() -> int:
     r3a_dataset_names = [dataset.name for dataset in r3a_result.datasets]
     r3a_safety = dict(r3a_result.safety)
 
+    r3a_plan_validation_result = validate_plan_manifest(r3a_manifest_path)
+    r3a_plan_validation_path = run_dir / "analysis" / "r3a_plan_validation.json"
+    r3a_plan_validation_path.write_text(
+        json.dumps(
+            r3a_plan_validation_result.to_dict(),
+            indent=2,
+            sort_keys=True,
+            ensure_ascii=False,
+        )
+        + chr(10),
+        encoding="utf-8",
+    )
+    if not r3a_plan_validation_result.ok:
+        raise SystemExit(
+            "STOP: R3A plan validation failed. "
+            f"See {r3a_plan_validation_path}"
+        )
+
     stages = planned_stages()
     stages[0] = BuildGlobalStage(
         name="R3A_RAW_EXTRACT",
@@ -215,6 +236,10 @@ def main() -> int:
             "r3a_datasets_planned": len(r3a_dataset_names),
             "r3a_dataset_names": r3a_dataset_names,
             "r3a_safety": r3a_safety,
+            "r3a_plan_validation": str(r3a_plan_validation_path),
+            "r3a_plan_validation_ok": r3a_plan_validation_result.ok,
+            "r3a_plan_validation_issue_count": len(r3a_plan_validation_result.issues),
+            "r3a_plan_validation_safety": dict(r3a_plan_validation_result.safety),
         },
     )
 
