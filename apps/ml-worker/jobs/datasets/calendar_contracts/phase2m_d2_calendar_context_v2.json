@@ -1,0 +1,977 @@
+{
+  "calendar_profile": {
+    "calendar_profile_id": "it_toscana_pistoia_retail_v2",
+    "country": "IT",
+    "hemisphere": "northern",
+    "municipality": "Pistoia",
+    "province": "Pistoia",
+    "region": "Toscana",
+    "timezone": "Europe/Rome"
+  },
+  "contract_version": "phase2m-d2-calendar-context-v2",
+  "design_contract_fingerprint": "dc3d57be9e52c636b18128067105ffa48566be24b8e1bc46d967c04436a48af0",
+  "event_windows": {
+    "distance_policy": "exact distance retained; Boolean windows derived automatically",
+    "post_event_cumulative_days": [
+      1,
+      3,
+      7,
+      14,
+      30
+    ],
+    "post_event_exclusive_buckets": [
+      "none",
+      "15_30_days",
+      "8_14_days",
+      "4_7_days",
+      "2_3_days",
+      "1_day",
+      "event_day"
+    ],
+    "pre_event_cumulative_days": [
+      90,
+      60,
+      45,
+      30,
+      21,
+      14,
+      7,
+      3,
+      1
+    ],
+    "pre_event_exclusive_buckets": [
+      "none",
+      "61_90_days",
+      "46_60_days",
+      "31_45_days",
+      "22_30_days",
+      "15_21_days",
+      "8_14_days",
+      "4_7_days",
+      "2_3_days",
+      "1_day",
+      "event_day"
+    ]
+  },
+  "implementation": {
+    "build_global_modified": false,
+    "builder": "apps/ml-worker/jobs/datasets/calendar_feature_builder.py",
+    "database_access": false,
+    "network_access": false,
+    "supabase_access": false,
+    "validator": "apps/ml-worker/jobs/datasets/calendar_feature_validation.py",
+    "validator_imports_builder": false
+  },
+  "known_in_advance_seasonality": {
+    "excluded": [
+      "garden-center campaign windows",
+      "observed weather seasonality",
+      "observed sales seasonality",
+      "school calendars without a versioned official source",
+      "regional sale dates without a versioned official source",
+      "local events without known-from metadata",
+      "daylight and astronomical fields until location and ephemeris contracts are separately validated"
+    ],
+    "included": [
+      "meteorological season",
+      "season position",
+      "year position",
+      "week of month",
+      "first and last week of month",
+      "first and last weekend of month"
+    ]
+  },
+  "lineage": {
+    "d2_v1_contract_sha256": "0deadcc0d9f2a7603ea07542dac832c41985306d2e4737b6a1ed99139cb97e05",
+    "design_baseline_artifact_sha256": "f9b07ae106c86d7cbf6513830e88f18dafef84047ddd3f33f3424896a3e5d66a",
+    "design_contract_artifact_sha256": "dc06aafd39ed5b5617658e587ce990c6b076625eb84d25372fb18ed32cd172ca",
+    "design_git_head": "ad5c57f5c67c0cbbe16f0e3e184e56be98d59d5a",
+    "raw_holidays_sha256": "42ef94e7f8a447c9d4129a23041e0bf81c3a719c0106007a93b2dfb121a3134e",
+    "semantic_report_sha256": "71f9987f5847c52baaadab58d8422126b17e5920beb31c8779a770d39c313b9d"
+  },
+  "materialization": {
+    "atomic_promotion": "os.replace",
+    "candidate_directory": "hidden sibling candidate",
+    "candidate_validation": true,
+    "compression": "zstd",
+    "deterministic_sort": true,
+    "expected_file_count": 4,
+    "final_independent_validation": true,
+    "immutable_versioned_run": true,
+    "latest_pointer_update": false,
+    "parquet_only": true,
+    "partitioning": null,
+    "rollback_cleanup": true
+  },
+  "outputs": [
+    {
+      "columns": 38,
+      "content_fingerprint": "75dda3f31fd641384d74849aafede0e075956bd04ec607b8d7586690bf53717c",
+      "grain": [
+        "data"
+      ],
+      "name": "calendar_day_features",
+      "output_path": "calendar_features/calendar_day_features/part-00000.parquet",
+      "rows": 6398,
+      "schema": [
+        {
+          "name": "data",
+          "nullable": false,
+          "role": "key",
+          "type": "date32"
+        },
+        {
+          "name": "year",
+          "nullable": false,
+          "role": "feature",
+          "type": "int16"
+        },
+        {
+          "name": "quarter",
+          "nullable": false,
+          "role": "feature",
+          "type": "int8"
+        },
+        {
+          "name": "month",
+          "nullable": false,
+          "role": "feature",
+          "type": "int8"
+        },
+        {
+          "name": "iso_year",
+          "nullable": false,
+          "role": "feature",
+          "type": "int16"
+        },
+        {
+          "name": "iso_week",
+          "nullable": false,
+          "role": "feature",
+          "type": "int8"
+        },
+        {
+          "name": "day_of_month",
+          "nullable": false,
+          "role": "feature",
+          "type": "int8"
+        },
+        {
+          "name": "day_of_year",
+          "nullable": false,
+          "role": "feature",
+          "type": "int16"
+        },
+        {
+          "name": "day_of_week",
+          "nullable": false,
+          "role": "feature",
+          "type": "int8"
+        },
+        {
+          "name": "is_weekend",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "days_in_month",
+          "nullable": false,
+          "role": "feature",
+          "type": "int8"
+        },
+        {
+          "name": "days_in_year",
+          "nullable": false,
+          "role": "feature",
+          "type": "int16"
+        },
+        {
+          "name": "is_leap_year",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "days_remaining_in_month",
+          "nullable": false,
+          "role": "feature",
+          "type": "int8"
+        },
+        {
+          "name": "days_remaining_in_year",
+          "nullable": false,
+          "role": "feature",
+          "type": "int16"
+        },
+        {
+          "name": "is_month_start",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_month_end",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_quarter_start",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_quarter_end",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_year_start",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_year_end",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "month_sin",
+          "nullable": false,
+          "role": "feature",
+          "type": "float64"
+        },
+        {
+          "name": "month_cos",
+          "nullable": false,
+          "role": "feature",
+          "type": "float64"
+        },
+        {
+          "name": "day_of_week_sin",
+          "nullable": false,
+          "role": "feature",
+          "type": "float64"
+        },
+        {
+          "name": "day_of_week_cos",
+          "nullable": false,
+          "role": "feature",
+          "type": "float64"
+        },
+        {
+          "name": "day_of_year_sin",
+          "nullable": false,
+          "role": "feature",
+          "type": "float64"
+        },
+        {
+          "name": "day_of_year_cos",
+          "nullable": false,
+          "role": "feature",
+          "type": "float64"
+        },
+        {
+          "name": "meteorological_season",
+          "nullable": false,
+          "role": "feature",
+          "type": "string"
+        },
+        {
+          "name": "season_index",
+          "nullable": false,
+          "role": "feature",
+          "type": "int8"
+        },
+        {
+          "name": "days_since_season_start",
+          "nullable": false,
+          "role": "feature",
+          "type": "int16"
+        },
+        {
+          "name": "days_to_season_end",
+          "nullable": false,
+          "role": "feature",
+          "type": "int16"
+        },
+        {
+          "name": "season_progress_ratio",
+          "nullable": false,
+          "role": "feature",
+          "type": "float64"
+        },
+        {
+          "name": "year_progress_ratio",
+          "nullable": false,
+          "role": "feature",
+          "type": "float64"
+        },
+        {
+          "name": "week_of_month",
+          "nullable": false,
+          "role": "feature",
+          "type": "int8"
+        },
+        {
+          "name": "is_first_week_of_month",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_last_week_of_month",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_first_weekend_of_month",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_last_weekend_of_month",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        }
+      ],
+      "schema_fingerprint": "3cb9d7c9d67cf05937a906041c193f6e35c85e3cb79a5e57831b5e3728f03484"
+    },
+    {
+      "columns": 28,
+      "content_fingerprint": "9d074ebfaab448af69c66cdaa2512fff10656c709428ab427a39be02f6d89b76",
+      "grain": [
+        "calendar_profile_id",
+        "event_id"
+      ],
+      "name": "calendar_event_catalog",
+      "output_path": "calendar_features/calendar_event_catalog/part-00000.parquet",
+      "rows": 46,
+      "schema": [
+        {
+          "name": "calendar_profile_id",
+          "nullable": false,
+          "type": "string"
+        },
+        {
+          "name": "event_id",
+          "nullable": false,
+          "type": "string"
+        },
+        {
+          "name": "event_name_it",
+          "nullable": false,
+          "type": "string"
+        },
+        {
+          "name": "category",
+          "nullable": false,
+          "type": "string"
+        },
+        {
+          "name": "subcategory",
+          "nullable": false,
+          "type": "string"
+        },
+        {
+          "name": "scope_type",
+          "nullable": false,
+          "type": "string"
+        },
+        {
+          "name": "scope_value",
+          "nullable": false,
+          "type": "string"
+        },
+        {
+          "name": "rule_type",
+          "nullable": false,
+          "type": "string"
+        },
+        {
+          "name": "rule_params",
+          "nullable": false,
+          "type": "json_string"
+        },
+        {
+          "name": "valid_from",
+          "nullable": true,
+          "type": "date32"
+        },
+        {
+          "name": "valid_to",
+          "nullable": true,
+          "type": "date32"
+        },
+        {
+          "name": "priority",
+          "nullable": false,
+          "type": "int16"
+        },
+        {
+          "name": "active_for_profile",
+          "nullable": false,
+          "type": "bool"
+        },
+        {
+          "name": "is_national_public_holiday",
+          "nullable": false,
+          "type": "bool"
+        },
+        {
+          "name": "is_local_patron_day",
+          "nullable": false,
+          "type": "bool"
+        },
+        {
+          "name": "is_religious_observance",
+          "nullable": false,
+          "type": "bool"
+        },
+        {
+          "name": "is_family_gifting",
+          "nullable": false,
+          "type": "bool"
+        },
+        {
+          "name": "is_commercial_retail",
+          "nullable": false,
+          "type": "bool"
+        },
+        {
+          "name": "is_cultural_event",
+          "nullable": false,
+          "type": "bool"
+        },
+        {
+          "name": "is_environmental_event",
+          "nullable": false,
+          "type": "bool"
+        },
+        {
+          "name": "is_model_relevant",
+          "nullable": false,
+          "type": "bool"
+        },
+        {
+          "name": "source_type",
+          "nullable": false,
+          "type": "string"
+        },
+        {
+          "name": "source_name",
+          "nullable": false,
+          "type": "string"
+        },
+        {
+          "name": "source_version",
+          "nullable": false,
+          "type": "string"
+        },
+        {
+          "name": "source_reference",
+          "nullable": true,
+          "type": "string"
+        },
+        {
+          "name": "availability_mode",
+          "nullable": false,
+          "type": "string"
+        },
+        {
+          "name": "known_from_date",
+          "nullable": true,
+          "type": "date32"
+        },
+        {
+          "name": "raw_names",
+          "nullable": false,
+          "type": "list<string>"
+        }
+      ],
+      "schema_fingerprint": "9eeede45d72d48d883fcfd2685ae2fb03c5884e3f27d0efd2c3904f5954ffc36"
+    },
+    {
+      "columns": 18,
+      "content_fingerprint": "3d595f4c39622f80e488fa0780c6f1eea14294f8731596b1476242c59c78c148",
+      "date_range": {
+        "end": "2026-11-06",
+        "start": "2008-09-04"
+      },
+      "grain": [
+        "calendar_profile_id",
+        "event_id",
+        "occurrence_date"
+      ],
+      "name": "calendar_event_occurrences",
+      "output_path": "calendar_features/calendar_event_occurrences/part-00000.parquet",
+      "rows": 797,
+      "schema": [
+        {
+          "name": "calendar_profile_id",
+          "nullable": false,
+          "type": "string"
+        },
+        {
+          "name": "event_id",
+          "nullable": false,
+          "type": "string"
+        },
+        {
+          "name": "occurrence_date",
+          "nullable": false,
+          "type": "date32"
+        },
+        {
+          "name": "occurrence_year",
+          "nullable": false,
+          "type": "int16"
+        },
+        {
+          "name": "event_category",
+          "nullable": false,
+          "type": "string"
+        },
+        {
+          "name": "priority",
+          "nullable": false,
+          "type": "int16"
+        },
+        {
+          "name": "is_national_public_holiday",
+          "nullable": false,
+          "type": "bool"
+        },
+        {
+          "name": "is_local_patron_day",
+          "nullable": false,
+          "type": "bool"
+        },
+        {
+          "name": "is_religious_observance",
+          "nullable": false,
+          "type": "bool"
+        },
+        {
+          "name": "is_family_gifting",
+          "nullable": false,
+          "type": "bool"
+        },
+        {
+          "name": "is_commercial_retail",
+          "nullable": false,
+          "type": "bool"
+        },
+        {
+          "name": "is_environmental_event",
+          "nullable": false,
+          "type": "bool"
+        },
+        {
+          "name": "is_model_relevant",
+          "nullable": false,
+          "type": "bool"
+        },
+        {
+          "name": "source_type",
+          "nullable": false,
+          "type": "string"
+        },
+        {
+          "name": "source_version",
+          "nullable": false,
+          "type": "string"
+        },
+        {
+          "name": "rule_type",
+          "nullable": false,
+          "type": "string"
+        },
+        {
+          "name": "availability_mode",
+          "nullable": false,
+          "type": "string"
+        },
+        {
+          "name": "known_from_date",
+          "nullable": true,
+          "type": "date32"
+        }
+      ],
+      "schema_fingerprint": "8b9c447ca1ee9d02c99cf2eb02f9a846c05999929a850b4f3eb2adb3ea6fbe07"
+    },
+    {
+      "columns": 52,
+      "content_fingerprint": "aabe5d5992d056bcc014875da0017e7bc5c98f76fae7f75c029c60773684830d",
+      "grain": [
+        "data",
+        "calendar_profile_id"
+      ],
+      "name": "calendar_context_features",
+      "output_path": "calendar_features/calendar_context_features/part-00000.parquet",
+      "rows": 6398,
+      "schema": [
+        {
+          "name": "data",
+          "nullable": false,
+          "role": "key",
+          "type": "date32"
+        },
+        {
+          "name": "calendar_profile_id",
+          "nullable": false,
+          "role": "key",
+          "type": "string"
+        },
+        {
+          "name": "event_count",
+          "nullable": false,
+          "role": "feature",
+          "type": "int16"
+        },
+        {
+          "name": "is_any_event_day",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_public_holiday",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_local_patron_day",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_calendar_holiday",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_religious_observance",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_family_gifting_event",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_commercial_retail_event",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_environmental_event",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "primary_event_id",
+          "nullable": true,
+          "role": "feature",
+          "type": "string"
+        },
+        {
+          "name": "primary_event_category",
+          "nullable": true,
+          "role": "feature",
+          "type": "string"
+        },
+        {
+          "name": "primary_event_priority",
+          "nullable": true,
+          "role": "feature",
+          "type": "int16"
+        },
+        {
+          "name": "next_event_id",
+          "nullable": true,
+          "role": "feature",
+          "type": "string"
+        },
+        {
+          "name": "next_event_category",
+          "nullable": true,
+          "role": "feature",
+          "type": "string"
+        },
+        {
+          "name": "days_to_next_event",
+          "nullable": true,
+          "role": "feature",
+          "type": "int16"
+        },
+        {
+          "name": "previous_event_id",
+          "nullable": true,
+          "role": "feature",
+          "type": "string"
+        },
+        {
+          "name": "previous_event_category",
+          "nullable": true,
+          "role": "feature",
+          "type": "string"
+        },
+        {
+          "name": "days_since_previous_event",
+          "nullable": true,
+          "role": "feature",
+          "type": "int16"
+        },
+        {
+          "name": "pre_event_window_bucket",
+          "nullable": false,
+          "role": "feature",
+          "type": "string"
+        },
+        {
+          "name": "post_event_window_bucket",
+          "nullable": false,
+          "role": "feature",
+          "type": "string"
+        },
+        {
+          "name": "is_pre_event_90d",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_pre_event_60d",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_pre_event_45d",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_pre_event_30d",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_pre_event_21d",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_pre_event_14d",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_pre_event_7d",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_pre_event_3d",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_pre_event_1d",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_event_day",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_post_event_1d",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_post_event_3d",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_post_event_7d",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_post_event_14d",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_post_event_30d",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "next_public_holiday_id",
+          "nullable": true,
+          "role": "feature",
+          "type": "string"
+        },
+        {
+          "name": "days_to_next_public_holiday",
+          "nullable": true,
+          "role": "feature",
+          "type": "int16"
+        },
+        {
+          "name": "next_family_gifting_event_id",
+          "nullable": true,
+          "role": "feature",
+          "type": "string"
+        },
+        {
+          "name": "days_to_next_family_gifting_event",
+          "nullable": true,
+          "role": "feature",
+          "type": "int16"
+        },
+        {
+          "name": "next_commercial_event_id",
+          "nullable": true,
+          "role": "feature",
+          "type": "string"
+        },
+        {
+          "name": "days_to_next_commercial_event",
+          "nullable": true,
+          "role": "feature",
+          "type": "int16"
+        },
+        {
+          "name": "next_religious_event_id",
+          "nullable": true,
+          "role": "feature",
+          "type": "string"
+        },
+        {
+          "name": "days_to_next_religious_event",
+          "nullable": true,
+          "role": "feature",
+          "type": "int16"
+        },
+        {
+          "name": "next_local_event_id",
+          "nullable": true,
+          "role": "feature",
+          "type": "string"
+        },
+        {
+          "name": "days_to_next_local_event",
+          "nullable": true,
+          "role": "feature",
+          "type": "int16"
+        },
+        {
+          "name": "is_day_before_public_holiday",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_day_after_public_holiday",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_bridge_day",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "is_long_weekend",
+          "nullable": false,
+          "role": "feature",
+          "type": "bool"
+        },
+        {
+          "name": "long_weekend_length",
+          "nullable": false,
+          "role": "feature",
+          "type": "int8"
+        }
+      ],
+      "schema_fingerprint": "9a9b93b3f1ba31bac62ad974f959c36850d574aaab5fa85e55f9d8ae6ae06591"
+    }
+  ],
+  "phase": "2M-D2",
+  "profile_config_relative_path": "calendar_profiles/it_toscana_pistoia_retail_v2.json",
+  "raw_holiday_policy": {
+    "canonical": false,
+    "collision_suppressed_occurrence_count": 1,
+    "raw_rule_mismatch_count": 0,
+    "reason": [
+      "created_at is not a valid known-from date",
+      "one row per date cannot represent event overlaps",
+      "raw source lacks explicit geographic profile fields"
+    ]
+  },
+  "runtime_requirements": {
+    "absolute_runtime_paths_embedded": false,
+    "contract_and_profile_must_be_read_only": true,
+    "contract_file_required": true,
+    "profile_file_required": true,
+    "profile_fingerprint_required": "0b1b20dbd61f22093c65ae9884db2ff556712984ad5b716d217cdcae3e759b04"
+  },
+  "source_package_fingerprint": "52d8b04968bc7338f2a9e827b768bb34cc8b4d035bae54c74381964b8ecabd04",
+  "source_package_version": "phase2m-d2-calendar-contract-package-v1",
+  "source_precedence": [
+    {
+      "applies_to": "reproducible national, religious, family, commercial and calendar events",
+      "priority": 1,
+      "source": "versioned deterministic rules"
+    },
+    {
+      "applies_to": "municipal scope and profile activation",
+      "priority": 2,
+      "source": "versioned profile configuration"
+    },
+    {
+      "applies_to": "reconciliation and rule discovery only",
+      "priority": 3,
+      "source": "raw_extracts/holidays"
+    }
+  ],
+  "status": "final_design"
+}
