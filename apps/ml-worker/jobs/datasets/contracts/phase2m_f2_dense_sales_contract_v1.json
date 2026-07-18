@@ -1,0 +1,3207 @@
+{
+  "causality": {
+    "calendar_dense_windows": true,
+    "current_day_source_may_affect_current_output": false,
+    "direct_lag_pre_shift_days": 0,
+    "generic_shift_every_feature_by_one_day": false,
+    "maximum_article_lookback_days": 90,
+    "maximum_quantity_lookback_days": 371,
+    "maximum_revenue_lookback_days": 90,
+    "negative_quantity_is_positive_sale": false,
+    "positive_sale_definition": "qty_venduta_dense > 0",
+    "rolling_interval": "[T-W,T-1]",
+    "rolling_pre_shift_days": 1,
+    "standard_deviation_ddof": 0,
+    "state_update_order": "emit_before_current_row_update"
+  },
+  "cli": {
+    "common_arguments": [
+      "--dataset-run-dir",
+      "--output-root",
+      "--build-id",
+      "--contract",
+      "--grain",
+      "--overwrite-policy",
+      "--confirm-write-feature-lake"
+    ],
+    "compression_overridable_from_cli": false,
+    "execute_confirmation_required": "--confirm-write-feature-lake",
+    "execute_grain_requirement": "both",
+    "execution_modes": [
+      "--dry-run",
+      "--execute",
+      "--validate-only"
+    ],
+    "feature_semantics_overridable_from_cli": false,
+    "grain_values": [
+      "family",
+      "family_priceband",
+      "both"
+    ],
+    "lookback_overridable_from_cli": false,
+    "overwrite_policy_values_v1": [
+      "fail"
+    ],
+    "partial_grain_execute_policy": "forbidden",
+    "partitioning_overridable_from_cli": false
+  },
+  "contract_fingerprint": "8c22c499a186e543ac2f140c0a45607c26399f3df22fbb8a658632276b2653cb",
+  "contract_name": "phase2m_f2_dense_sales_contract",
+  "contract_version": "1.0.0",
+  "delivery": {
+    "builder_path": "apps/ml-worker/jobs/datasets/dense_sales_feature_builder.py",
+    "commit_count": 2,
+    "contract_path": "apps/ml-worker/jobs/datasets/contracts/phase2m_f2_dense_sales_contract_v1.json",
+    "next_phase_automatically_authorized": false,
+    "push_authorized": false,
+    "validator_path": "apps/ml-worker/jobs/datasets/dense_sales_feature_validation.py"
+  },
+  "description": "Portable causal dense-sales feature blocks for family-day and family-priceband-day.",
+  "execution": {
+    "article_history_days": 90,
+    "atomic_candidate_promotion": true,
+    "candidate_path_pattern": "<output-root>/.tmp-<build-id>",
+    "compression": "zstd",
+    "final_output_path_pattern": "<output-root>/<build-id>",
+    "grain_execution_order": [
+      "family_day",
+      "family_priceband_day"
+    ],
+    "incremental_execution_enabled": false,
+    "independent_validator_subprocess": true,
+    "monthly_file_count_per_grain": 1,
+    "monthly_streaming": true,
+    "overwrite_policy": "fail",
+    "parallel_grain_execution": false,
+    "partition_columns": [
+      "year",
+      "month"
+    ],
+    "partitioning": "year_month",
+    "quantity_history_days": 371,
+    "release_parent_memory_before_validator": true,
+    "revenue_history_days": 90,
+    "validator_command_template": [
+      "<current-python>",
+      "apps/ml-worker/jobs/datasets/dense_sales_feature_validation.py",
+      "--dataset-run-dir",
+      "<dataset-run-dir>",
+      "--output-root",
+      "<candidate-root>",
+      "--build-id",
+      "<build-id>",
+      "--contract",
+      "apps/ml-worker/jobs/datasets/contracts/phase2m_f2_dense_sales_contract_v1.json",
+      "--grain",
+      "both"
+    ],
+    "validator_invocation_policy": "sibling_module_with_current_python",
+    "validator_path": "apps/ml-worker/jobs/datasets/dense_sales_feature_validation.py",
+    "version_1_scope": "full_rebuild"
+  },
+  "features": [
+    {
+      "causal_operator": "prior_history_state",
+      "dtype": "int32",
+      "effective_lookback_days": null,
+      "family": "history",
+      "formula": "number of dense rows for the entity strictly before data=T",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "derive from count of rows strictly before T",
+      "lag_days": null,
+      "minimum_prior_days": 0,
+      "name": "history_days_available",
+      "nullable": false,
+      "ordinal": 1,
+      "pre_shift_days": null,
+      "source_measure": "dense calendar",
+      "state_update_order": "emit_before_current_row_update",
+      "warmup_behavior": "0 on the first lifecycle row",
+      "window_days": null
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "bool",
+      "effective_lookback_days": 7,
+      "family": "history",
+      "formula": "history_days_available >= 7",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 0,
+      "name": "is_full_history_7",
+      "nullable": false,
+      "ordinal": 2,
+      "pre_shift_days": 1,
+      "source_measure": "history_days_available",
+      "state_update_order": null,
+      "warmup_behavior": "false until the full window exists",
+      "window_days": 7
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "bool",
+      "effective_lookback_days": 14,
+      "family": "history",
+      "formula": "history_days_available >= 14",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 0,
+      "name": "is_full_history_14",
+      "nullable": false,
+      "ordinal": 3,
+      "pre_shift_days": 1,
+      "source_measure": "history_days_available",
+      "state_update_order": null,
+      "warmup_behavior": "false until the full window exists",
+      "window_days": 14
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "bool",
+      "effective_lookback_days": 28,
+      "family": "history",
+      "formula": "history_days_available >= 28",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 0,
+      "name": "is_full_history_28",
+      "nullable": false,
+      "ordinal": 4,
+      "pre_shift_days": 1,
+      "source_measure": "history_days_available",
+      "state_update_order": null,
+      "warmup_behavior": "false until the full window exists",
+      "window_days": 28
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "bool",
+      "effective_lookback_days": 56,
+      "family": "history",
+      "formula": "history_days_available >= 56",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 0,
+      "name": "is_full_history_56",
+      "nullable": false,
+      "ordinal": 5,
+      "pre_shift_days": 1,
+      "source_measure": "history_days_available",
+      "state_update_order": null,
+      "warmup_behavior": "false until the full window exists",
+      "window_days": 56
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "bool",
+      "effective_lookback_days": 90,
+      "family": "history",
+      "formula": "history_days_available >= 90",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 0,
+      "name": "is_full_history_90",
+      "nullable": false,
+      "ordinal": 6,
+      "pre_shift_days": 1,
+      "source_measure": "history_days_available",
+      "state_update_order": null,
+      "warmup_behavior": "false until the full window exists",
+      "window_days": 90
+    },
+    {
+      "causal_operator": "direct_lag",
+      "dtype": "float64",
+      "effective_lookback_days": 1,
+      "family": "quantity_lag",
+      "formula": "qty_venduta_dense(T-1)",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "group.shift(1); no additional pre-shift",
+      "lag_days": 1,
+      "minimum_prior_days": 1,
+      "name": "qty_lag_1",
+      "nullable": true,
+      "ordinal": 7,
+      "pre_shift_days": 0,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "null while fewer than 1 prior dense days exist",
+      "window_days": null
+    },
+    {
+      "causal_operator": "direct_lag",
+      "dtype": "float64",
+      "effective_lookback_days": 7,
+      "family": "quantity_lag",
+      "formula": "qty_venduta_dense(T-7)",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "group.shift(7); no additional pre-shift",
+      "lag_days": 7,
+      "minimum_prior_days": 7,
+      "name": "qty_lag_7",
+      "nullable": true,
+      "ordinal": 8,
+      "pre_shift_days": 0,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "null while fewer than 7 prior dense days exist",
+      "window_days": null
+    },
+    {
+      "causal_operator": "direct_lag",
+      "dtype": "float64",
+      "effective_lookback_days": 14,
+      "family": "quantity_lag",
+      "formula": "qty_venduta_dense(T-14)",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "group.shift(14); no additional pre-shift",
+      "lag_days": 14,
+      "minimum_prior_days": 14,
+      "name": "qty_lag_14",
+      "nullable": true,
+      "ordinal": 9,
+      "pre_shift_days": 0,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "null while fewer than 14 prior dense days exist",
+      "window_days": null
+    },
+    {
+      "causal_operator": "direct_lag",
+      "dtype": "float64",
+      "effective_lookback_days": 28,
+      "family": "quantity_lag",
+      "formula": "qty_venduta_dense(T-28)",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "group.shift(28); no additional pre-shift",
+      "lag_days": 28,
+      "minimum_prior_days": 28,
+      "name": "qty_lag_28",
+      "nullable": true,
+      "ordinal": 10,
+      "pre_shift_days": 0,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "null while fewer than 28 prior dense days exist",
+      "window_days": null
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "float64",
+      "effective_lookback_days": 7,
+      "family": "quantity_rolling",
+      "formula": "sum of qty_venduta_dense over [T-7, T-1]",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "qty_roll_7_sum",
+      "nullable": true,
+      "ordinal": 11,
+      "pre_shift_days": 1,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "partial available history; null only when no prior dense day exists",
+      "window_days": 7
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "float64",
+      "effective_lookback_days": 14,
+      "family": "quantity_rolling",
+      "formula": "sum of qty_venduta_dense over [T-14, T-1]",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "qty_roll_14_sum",
+      "nullable": true,
+      "ordinal": 12,
+      "pre_shift_days": 1,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "partial available history; null only when no prior dense day exists",
+      "window_days": 14
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "float64",
+      "effective_lookback_days": 28,
+      "family": "quantity_rolling",
+      "formula": "sum of qty_venduta_dense over [T-28, T-1]",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "qty_roll_28_sum",
+      "nullable": true,
+      "ordinal": 13,
+      "pre_shift_days": 1,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "partial available history; null only when no prior dense day exists",
+      "window_days": 28
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "float64",
+      "effective_lookback_days": 56,
+      "family": "quantity_rolling",
+      "formula": "sum of qty_venduta_dense over [T-56, T-1]",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "qty_roll_56_sum",
+      "nullable": true,
+      "ordinal": 14,
+      "pre_shift_days": 1,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "partial available history; null only when no prior dense day exists",
+      "window_days": 56
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "float64",
+      "effective_lookback_days": 90,
+      "family": "quantity_rolling",
+      "formula": "sum of qty_venduta_dense over [T-90, T-1]",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "qty_roll_90_sum",
+      "nullable": true,
+      "ordinal": 15,
+      "pre_shift_days": 1,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "partial available history; null only when no prior dense day exists",
+      "window_days": 90
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "float64",
+      "effective_lookback_days": 7,
+      "family": "quantity_rolling",
+      "formula": "mean of qty_venduta_dense over [T-7, T-1] using available days",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "qty_roll_7_mean",
+      "nullable": true,
+      "ordinal": 16,
+      "pre_shift_days": 1,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "denominator is available prior dense days; never padded with missing history",
+      "window_days": 7
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "float64",
+      "effective_lookback_days": 14,
+      "family": "quantity_rolling",
+      "formula": "mean of qty_venduta_dense over [T-14, T-1] using available days",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "qty_roll_14_mean",
+      "nullable": true,
+      "ordinal": 17,
+      "pre_shift_days": 1,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "denominator is available prior dense days; never padded with missing history",
+      "window_days": 14
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "float64",
+      "effective_lookback_days": 28,
+      "family": "quantity_rolling",
+      "formula": "mean of qty_venduta_dense over [T-28, T-1] using available days",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "qty_roll_28_mean",
+      "nullable": true,
+      "ordinal": 18,
+      "pre_shift_days": 1,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "denominator is available prior dense days; never padded with missing history",
+      "window_days": 28
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "float64",
+      "effective_lookback_days": 56,
+      "family": "quantity_rolling",
+      "formula": "mean of qty_venduta_dense over [T-56, T-1] using available days",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "qty_roll_56_mean",
+      "nullable": true,
+      "ordinal": 19,
+      "pre_shift_days": 1,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "denominator is available prior dense days; never padded with missing history",
+      "window_days": 56
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "float64",
+      "effective_lookback_days": 90,
+      "family": "quantity_rolling",
+      "formula": "mean of qty_venduta_dense over [T-90, T-1] using available days",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "qty_roll_90_mean",
+      "nullable": true,
+      "ordinal": 20,
+      "pre_shift_days": 1,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "denominator is available prior dense days; never padded with missing history",
+      "window_days": 90
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "float64",
+      "effective_lookback_days": 28,
+      "family": "quantity_volatility",
+      "formula": "population standard deviation ddof=0 over prior shifted values in [T-28, T-1]",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 2,
+      "name": "qty_roll_28_std",
+      "nullable": true,
+      "ordinal": 21,
+      "pre_shift_days": 1,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "null until at least 2 prior days exist",
+      "window_days": 28
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "float64",
+      "effective_lookback_days": 56,
+      "family": "quantity_volatility",
+      "formula": "population standard deviation ddof=0 over prior shifted values in [T-56, T-1]",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 2,
+      "name": "qty_roll_56_std",
+      "nullable": true,
+      "ordinal": 22,
+      "pre_shift_days": 1,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "null until at least 2 prior days exist",
+      "window_days": 56
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "float64",
+      "effective_lookback_days": 90,
+      "family": "quantity_volatility",
+      "formula": "population standard deviation ddof=0 over prior shifted values in [T-90, T-1]",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 2,
+      "name": "qty_roll_90_std",
+      "nullable": true,
+      "ordinal": 23,
+      "pre_shift_days": 1,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "null until at least 2 prior days exist",
+      "window_days": 90
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "int32",
+      "effective_lookback_days": 7,
+      "family": "sale_frequency",
+      "formula": "count of prior days with qty_venduta_dense > 0 over [T-7, T-1]",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "sale_day_count_7",
+      "nullable": true,
+      "ordinal": 24,
+      "pre_shift_days": 1,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "count over available prior days; null with no prior history",
+      "window_days": 7
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "int32",
+      "effective_lookback_days": 28,
+      "family": "sale_frequency",
+      "formula": "count of prior days with qty_venduta_dense > 0 over [T-28, T-1]",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "sale_day_count_28",
+      "nullable": true,
+      "ordinal": 25,
+      "pre_shift_days": 1,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "count over available prior days; null with no prior history",
+      "window_days": 28
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "int32",
+      "effective_lookback_days": 90,
+      "family": "sale_frequency",
+      "formula": "count of prior days with qty_venduta_dense > 0 over [T-90, T-1]",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "sale_day_count_90",
+      "nullable": true,
+      "ordinal": 26,
+      "pre_shift_days": 1,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "count over available prior days; null with no prior history",
+      "window_days": 90
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "float64",
+      "effective_lookback_days": 7,
+      "family": "sale_frequency",
+      "formula": "sale_day_count_7 divided by available prior dense days in the window",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "sale_day_share_7",
+      "nullable": true,
+      "ordinal": 27,
+      "pre_shift_days": 1,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "partial-history denominator; null with no prior history",
+      "window_days": 7
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "float64",
+      "effective_lookback_days": 28,
+      "family": "sale_frequency",
+      "formula": "sale_day_count_28 divided by available prior dense days in the window",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "sale_day_share_28",
+      "nullable": true,
+      "ordinal": 28,
+      "pre_shift_days": 1,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "partial-history denominator; null with no prior history",
+      "window_days": 28
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "float64",
+      "effective_lookback_days": 90,
+      "family": "sale_frequency",
+      "formula": "sale_day_count_90 divided by available prior dense days in the window",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "sale_day_share_90",
+      "nullable": true,
+      "ordinal": 29,
+      "pre_shift_days": 1,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "partial-history denominator; null with no prior history",
+      "window_days": 90
+    },
+    {
+      "causal_operator": "prior_state",
+      "dtype": "int32",
+      "effective_lookback_days": null,
+      "family": "recency",
+      "formula": "calendar days from T to the most recent date S<T where qty_venduta_dense(S)>0",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "emit state before processing current row T",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "days_since_last_positive_sale",
+      "nullable": true,
+      "ordinal": 30,
+      "pre_shift_days": null,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": "emit_before_current_row_update",
+      "warmup_behavior": "null until a positive sale exists before T",
+      "window_days": null
+    },
+    {
+      "causal_operator": "prior_state",
+      "dtype": "int32",
+      "effective_lookback_days": null,
+      "family": "recency",
+      "formula": "calendar days from T to the first date S<T where qty_venduta_dense(S)>0",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "emit state before processing current row T",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "days_since_first_positive_sale",
+      "nullable": true,
+      "ordinal": 31,
+      "pre_shift_days": null,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": "emit_before_current_row_update",
+      "warmup_behavior": "null until a positive sale exists before T",
+      "window_days": null
+    },
+    {
+      "causal_operator": "prior_state",
+      "dtype": "int32",
+      "effective_lookback_days": null,
+      "family": "recency",
+      "formula": "number of consecutive immediately prior dense days with qty_venduta_dense <= 0",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "emit state before processing current row T",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "zero_sales_streak",
+      "nullable": true,
+      "ordinal": 32,
+      "pre_shift_days": null,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": "emit_before_current_row_update",
+      "warmup_behavior": "null on first lifecycle row",
+      "window_days": null
+    },
+    {
+      "causal_operator": "derived_from_causal_features",
+      "dtype": "float64",
+      "effective_lookback_days": 90,
+      "family": "trend",
+      "formula": "qty_roll_7_mean - qty_roll_28_mean",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "derive only from already-causal rolling means",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "qty_mean_delta_7_28",
+      "nullable": true,
+      "ordinal": 33,
+      "pre_shift_days": null,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": "derive_after_causal_components",
+      "warmup_behavior": "null if either component is null",
+      "window_days": null
+    },
+    {
+      "causal_operator": "derived_from_causal_features",
+      "dtype": "float64",
+      "effective_lookback_days": 90,
+      "family": "trend",
+      "formula": "qty_roll_28_mean - qty_roll_90_mean",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "derive only from already-causal rolling means",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "qty_mean_delta_28_90",
+      "nullable": true,
+      "ordinal": 34,
+      "pre_shift_days": null,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": "derive_after_causal_components",
+      "warmup_behavior": "null if either component is null",
+      "window_days": null
+    },
+    {
+      "causal_operator": "direct_lag",
+      "dtype": "float64",
+      "effective_lookback_days": 1,
+      "family": "revenue_lag",
+      "formula": "imponibile_dense(T-1)",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "group.shift(1); no additional pre-shift",
+      "lag_days": 1,
+      "minimum_prior_days": 1,
+      "name": "revenue_lag_1",
+      "nullable": true,
+      "ordinal": 35,
+      "pre_shift_days": 0,
+      "source_measure": "imponibile_dense",
+      "state_update_order": null,
+      "warmup_behavior": "null while fewer than 1 prior dense days exist",
+      "window_days": null
+    },
+    {
+      "causal_operator": "direct_lag",
+      "dtype": "float64",
+      "effective_lookback_days": 7,
+      "family": "revenue_lag",
+      "formula": "imponibile_dense(T-7)",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "group.shift(7); no additional pre-shift",
+      "lag_days": 7,
+      "minimum_prior_days": 7,
+      "name": "revenue_lag_7",
+      "nullable": true,
+      "ordinal": 36,
+      "pre_shift_days": 0,
+      "source_measure": "imponibile_dense",
+      "state_update_order": null,
+      "warmup_behavior": "null while fewer than 7 prior dense days exist",
+      "window_days": null
+    },
+    {
+      "causal_operator": "direct_lag",
+      "dtype": "float64",
+      "effective_lookback_days": 28,
+      "family": "revenue_lag",
+      "formula": "imponibile_dense(T-28)",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "group.shift(28); no additional pre-shift",
+      "lag_days": 28,
+      "minimum_prior_days": 28,
+      "name": "revenue_lag_28",
+      "nullable": true,
+      "ordinal": 37,
+      "pre_shift_days": 0,
+      "source_measure": "imponibile_dense",
+      "state_update_order": null,
+      "warmup_behavior": "null while fewer than 28 prior dense days exist",
+      "window_days": null
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "float64",
+      "effective_lookback_days": 28,
+      "family": "revenue_rolling",
+      "formula": "sum of imponibile_dense over [T-28, T-1]",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "revenue_roll_28_sum",
+      "nullable": true,
+      "ordinal": 38,
+      "pre_shift_days": 1,
+      "source_measure": "imponibile_dense",
+      "state_update_order": null,
+      "warmup_behavior": "partial available history",
+      "window_days": 28
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "float64",
+      "effective_lookback_days": 28,
+      "family": "revenue_rolling",
+      "formula": "mean of imponibile_dense over [T-28, T-1] using available prior days",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "revenue_roll_28_mean",
+      "nullable": true,
+      "ordinal": 39,
+      "pre_shift_days": 1,
+      "source_measure": "imponibile_dense",
+      "state_update_order": null,
+      "warmup_behavior": "partial-history denominator",
+      "window_days": 28
+    },
+    {
+      "causal_operator": "direct_lag",
+      "dtype": "int64",
+      "effective_lookback_days": 1,
+      "family": "article_count_lag",
+      "formula": "num_articoli_dense(T-1)",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "group.shift(1); no additional pre-shift",
+      "lag_days": 1,
+      "minimum_prior_days": 1,
+      "name": "article_count_lag_1",
+      "nullable": true,
+      "ordinal": 40,
+      "pre_shift_days": 0,
+      "source_measure": "num_articoli_dense",
+      "state_update_order": null,
+      "warmup_behavior": "null while fewer than 1 prior dense days exist",
+      "window_days": null
+    },
+    {
+      "causal_operator": "direct_lag",
+      "dtype": "int64",
+      "effective_lookback_days": 7,
+      "family": "article_count_lag",
+      "formula": "num_articoli_dense(T-7)",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "group.shift(7); no additional pre-shift",
+      "lag_days": 7,
+      "minimum_prior_days": 7,
+      "name": "article_count_lag_7",
+      "nullable": true,
+      "ordinal": 41,
+      "pre_shift_days": 0,
+      "source_measure": "num_articoli_dense",
+      "state_update_order": null,
+      "warmup_behavior": "null while fewer than 7 prior dense days exist",
+      "window_days": null
+    },
+    {
+      "causal_operator": "direct_lag",
+      "dtype": "int64",
+      "effective_lookback_days": 28,
+      "family": "article_count_lag",
+      "formula": "num_articoli_dense(T-28)",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "group.shift(28); no additional pre-shift",
+      "lag_days": 28,
+      "minimum_prior_days": 28,
+      "name": "article_count_lag_28",
+      "nullable": true,
+      "ordinal": 42,
+      "pre_shift_days": 0,
+      "source_measure": "num_articoli_dense",
+      "state_update_order": null,
+      "warmup_behavior": "null while fewer than 28 prior dense days exist",
+      "window_days": null
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "int64",
+      "effective_lookback_days": 28,
+      "family": "article_count_rolling",
+      "formula": "sum of num_articoli_dense over [T-28, T-1]",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "article_count_roll_28_sum",
+      "nullable": true,
+      "ordinal": 43,
+      "pre_shift_days": 1,
+      "source_measure": "num_articoli_dense",
+      "state_update_order": null,
+      "warmup_behavior": "partial available history",
+      "window_days": 28
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "float64",
+      "effective_lookback_days": 28,
+      "family": "article_count_rolling",
+      "formula": "mean of num_articoli_dense over [T-28, T-1] using available prior days",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day before applying window",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "article_count_roll_28_mean",
+      "nullable": true,
+      "ordinal": 44,
+      "pre_shift_days": 1,
+      "source_measure": "num_articoli_dense",
+      "state_update_order": null,
+      "warmup_behavior": "partial-history denominator",
+      "window_days": 28
+    },
+    {
+      "causal_operator": "direct_lag",
+      "dtype": "float64",
+      "effective_lookback_days": 56,
+      "family": "quantity_lag",
+      "formula": "qty_venduta_dense(T-56)",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "group.shift(56); do not apply a separate pre-shift",
+      "lag_days": 56,
+      "minimum_prior_days": 56,
+      "name": "qty_lag_56",
+      "nullable": true,
+      "ordinal": 45,
+      "pre_shift_days": 0,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "null until exactly 56 prior dense days exist",
+      "window_days": null
+    },
+    {
+      "causal_operator": "direct_lag",
+      "dtype": "float64",
+      "effective_lookback_days": 90,
+      "family": "quantity_lag",
+      "formula": "qty_venduta_dense(T-90)",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "group.shift(90); do not apply a separate pre-shift",
+      "lag_days": 90,
+      "minimum_prior_days": 90,
+      "name": "qty_lag_90",
+      "nullable": true,
+      "ordinal": 46,
+      "pre_shift_days": 0,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "null until exactly 90 prior dense days exist",
+      "window_days": null
+    },
+    {
+      "causal_operator": "direct_lag",
+      "dtype": "float64",
+      "effective_lookback_days": 364,
+      "family": "seasonal_quantity_lag",
+      "formula": "qty_venduta_dense(T-364)",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "same-weekday 52-week lag using group.shift(364)",
+      "lag_days": 364,
+      "minimum_prior_days": 364,
+      "name": "qty_lag_364",
+      "nullable": true,
+      "ordinal": 47,
+      "pre_shift_days": 0,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "null until exactly 364 prior dense days exist",
+      "window_days": null
+    },
+    {
+      "causal_operator": "direct_lag",
+      "dtype": "float64",
+      "effective_lookback_days": 371,
+      "family": "seasonal_quantity_lag",
+      "formula": "qty_venduta_dense(T-371)",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "53-week alternative using group.shift(371)",
+      "lag_days": 371,
+      "minimum_prior_days": 371,
+      "name": "qty_lag_371",
+      "nullable": true,
+      "ordinal": 48,
+      "pre_shift_days": 0,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "null until exactly 371 prior dense days exist",
+      "window_days": null
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "float64",
+      "effective_lookback_days": 28,
+      "family": "quantity_peak",
+      "formula": "max qty_venduta_dense over [T-28,T-1]",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day, then rolling max 28",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "qty_roll_28_max",
+      "nullable": true,
+      "ordinal": 49,
+      "pre_shift_days": 1,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "partial prior history; null only with no prior day",
+      "window_days": 28
+    },
+    {
+      "causal_operator": "shifted_window",
+      "dtype": "float64",
+      "effective_lookback_days": 90,
+      "family": "quantity_peak",
+      "formula": "max qty_venduta_dense over [T-90,T-1]",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift source by one day, then rolling max 90",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "qty_roll_90_max",
+      "nullable": true,
+      "ordinal": 50,
+      "pre_shift_days": 1,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "partial prior history; null only with no prior day",
+      "window_days": 90
+    },
+    {
+      "causal_operator": "shifted_filtered_window",
+      "dtype": "float64",
+      "effective_lookback_days": 28,
+      "family": "positive_demand_size",
+      "formula": "mean of positive quantities in [T-28,T-1]",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift one day; include only values greater than zero",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "qty_nonzero_mean_28",
+      "nullable": true,
+      "ordinal": 51,
+      "pre_shift_days": 1,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "null until at least one prior positive-sale day",
+      "window_days": 28
+    },
+    {
+      "causal_operator": "shifted_filtered_window",
+      "dtype": "float64",
+      "effective_lookback_days": 90,
+      "family": "positive_demand_size",
+      "formula": "mean of positive quantities in [T-90,T-1]",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift one day; include only values greater than zero",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "qty_nonzero_mean_90",
+      "nullable": true,
+      "ordinal": 52,
+      "pre_shift_days": 1,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "null until at least one prior positive-sale day",
+      "window_days": 90
+    },
+    {
+      "causal_operator": "shifted_filtered_window",
+      "dtype": "float64",
+      "effective_lookback_days": 90,
+      "family": "positive_demand_variability",
+      "formula": "population std of positive quantities in [T-90,T-1]",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "shift one day; positive values only; ddof=0",
+      "lag_days": null,
+      "minimum_prior_days": 2,
+      "name": "qty_nonzero_std_90",
+      "nullable": true,
+      "ordinal": 53,
+      "pre_shift_days": 1,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "null until at least two prior positive-sale days",
+      "window_days": 90
+    },
+    {
+      "causal_operator": "prior_event_state",
+      "dtype": "int32",
+      "effective_lookback_days": null,
+      "family": "intermittency",
+      "formula": "days between the two most recent positive sales before T",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "emit prior event gap before processing current-day sale",
+      "lag_days": null,
+      "minimum_prior_days": 2,
+      "name": "last_inter_sale_gap_days",
+      "nullable": true,
+      "ordinal": 54,
+      "pre_shift_days": null,
+      "source_measure": "positive sale dates",
+      "state_update_order": "emit_before_current_row_update",
+      "warmup_behavior": "null until two prior positive sales exist",
+      "window_days": null
+    },
+    {
+      "causal_operator": "prior_event_window",
+      "dtype": "float64",
+      "effective_lookback_days": 90,
+      "family": "intermittency",
+      "formula": "mean prior inter-sale gap whose ending sale is within [T-90,T-1]",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "event ending date must be before T",
+      "lag_days": null,
+      "minimum_prior_days": 2,
+      "name": "mean_inter_sale_gap_90",
+      "nullable": true,
+      "ordinal": 55,
+      "pre_shift_days": null,
+      "source_measure": "positive sale dates",
+      "state_update_order": "emit_before_current_row_update",
+      "warmup_behavior": "null until at least one valid prior inter-sale interval",
+      "window_days": 90
+    },
+    {
+      "causal_operator": "shifted_state_window",
+      "dtype": "int32",
+      "effective_lookback_days": 90,
+      "family": "intermittency",
+      "formula": "maximum consecutive non-positive run in [T-90,T-1]",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "current-day quantity must not affect current maximum",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "max_zero_sales_streak_90",
+      "nullable": true,
+      "ordinal": 56,
+      "pre_shift_days": 1,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": null,
+      "warmup_behavior": "partial prior history; null only with no prior day",
+      "window_days": 90
+    },
+    {
+      "causal_operator": "derived_from_causal_features",
+      "dtype": "float64",
+      "effective_lookback_days": 90,
+      "family": "intermittency",
+      "formula": "(qty_nonzero_std_90 / qty_nonzero_mean_90)^2",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "derive only from prior positive-demand statistics",
+      "lag_days": null,
+      "minimum_prior_days": 2,
+      "name": "positive_qty_cv2_90",
+      "nullable": true,
+      "ordinal": 57,
+      "pre_shift_days": null,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": "derive_after_causal_components",
+      "warmup_behavior": "null with fewer than two positive days or non-positive mean",
+      "window_days": 90
+    },
+    {
+      "causal_operator": "prior_recursive_state",
+      "dtype": "float64",
+      "effective_lookback_days": null,
+      "family": "quantity_ewm",
+      "formula": "prior-state EWM with span=7, alpha=2/(7+1), adjust=false",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "emit previous EWM state, then update with quantity at T",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "qty_ewm_mean_7",
+      "nullable": true,
+      "ordinal": 58,
+      "pre_shift_days": null,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": "emit_before_current_row_update",
+      "warmup_behavior": "null on first lifecycle row",
+      "window_days": null
+    },
+    {
+      "causal_operator": "prior_recursive_state",
+      "dtype": "float64",
+      "effective_lookback_days": null,
+      "family": "quantity_ewm",
+      "formula": "prior-state EWM with span=28, alpha=2/(28+1), adjust=false",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "emit previous EWM state, then update with quantity at T",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "qty_ewm_mean_28",
+      "nullable": true,
+      "ordinal": 59,
+      "pre_shift_days": null,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": "emit_before_current_row_update",
+      "warmup_behavior": "null on first lifecycle row",
+      "window_days": null
+    },
+    {
+      "causal_operator": "prior_recursive_state",
+      "dtype": "float64",
+      "effective_lookback_days": null,
+      "family": "quantity_ewm",
+      "formula": "prior-state EWM with span=90, alpha=2/(90+1), adjust=false",
+      "grain_scope": [
+        "family_day",
+        "family_priceband_day"
+      ],
+      "implementation_rule": "emit previous EWM state, then update with quantity at T",
+      "lag_days": null,
+      "minimum_prior_days": 1,
+      "name": "qty_ewm_mean_90",
+      "nullable": true,
+      "ordinal": 60,
+      "pre_shift_days": null,
+      "source_measure": "qty_venduta_dense",
+      "state_update_order": "emit_before_current_row_update",
+      "warmup_behavior": "null on first lifecycle row",
+      "window_days": null
+    }
+  ],
+  "fingerprint_algorithm": "sha256 of canonical UTF-8 JSON excluding contract_fingerprint",
+  "inputs": {
+    "family_day": {
+      "dataset": "dense_grids/family_day_dense_grid",
+      "grain": [
+        "data",
+        "famiglia"
+      ],
+      "lifecycle_policy": "first_seen_to_dataset_end",
+      "reference_schema": [
+        {
+          "column": "data",
+          "nullable": false,
+          "ordinal": 1,
+          "type": "date32[day]"
+        },
+        {
+          "column": "famiglia",
+          "nullable": false,
+          "ordinal": 2,
+          "type": "string"
+        },
+        {
+          "column": "is_observed_sale",
+          "nullable": false,
+          "ordinal": 3,
+          "type": "bool"
+        },
+        {
+          "column": "is_relevant_family",
+          "nullable": false,
+          "ordinal": 4,
+          "type": "bool"
+        },
+        {
+          "column": "is_within_family_lifecycle",
+          "nullable": false,
+          "ordinal": 5,
+          "type": "bool"
+        },
+        {
+          "column": "family_first_sale_date",
+          "nullable": false,
+          "ordinal": 6,
+          "type": "date32[day]"
+        },
+        {
+          "column": "family_last_sale_date",
+          "nullable": false,
+          "ordinal": 7,
+          "type": "date32[day]"
+        },
+        {
+          "column": "family_observed_day_count",
+          "nullable": false,
+          "ordinal": 8,
+          "type": "int64"
+        },
+        {
+          "column": "qty_venduta",
+          "nullable": true,
+          "ordinal": 9,
+          "type": "double"
+        },
+        {
+          "column": "imponibile_netto_tot",
+          "nullable": true,
+          "ordinal": 10,
+          "type": "double"
+        },
+        {
+          "column": "num_articoli",
+          "nullable": true,
+          "ordinal": 11,
+          "type": "int64"
+        },
+        {
+          "column": "qty_venduta_dense",
+          "nullable": false,
+          "ordinal": 12,
+          "type": "double"
+        },
+        {
+          "column": "imponibile_dense",
+          "nullable": false,
+          "ordinal": 13,
+          "type": "double"
+        },
+        {
+          "column": "num_articoli_dense",
+          "nullable": false,
+          "ordinal": 14,
+          "type": "int64"
+        },
+        {
+          "column": "priceband_count",
+          "nullable": true,
+          "ordinal": 15,
+          "type": "int64"
+        },
+        {
+          "column": "source_priceband_rows",
+          "nullable": true,
+          "ordinal": 16,
+          "type": "int64"
+        },
+        {
+          "column": "dense_scope",
+          "nullable": false,
+          "ordinal": 17,
+          "type": "string"
+        },
+        {
+          "column": "build_id",
+          "nullable": false,
+          "ordinal": 18,
+          "type": "string"
+        },
+        {
+          "column": "year",
+          "nullable": false,
+          "ordinal": 19,
+          "type": "int16"
+        },
+        {
+          "column": "month",
+          "nullable": false,
+          "ordinal": 20,
+          "type": "int8"
+        }
+      ],
+      "required_columns": {
+        "data": "date32[day]",
+        "famiglia": "string",
+        "imponibile_dense": "double",
+        "is_observed_sale": "bool",
+        "is_within_family_lifecycle": "bool",
+        "num_articoli_dense": "int64",
+        "qty_venduta_dense": "double"
+      }
+    },
+    "family_priceband_day": {
+      "dataset": "dense_grids/family_priceband_day_dense_grid",
+      "grain": [
+        "data",
+        "famiglia",
+        "fascia_prezzo_iva_inc"
+      ],
+      "lifecycle_policy": "first_seen_to_dataset_end",
+      "reference_schema": [
+        {
+          "column": "data",
+          "nullable": false,
+          "ordinal": 1,
+          "type": "date32[day]"
+        },
+        {
+          "column": "famiglia",
+          "nullable": false,
+          "ordinal": 2,
+          "type": "string"
+        },
+        {
+          "column": "fascia_prezzo_iva_inc",
+          "nullable": false,
+          "ordinal": 3,
+          "type": "string"
+        },
+        {
+          "column": "is_observed_sale",
+          "nullable": false,
+          "ordinal": 4,
+          "type": "bool"
+        },
+        {
+          "column": "is_relevant_family",
+          "nullable": false,
+          "ordinal": 5,
+          "type": "bool"
+        },
+        {
+          "column": "is_relevant_family_priceband",
+          "nullable": false,
+          "ordinal": 6,
+          "type": "bool"
+        },
+        {
+          "column": "is_within_pair_lifecycle",
+          "nullable": false,
+          "ordinal": 7,
+          "type": "bool"
+        },
+        {
+          "column": "pair_first_sale_date",
+          "nullable": false,
+          "ordinal": 8,
+          "type": "date32[day]"
+        },
+        {
+          "column": "pair_last_sale_date",
+          "nullable": false,
+          "ordinal": 9,
+          "type": "date32[day]"
+        },
+        {
+          "column": "pair_observed_day_count",
+          "nullable": false,
+          "ordinal": 10,
+          "type": "int64"
+        },
+        {
+          "column": "qty_venduta",
+          "nullable": true,
+          "ordinal": 11,
+          "type": "double"
+        },
+        {
+          "column": "imponibile_netto_tot",
+          "nullable": true,
+          "ordinal": 12,
+          "type": "double"
+        },
+        {
+          "column": "num_articoli",
+          "nullable": true,
+          "ordinal": 13,
+          "type": "int64"
+        },
+        {
+          "column": "qty_venduta_dense",
+          "nullable": false,
+          "ordinal": 14,
+          "type": "double"
+        },
+        {
+          "column": "imponibile_dense",
+          "nullable": false,
+          "ordinal": 15,
+          "type": "double"
+        },
+        {
+          "column": "num_articoli_dense",
+          "nullable": false,
+          "ordinal": 16,
+          "type": "int64"
+        },
+        {
+          "column": "dense_scope",
+          "nullable": false,
+          "ordinal": 17,
+          "type": "string"
+        },
+        {
+          "column": "build_id",
+          "nullable": false,
+          "ordinal": 18,
+          "type": "string"
+        },
+        {
+          "column": "year",
+          "nullable": false,
+          "ordinal": 19,
+          "type": "int16"
+        },
+        {
+          "column": "month",
+          "nullable": false,
+          "ordinal": 20,
+          "type": "int8"
+        }
+      ],
+      "required_columns": {
+        "data": "date32[day]",
+        "famiglia": "string",
+        "fascia_prezzo_iva_inc": "string",
+        "imponibile_dense": "double",
+        "is_observed_sale": "bool",
+        "is_within_pair_lifecycle": "bool",
+        "num_articoli_dense": "int64",
+        "qty_venduta_dense": "double"
+      }
+    }
+  },
+  "leakage": {
+    "current_day_dense_measure_output_allowed": false,
+    "full_dataset_future_summary_features_allowed": false,
+    "prohibited_calculation_inputs": [
+      "observed rolling features",
+      "future supervised targets",
+      "calendar feature blocks",
+      "weather feature blocks",
+      "product feature blocks",
+      "family-level context copied into priceband"
+    ],
+    "prohibited_output_columns": [
+      "qty_venduta",
+      "qty_venduta_dense",
+      "imponibile_netto_tot",
+      "imponibile_dense",
+      "num_articoli",
+      "num_articoli_dense",
+      "family_last_sale_date",
+      "pair_last_sale_date",
+      "family_observed_day_count",
+      "pair_observed_day_count"
+    ]
+  },
+  "metadata_contract": {
+    "dataset_metadata_files": [
+      "manifest.json",
+      "schema.json",
+      "schema_fingerprint.json",
+      "build_stats.json",
+      "validation.json"
+    ],
+    "metadata_path_layout": {
+      "family_dataset": "<run-root>/feature_blocks/dense_sales_family_features",
+      "family_day": "<run-root>/metadata/dense_sales_family_features",
+      "family_priceband_dataset": "<run-root>/feature_blocks/dense_sales_family_priceband_features",
+      "family_priceband_day": "<run-root>/metadata/dense_sales_family_priceband_features",
+      "run": "<run-root>/metadata/run"
+    },
+    "required_fields": [
+      "builder_version",
+      "validator_version",
+      "contract_version",
+      "contract_fingerprint",
+      "source_run_id",
+      "build_id",
+      "started_at",
+      "completed_at",
+      "input_paths",
+      "input_schema_fingerprints",
+      "grain",
+      "partition_columns",
+      "sort_columns",
+      "row_count",
+      "column_count",
+      "date_min",
+      "date_max",
+      "compression",
+      "file_count",
+      "content_fingerprint"
+    ]
+  },
+  "outputs": {
+    "family_day": {
+      "column_count": 62,
+      "dataset": "feature_blocks/dense_sales_family_features",
+      "feature_count": 60,
+      "grain": [
+        "data",
+        "famiglia"
+      ],
+      "schema": [
+        {
+          "column": "data",
+          "nullable": false,
+          "ordinal": 1,
+          "role": "key",
+          "type": "date32[day]"
+        },
+        {
+          "column": "famiglia",
+          "nullable": false,
+          "ordinal": 2,
+          "role": "key",
+          "type": "string"
+        },
+        {
+          "column": "history_days_available",
+          "nullable": false,
+          "ordinal": 3,
+          "role": "causal_feature",
+          "type": "int32"
+        },
+        {
+          "column": "is_full_history_7",
+          "nullable": false,
+          "ordinal": 4,
+          "role": "causal_feature",
+          "type": "bool"
+        },
+        {
+          "column": "is_full_history_14",
+          "nullable": false,
+          "ordinal": 5,
+          "role": "causal_feature",
+          "type": "bool"
+        },
+        {
+          "column": "is_full_history_28",
+          "nullable": false,
+          "ordinal": 6,
+          "role": "causal_feature",
+          "type": "bool"
+        },
+        {
+          "column": "is_full_history_56",
+          "nullable": false,
+          "ordinal": 7,
+          "role": "causal_feature",
+          "type": "bool"
+        },
+        {
+          "column": "is_full_history_90",
+          "nullable": false,
+          "ordinal": 8,
+          "role": "causal_feature",
+          "type": "bool"
+        },
+        {
+          "column": "qty_lag_1",
+          "nullable": true,
+          "ordinal": 9,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_lag_7",
+          "nullable": true,
+          "ordinal": 10,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_lag_14",
+          "nullable": true,
+          "ordinal": 11,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_lag_28",
+          "nullable": true,
+          "ordinal": 12,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_7_sum",
+          "nullable": true,
+          "ordinal": 13,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_14_sum",
+          "nullable": true,
+          "ordinal": 14,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_28_sum",
+          "nullable": true,
+          "ordinal": 15,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_56_sum",
+          "nullable": true,
+          "ordinal": 16,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_90_sum",
+          "nullable": true,
+          "ordinal": 17,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_7_mean",
+          "nullable": true,
+          "ordinal": 18,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_14_mean",
+          "nullable": true,
+          "ordinal": 19,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_28_mean",
+          "nullable": true,
+          "ordinal": 20,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_56_mean",
+          "nullable": true,
+          "ordinal": 21,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_90_mean",
+          "nullable": true,
+          "ordinal": 22,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_28_std",
+          "nullable": true,
+          "ordinal": 23,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_56_std",
+          "nullable": true,
+          "ordinal": 24,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_90_std",
+          "nullable": true,
+          "ordinal": 25,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "sale_day_count_7",
+          "nullable": true,
+          "ordinal": 26,
+          "role": "causal_feature",
+          "type": "int32"
+        },
+        {
+          "column": "sale_day_count_28",
+          "nullable": true,
+          "ordinal": 27,
+          "role": "causal_feature",
+          "type": "int32"
+        },
+        {
+          "column": "sale_day_count_90",
+          "nullable": true,
+          "ordinal": 28,
+          "role": "causal_feature",
+          "type": "int32"
+        },
+        {
+          "column": "sale_day_share_7",
+          "nullable": true,
+          "ordinal": 29,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "sale_day_share_28",
+          "nullable": true,
+          "ordinal": 30,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "sale_day_share_90",
+          "nullable": true,
+          "ordinal": 31,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "days_since_last_positive_sale",
+          "nullable": true,
+          "ordinal": 32,
+          "role": "causal_feature",
+          "type": "int32"
+        },
+        {
+          "column": "days_since_first_positive_sale",
+          "nullable": true,
+          "ordinal": 33,
+          "role": "causal_feature",
+          "type": "int32"
+        },
+        {
+          "column": "zero_sales_streak",
+          "nullable": true,
+          "ordinal": 34,
+          "role": "causal_feature",
+          "type": "int32"
+        },
+        {
+          "column": "qty_mean_delta_7_28",
+          "nullable": true,
+          "ordinal": 35,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_mean_delta_28_90",
+          "nullable": true,
+          "ordinal": 36,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "revenue_lag_1",
+          "nullable": true,
+          "ordinal": 37,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "revenue_lag_7",
+          "nullable": true,
+          "ordinal": 38,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "revenue_lag_28",
+          "nullable": true,
+          "ordinal": 39,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "revenue_roll_28_sum",
+          "nullable": true,
+          "ordinal": 40,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "revenue_roll_28_mean",
+          "nullable": true,
+          "ordinal": 41,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "article_count_lag_1",
+          "nullable": true,
+          "ordinal": 42,
+          "role": "causal_feature",
+          "type": "int64"
+        },
+        {
+          "column": "article_count_lag_7",
+          "nullable": true,
+          "ordinal": 43,
+          "role": "causal_feature",
+          "type": "int64"
+        },
+        {
+          "column": "article_count_lag_28",
+          "nullable": true,
+          "ordinal": 44,
+          "role": "causal_feature",
+          "type": "int64"
+        },
+        {
+          "column": "article_count_roll_28_sum",
+          "nullable": true,
+          "ordinal": 45,
+          "role": "causal_feature",
+          "type": "int64"
+        },
+        {
+          "column": "article_count_roll_28_mean",
+          "nullable": true,
+          "ordinal": 46,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_lag_56",
+          "nullable": true,
+          "ordinal": 47,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_lag_90",
+          "nullable": true,
+          "ordinal": 48,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_lag_364",
+          "nullable": true,
+          "ordinal": 49,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_lag_371",
+          "nullable": true,
+          "ordinal": 50,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_28_max",
+          "nullable": true,
+          "ordinal": 51,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_90_max",
+          "nullable": true,
+          "ordinal": 52,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_nonzero_mean_28",
+          "nullable": true,
+          "ordinal": 53,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_nonzero_mean_90",
+          "nullable": true,
+          "ordinal": 54,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_nonzero_std_90",
+          "nullable": true,
+          "ordinal": 55,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "last_inter_sale_gap_days",
+          "nullable": true,
+          "ordinal": 56,
+          "role": "causal_feature",
+          "type": "int32"
+        },
+        {
+          "column": "mean_inter_sale_gap_90",
+          "nullable": true,
+          "ordinal": 57,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "max_zero_sales_streak_90",
+          "nullable": true,
+          "ordinal": 58,
+          "role": "causal_feature",
+          "type": "int32"
+        },
+        {
+          "column": "positive_qty_cv2_90",
+          "nullable": true,
+          "ordinal": 59,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_ewm_mean_7",
+          "nullable": true,
+          "ordinal": 60,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_ewm_mean_28",
+          "nullable": true,
+          "ordinal": 61,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_ewm_mean_90",
+          "nullable": true,
+          "ordinal": 62,
+          "role": "causal_feature",
+          "type": "float64"
+        }
+      ],
+      "sort_columns": [
+        "data",
+        "famiglia"
+      ]
+    },
+    "family_priceband_day": {
+      "column_count": 63,
+      "dataset": "feature_blocks/dense_sales_family_priceband_features",
+      "feature_count": 60,
+      "grain": [
+        "data",
+        "famiglia",
+        "fascia_prezzo_iva_inc"
+      ],
+      "schema": [
+        {
+          "column": "data",
+          "nullable": false,
+          "ordinal": 1,
+          "role": "key",
+          "type": "date32[day]"
+        },
+        {
+          "column": "famiglia",
+          "nullable": false,
+          "ordinal": 2,
+          "role": "key",
+          "type": "string"
+        },
+        {
+          "column": "fascia_prezzo_iva_inc",
+          "nullable": false,
+          "ordinal": 3,
+          "role": "key",
+          "type": "string"
+        },
+        {
+          "column": "history_days_available",
+          "nullable": false,
+          "ordinal": 4,
+          "role": "causal_feature",
+          "type": "int32"
+        },
+        {
+          "column": "is_full_history_7",
+          "nullable": false,
+          "ordinal": 5,
+          "role": "causal_feature",
+          "type": "bool"
+        },
+        {
+          "column": "is_full_history_14",
+          "nullable": false,
+          "ordinal": 6,
+          "role": "causal_feature",
+          "type": "bool"
+        },
+        {
+          "column": "is_full_history_28",
+          "nullable": false,
+          "ordinal": 7,
+          "role": "causal_feature",
+          "type": "bool"
+        },
+        {
+          "column": "is_full_history_56",
+          "nullable": false,
+          "ordinal": 8,
+          "role": "causal_feature",
+          "type": "bool"
+        },
+        {
+          "column": "is_full_history_90",
+          "nullable": false,
+          "ordinal": 9,
+          "role": "causal_feature",
+          "type": "bool"
+        },
+        {
+          "column": "qty_lag_1",
+          "nullable": true,
+          "ordinal": 10,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_lag_7",
+          "nullable": true,
+          "ordinal": 11,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_lag_14",
+          "nullable": true,
+          "ordinal": 12,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_lag_28",
+          "nullable": true,
+          "ordinal": 13,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_7_sum",
+          "nullable": true,
+          "ordinal": 14,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_14_sum",
+          "nullable": true,
+          "ordinal": 15,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_28_sum",
+          "nullable": true,
+          "ordinal": 16,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_56_sum",
+          "nullable": true,
+          "ordinal": 17,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_90_sum",
+          "nullable": true,
+          "ordinal": 18,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_7_mean",
+          "nullable": true,
+          "ordinal": 19,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_14_mean",
+          "nullable": true,
+          "ordinal": 20,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_28_mean",
+          "nullable": true,
+          "ordinal": 21,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_56_mean",
+          "nullable": true,
+          "ordinal": 22,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_90_mean",
+          "nullable": true,
+          "ordinal": 23,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_28_std",
+          "nullable": true,
+          "ordinal": 24,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_56_std",
+          "nullable": true,
+          "ordinal": 25,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_90_std",
+          "nullable": true,
+          "ordinal": 26,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "sale_day_count_7",
+          "nullable": true,
+          "ordinal": 27,
+          "role": "causal_feature",
+          "type": "int32"
+        },
+        {
+          "column": "sale_day_count_28",
+          "nullable": true,
+          "ordinal": 28,
+          "role": "causal_feature",
+          "type": "int32"
+        },
+        {
+          "column": "sale_day_count_90",
+          "nullable": true,
+          "ordinal": 29,
+          "role": "causal_feature",
+          "type": "int32"
+        },
+        {
+          "column": "sale_day_share_7",
+          "nullable": true,
+          "ordinal": 30,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "sale_day_share_28",
+          "nullable": true,
+          "ordinal": 31,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "sale_day_share_90",
+          "nullable": true,
+          "ordinal": 32,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "days_since_last_positive_sale",
+          "nullable": true,
+          "ordinal": 33,
+          "role": "causal_feature",
+          "type": "int32"
+        },
+        {
+          "column": "days_since_first_positive_sale",
+          "nullable": true,
+          "ordinal": 34,
+          "role": "causal_feature",
+          "type": "int32"
+        },
+        {
+          "column": "zero_sales_streak",
+          "nullable": true,
+          "ordinal": 35,
+          "role": "causal_feature",
+          "type": "int32"
+        },
+        {
+          "column": "qty_mean_delta_7_28",
+          "nullable": true,
+          "ordinal": 36,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_mean_delta_28_90",
+          "nullable": true,
+          "ordinal": 37,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "revenue_lag_1",
+          "nullable": true,
+          "ordinal": 38,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "revenue_lag_7",
+          "nullable": true,
+          "ordinal": 39,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "revenue_lag_28",
+          "nullable": true,
+          "ordinal": 40,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "revenue_roll_28_sum",
+          "nullable": true,
+          "ordinal": 41,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "revenue_roll_28_mean",
+          "nullable": true,
+          "ordinal": 42,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "article_count_lag_1",
+          "nullable": true,
+          "ordinal": 43,
+          "role": "causal_feature",
+          "type": "int64"
+        },
+        {
+          "column": "article_count_lag_7",
+          "nullable": true,
+          "ordinal": 44,
+          "role": "causal_feature",
+          "type": "int64"
+        },
+        {
+          "column": "article_count_lag_28",
+          "nullable": true,
+          "ordinal": 45,
+          "role": "causal_feature",
+          "type": "int64"
+        },
+        {
+          "column": "article_count_roll_28_sum",
+          "nullable": true,
+          "ordinal": 46,
+          "role": "causal_feature",
+          "type": "int64"
+        },
+        {
+          "column": "article_count_roll_28_mean",
+          "nullable": true,
+          "ordinal": 47,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_lag_56",
+          "nullable": true,
+          "ordinal": 48,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_lag_90",
+          "nullable": true,
+          "ordinal": 49,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_lag_364",
+          "nullable": true,
+          "ordinal": 50,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_lag_371",
+          "nullable": true,
+          "ordinal": 51,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_28_max",
+          "nullable": true,
+          "ordinal": 52,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_roll_90_max",
+          "nullable": true,
+          "ordinal": 53,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_nonzero_mean_28",
+          "nullable": true,
+          "ordinal": 54,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_nonzero_mean_90",
+          "nullable": true,
+          "ordinal": 55,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_nonzero_std_90",
+          "nullable": true,
+          "ordinal": 56,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "last_inter_sale_gap_days",
+          "nullable": true,
+          "ordinal": 57,
+          "role": "causal_feature",
+          "type": "int32"
+        },
+        {
+          "column": "mean_inter_sale_gap_90",
+          "nullable": true,
+          "ordinal": 58,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "max_zero_sales_streak_90",
+          "nullable": true,
+          "ordinal": 59,
+          "role": "causal_feature",
+          "type": "int32"
+        },
+        {
+          "column": "positive_qty_cv2_90",
+          "nullable": true,
+          "ordinal": 60,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_ewm_mean_7",
+          "nullable": true,
+          "ordinal": 61,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_ewm_mean_28",
+          "nullable": true,
+          "ordinal": 62,
+          "role": "causal_feature",
+          "type": "float64"
+        },
+        {
+          "column": "qty_ewm_mean_90",
+          "nullable": true,
+          "ordinal": 63,
+          "role": "causal_feature",
+          "type": "float64"
+        }
+      ],
+      "sort_columns": [
+        "data",
+        "famiglia",
+        "fascia_prezzo_iva_inc"
+      ]
+    },
+    "runtime_key_policy": "exactly preserve each source grain key set",
+    "runtime_row_count_policy": "exactly preserve each source grain row count"
+  },
+  "phase": "2M-F2",
+  "plan_revision": "enhanced_60_feature_freeze_v1_static_patch1",
+  "planning_evidence": {
+    "artifact_sha256": {
+      "causal_operator_contract.md": "1585a7131b0120403f0b74f71567db1aa1df8148174165edf3ebc4cfcaf9b0f8",
+      "dense_sales_family_output_schema_v2.csv": "883de68ba78722f8cfda9e62951fb79bf31a5e9c826f03eae66d5d78acedb807",
+      "dense_sales_family_priceband_output_schema_v2.csv": "eadf6c3450454b34e5c76eed8ed6cab1f32c9000caa91fc1ba126caa330ea734",
+      "enhanced_corruption_case_matrix.csv": "cb4d28db1c857de09179d1a2b8de4aa9bf44a4b0a204fa9ee6a95e182839d81b",
+      "enhanced_synthetic_case_matrix.csv": "e422243a49c249f1267bb6c6be972d4fdad75a57b92c7023bc0409f1aa5f8936",
+      "enhanced_validation_matrix.csv": "8b0fbb8c8218a1a7a5aad648d35cdf23da4c5bb9cec036d13876fdcff8b80d3f",
+      "execution_and_memory_contract.md": "666bbda5092833b129d6215dbb53e1974fbdf30b7951c8f5cda08d80733c3c26",
+      "frozen_60_feature_registry.csv": "c15839cb68174d0f131d8d3ec68be2418392b63e2022fb052b260e3b29407e9a",
+      "phase2m_f2_enhanced_executable_plan.json": "5395b64adf95fa97d63c257dfb046f16defcefba2ebe9e87982f44567fb157cd",
+      "phase2m_f2_enhanced_plan_freeze_decision.txt": "5a0379ab0a800942b2c464512588dbee780703b86f3935811aa2d9eadb226718",
+      "runtime_portability_contract.md": "f0c4acc9fc5e01412c70618a7afe665b1d14646a84de3ea6e0aee9ff3a1464c8"
+    },
+    "semantic_evidence_sha256": {
+      "causal_operator_contract.md": "1585a7131b0120403f0b74f71567db1aa1df8148174165edf3ebc4cfcaf9b0f8",
+      "execution_and_memory_contract.md": "666bbda5092833b129d6215dbb53e1974fbdf30b7951c8f5cda08d80733c3c26",
+      "runtime_portability_contract.md": "f0c4acc9fc5e01412c70618a7afe665b1d14646a84de3ea6e0aee9ff3a1464c8"
+    }
+  },
+  "reference_baseline": {
+    "date_max": "2026-07-09",
+    "date_min": "2009-01-02",
+    "dense_scope": "first_seen_to_dataset_end",
+    "family_priceband_row_count": 14059542,
+    "family_priceband_schema_fingerprint": "fc3f2d3e4d5aeab927d5cd77098a841f98b85ca43636c2ef53856d375a456bb8",
+    "family_row_count": 4402758,
+    "family_schema_fingerprint": "4e753af75d575d8e8dee8603dc417c5dfd0d3abd779f9508c3c340be6761e4c7",
+    "monthly_partition_count": 211,
+    "run_id": "gb_phase2m_b2_dense_grids_first_seen_to_dataset_end_20260713_230659_1588189"
+  },
+  "runtime_compatibility": {
+    "accepted_schema_fingerprints": {
+      "family_day": "4e753af75d575d8e8dee8603dc417c5dfd0d3abd779f9508c3c340be6761e4c7",
+      "family_priceband_day": "fc3f2d3e4d5aeab927d5cd77098a841f98b85ca43636c2ef53856d375a456bb8"
+    },
+    "alternate_schema_activation_policy": "contract_revision_required",
+    "alternate_schema_requires_explicit_versioned_compatibility": true,
+    "date_coverage_rule": "output date coverage equals runtime input coverage",
+    "key_set_rule": "output key set equals runtime input key set",
+    "partition_rule": "output monthly coverage equals runtime input coverage",
+    "portable_across_compatible_b2_runs": true,
+    "reference_fingerprint_preferred": true,
+    "row_count_rule": "output row count equals runtime input row count",
+    "source_run_id_is_universal_constant": false
+  },
+  "safety": {
+    "build_global_update_allowed": false,
+    "candidate_and_final_same_filesystem_required": true,
+    "cross_tenant_paths_allowed": false,
+    "database_access_allowed": false,
+    "database_write_allowed": false,
+    "latest_pointer_update_allowed": false,
+    "observed_pipeline_must_remain_unchanged": true,
+    "source_parquet_mutation_allowed": false
+  },
+  "status": "frozen_for_builder_implementation",
+  "validation": {
+    "checks": [
+      {
+        "area": "input",
+        "check": "reference fixture metadata matches validated B2 evidence",
+        "check_id": "V01",
+        "severity": "blocker"
+      },
+      {
+        "area": "input",
+        "check": "required runtime source columns and types exist",
+        "check_id": "V02",
+        "severity": "blocker"
+      },
+      {
+        "area": "input",
+        "check": "runtime grain keys are unique",
+        "check_id": "V03",
+        "severity": "blocker"
+      },
+      {
+        "area": "input",
+        "check": "runtime source partitions are chronologically complete",
+        "check_id": "V04",
+        "severity": "blocker"
+      },
+      {
+        "area": "rows",
+        "check": "output row count equals runtime input row count",
+        "check_id": "V05",
+        "severity": "blocker"
+      },
+      {
+        "area": "keys",
+        "check": "output key set exactly equals runtime input key set",
+        "check_id": "V06",
+        "severity": "blocker"
+      },
+      {
+        "area": "ordering",
+        "check": "each output file uses canonical logical order",
+        "check_id": "V07",
+        "severity": "blocker"
+      },
+      {
+        "area": "format",
+        "check": "all output files are Parquet ZSTD",
+        "check_id": "V08",
+        "severity": "blocker"
+      },
+      {
+        "area": "format",
+        "check": "one file exists per grain and runtime month",
+        "check_id": "V09",
+        "severity": "blocker"
+      },
+      {
+        "area": "causality",
+        "check": "direct lag uses shift K without extra pre-shift",
+        "check_id": "V10",
+        "severity": "blocker"
+      },
+      {
+        "area": "causality",
+        "check": "rolling windows cover T-W through T-1",
+        "check_id": "V11",
+        "severity": "blocker"
+      },
+      {
+        "area": "causality",
+        "check": "current-day source values never affect row T",
+        "check_id": "V12",
+        "severity": "blocker"
+      },
+      {
+        "area": "seasonality",
+        "check": "lags 364 and 371 cross year and leap boundaries",
+        "check_id": "V13",
+        "severity": "blocker"
+      },
+      {
+        "area": "warmup",
+        "check": "partial-history and null rules match frozen registry",
+        "check_id": "V14",
+        "severity": "blocker"
+      },
+      {
+        "area": "history",
+        "check": "history-days and full-history flags are exact",
+        "check_id": "V15",
+        "severity": "blocker"
+      },
+      {
+        "area": "frequency",
+        "check": "sale-day counts include only prior positive-sale days",
+        "check_id": "V16",
+        "severity": "blocker"
+      },
+      {
+        "area": "frequency",
+        "check": "sale-day shares use available prior-day denominator",
+        "check_id": "V17",
+        "severity": "blocker"
+      },
+      {
+        "area": "positive demand",
+        "check": "nonzero statistics exclude zero and negative values",
+        "check_id": "V18",
+        "severity": "blocker"
+      },
+      {
+        "area": "positive demand",
+        "check": "positive quantity std uses ddof zero",
+        "check_id": "V19",
+        "severity": "blocker"
+      },
+      {
+        "area": "intermittency",
+        "check": "last inter-sale gap uses two prior sales only",
+        "check_id": "V20",
+        "severity": "blocker"
+      },
+      {
+        "area": "intermittency",
+        "check": "mean 90-day inter-sale gap uses prior event endings",
+        "check_id": "V21",
+        "severity": "blocker"
+      },
+      {
+        "area": "intermittency",
+        "check": "maximum zero streak excludes current-day quantity",
+        "check_id": "V22",
+        "severity": "blocker"
+      },
+      {
+        "area": "intermittency",
+        "check": "positive quantity CV squared is causally derived",
+        "check_id": "V23",
+        "severity": "blocker"
+      },
+      {
+        "area": "ewm",
+        "check": "EWM state is emitted before current-row update",
+        "check_id": "V24",
+        "severity": "blocker"
+      },
+      {
+        "area": "recency",
+        "check": "sale at T cannot reset recency at T",
+        "check_id": "V25",
+        "severity": "blocker"
+      },
+      {
+        "area": "negative quantities",
+        "check": "returns remain numeric but are not sale events",
+        "check_id": "V26",
+        "severity": "blocker"
+      },
+      {
+        "area": "typing",
+        "check": "nullable integer features retain integer Arrow types",
+        "check_id": "V27",
+        "severity": "blocker"
+      },
+      {
+        "area": "isolation",
+        "check": "family state never crosses family keys",
+        "check_id": "V28",
+        "severity": "blocker"
+      },
+      {
+        "area": "isolation",
+        "check": "pair state never crosses family-priceband keys",
+        "check_id": "V29",
+        "severity": "blocker"
+      },
+      {
+        "area": "boundaries",
+        "check": "monthly first rows use prior-partition state",
+        "check_id": "V30",
+        "severity": "blocker"
+      },
+      {
+        "area": "leakage",
+        "check": "current dense measures are absent from output schemas",
+        "check_id": "V31",
+        "severity": "blocker"
+      },
+      {
+        "area": "leakage",
+        "check": "full-dataset future summaries are absent",
+        "check_id": "V32",
+        "severity": "blocker"
+      },
+      {
+        "area": "scope",
+        "check": "priceband output contains no copied family-level context",
+        "check_id": "V33",
+        "severity": "blocker"
+      },
+      {
+        "area": "metadata",
+        "check": "schema and content fingerprints are recorded",
+        "check_id": "V34",
+        "severity": "blocker"
+      },
+      {
+        "area": "safety",
+        "check": "candidate and final paths remain tenant-local",
+        "check_id": "V35",
+        "severity": "blocker"
+      },
+      {
+        "area": "safety",
+        "check": "no database writes or source mutations occur",
+        "check_id": "V36",
+        "severity": "blocker"
+      },
+      {
+        "area": "atomicity",
+        "check": "failed validation cannot expose a final run",
+        "check_id": "V37",
+        "severity": "blocker"
+      },
+      {
+        "area": "memory",
+        "check": "OOM kill counter does not increase",
+        "check_id": "V38",
+        "severity": "blocker"
+      },
+      {
+        "area": "regression",
+        "check": "observed R3A-R3D2 pipeline remains unchanged",
+        "check_id": "V39",
+        "severity": "blocker"
+      },
+      {
+        "area": "comparison",
+        "check": "observed versus dense report remains diagnostic only",
+        "check_id": "V40",
+        "severity": "blocker"
+      }
+    ],
+    "combined_decision_required": true,
+    "combined_success_decision": "PHASE2M_F2_DENSE_SALES_VALIDATION_OK",
+    "corruption_cases": [
+      {
+        "case_id": "C01",
+        "corruption": "duplicate output key",
+        "validator_result": "reject"
+      },
+      {
+        "case_id": "C02",
+        "corruption": "output row removed",
+        "validator_result": "reject"
+      },
+      {
+        "case_id": "C03",
+        "corruption": "unexpected output key added",
+        "validator_result": "reject"
+      },
+      {
+        "case_id": "C04",
+        "corruption": "direct lag shifted twice",
+        "validator_result": "reject"
+      },
+      {
+        "case_id": "C05",
+        "corruption": "rolling window includes current day",
+        "validator_result": "reject"
+      },
+      {
+        "case_id": "C06",
+        "corruption": "364-day lag replaced by 365-day lag",
+        "validator_result": "reject"
+      },
+      {
+        "case_id": "C07",
+        "corruption": "incorrect leap-day boundary state",
+        "validator_result": "reject"
+      },
+      {
+        "case_id": "C08",
+        "corruption": "wrong partial-history denominator",
+        "validator_result": "reject"
+      },
+      {
+        "case_id": "C09",
+        "corruption": "zero included in nonzero mean",
+        "validator_result": "reject"
+      },
+      {
+        "case_id": "C10",
+        "corruption": "negative quantity counted as positive sale",
+        "validator_result": "reject"
+      },
+      {
+        "case_id": "C11",
+        "corruption": "inter-sale gap uses current-day sale",
+        "validator_result": "reject"
+      },
+      {
+        "case_id": "C12",
+        "corruption": "maximum zero streak uses current day",
+        "validator_result": "reject"
+      },
+      {
+        "case_id": "C13",
+        "corruption": "EWM updated before current feature emission",
+        "validator_result": "reject"
+      },
+      {
+        "case_id": "C14",
+        "corruption": "article-count lag written as floating type",
+        "validator_result": "reject"
+      },
+      {
+        "case_id": "C15",
+        "corruption": "missing monthly partition",
+        "validator_result": "reject"
+      },
+      {
+        "case_id": "C16",
+        "corruption": "non-ZSTD output file",
+        "validator_result": "reject"
+      },
+      {
+        "case_id": "C17",
+        "corruption": "prohibited current dense measure added",
+        "validator_result": "reject"
+      },
+      {
+        "case_id": "C18",
+        "corruption": "family state leaks across keys",
+        "validator_result": "reject"
+      },
+      {
+        "case_id": "C19",
+        "corruption": "priceband state leaks across pairs",
+        "validator_result": "reject"
+      },
+      {
+        "case_id": "C20",
+        "corruption": "candidate path escapes output root",
+        "validator_result": "reject"
+      }
+    ],
+    "family_priceband_success_decision": "PHASE2M_F2_DENSE_SALES_FAMILY_PRICEBAND_VALIDATION_OK",
+    "family_success_decision": "PHASE2M_F2_DENSE_SALES_FAMILY_VALIDATION_OK",
+    "separate_grain_decisions_required": true,
+    "synthetic_cases": [
+      {
+        "case": "all-zero lifecycle",
+        "case_id": "S01",
+        "expected": "zero rollings and no positive-sale state"
+      },
+      {
+        "case": "single sale then zeros",
+        "case_id": "S02",
+        "expected": "recency and streak advance causally"
+      },
+      {
+        "case": "alternating sales and zeros",
+        "case_id": "S03",
+        "expected": "frequency and streak exact"
+      },
+      {
+        "case": "negative return day",
+        "case_id": "S04",
+        "expected": "numeric return retained but not a sale event"
+      },
+      {
+        "case": "lifecycle starts mid-month",
+        "case_id": "S05",
+        "expected": "no fabricated pre-lifecycle history"
+      },
+      {
+        "case": "month boundary",
+        "case_id": "S06",
+        "expected": "lags and rolling state cross partitions"
+      },
+      {
+        "case": "year boundary",
+        "case_id": "S07",
+        "expected": "December state is available in January"
+      },
+      {
+        "case": "leap day",
+        "case_id": "S08",
+        "expected": "calendar-dense history remains continuous"
+      },
+      {
+        "case": "two families",
+        "case_id": "S09",
+        "expected": "entity states remain isolated"
+      },
+      {
+        "case": "two pricebands",
+        "case_id": "S10",
+        "expected": "pair states remain isolated"
+      },
+      {
+        "case": "partial history",
+        "case_id": "S11",
+        "expected": "warmup flags and denominators are exact"
+      },
+      {
+        "case": "current-day sale",
+        "case_id": "S12",
+        "expected": "sale at T excluded from features at T"
+      },
+      {
+        "case": "lag 56",
+        "case_id": "S13",
+        "expected": "direct lag returns exactly T-56"
+      },
+      {
+        "case": "lag 90",
+        "case_id": "S14",
+        "expected": "direct lag returns exactly T-90"
+      },
+      {
+        "case": "lag 364",
+        "case_id": "S15",
+        "expected": "52-week same-weekday lag is exact"
+      },
+      {
+        "case": "lag 371",
+        "case_id": "S16",
+        "expected": "53-week same-weekday lag is exact"
+      },
+      {
+        "case": "positive demand size",
+        "case_id": "S17",
+        "expected": "zero days excluded from nonzero means"
+      },
+      {
+        "case": "inter-sale gaps",
+        "case_id": "S18",
+        "expected": "prior gaps and 90-day gap mean are exact"
+      },
+      {
+        "case": "maximum zero streak",
+        "case_id": "S19",
+        "expected": "windowed maximum excludes current T"
+      },
+      {
+        "case": "EWM state",
+        "case_id": "S20",
+        "expected": "prior EWM emitted before update at T"
+      }
+    ],
+    "validate_only_invocation_policy": "builder_delegates_to_independent_validator",
+    "validator_may_import_builder_calculation_functions": false
+  },
+  "warmup": {
+    "feature_specific_rules_are_in_registry": true,
+    "global_warmup_days": null,
+    "history_flags": [
+      7,
+      14,
+      28,
+      56,
+      90
+    ],
+    "partial_history_allowed": true,
+    "pre_lifecycle_missing_history_zero_filled": false
+  }
+}
