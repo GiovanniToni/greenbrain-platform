@@ -4,8 +4,11 @@ from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable
+import hashlib
 import json
+import os
 import shutil
+import uuid
 
 import pandas as pd
 
@@ -178,6 +181,8 @@ def _write_manifest(
     *,
     config: R3BTransformConfig,
     run_dir: Path,
+    input_run_dir: Path | None = None,
+    transaction_id: str | None = None,
     manifest_path: Path,
     source_start: date,
     output_start: date,
@@ -187,6 +192,11 @@ def _write_manifest(
 ) -> R3BTransformResult:
     outputs_tuple = tuple(outputs)
     issues_tuple = tuple(issues)
+    effective_input_root = (
+        Path(input_run_dir)
+        if input_run_dir is not None
+        else run_dir
+    )
     if config.execute:
         ok = not issues_tuple and all(output.status == "ok" for output in outputs_tuple)
     else:
@@ -221,7 +231,7 @@ def _write_manifest(
             "lookback_days": config.lookback_days,
         },
         "inputs": {
-            "raw_extracts_dir": str(run_dir / "raw_extracts"),
+            "raw_extracts_dir": str(effective_input_root / "raw_extracts"),
             "required_raw_datasets": list(REQUIRED_RAW_DATASETS),
         },
         "outputs": [output.to_dict() for output in outputs_tuple],
@@ -229,13 +239,14 @@ def _write_manifest(
         "issues": list(issues_tuple),
         "safety": result.safety,
         "manifest_path": str(manifest_path),
+        "transaction": (
+            {"transaction_id": transaction_id}
+            if transaction_id is not None
+            else None
+        ),
     }
 
-    manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_path.write_text(
-        json.dumps(_json_safe(manifest), indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    _atomic_write_json(manifest_path, manifest)
 
     return result
 
@@ -294,25 +305,78 @@ def _filter_by_date(df: pd.DataFrame, column: str, start: date, end: date) -> pd
     return out
 
 
-def _write_partitioned_parquet(df: pd.DataFrame, output_dir: Path, max_rows_per_file: int = 50_000) -> int:
+def _write_partitioned_parquet(
+    df: pd.DataFrame,
+    output_dir: Path,
+    max_rows_per_file: int = 50_000,
+) -> int:
+    output_dir = Path(output_dir)
+    parent_dir = output_dir.parent
+
+    if output_dir.name not in OUTPUT_DATASETS:
+        raise ValueError(
+            "refusing unowned R3B output directory: "
+            f"{output_dir}"
+        )
+
+    if parent_dir.is_symlink():
+        raise ValueError(
+            "refusing R3B output under symlink parent: "
+            f"{parent_dir}"
+        )
+
+    parent_dir.mkdir(parents=True, exist_ok=True)
+
+    if parent_dir.is_symlink():
+        raise ValueError(
+            "R3B output parent became a symlink: "
+            f"{parent_dir}"
+        )
+
+    if output_dir.is_symlink():
+        raise ValueError(
+            "refusing symlink R3B output directory: "
+            f"{output_dir}"
+        )
+
     if output_dir.exists():
-        shutil.rmtree(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+        raise FileExistsError(
+            "refusing to overwrite existing R3B output "
+            f"directory: {output_dir}"
+        )
 
-    if df.empty:
-        return 0
+    output_dir.mkdir(mode=0o700)
 
-    part_count = 0
-    for start in range(0, len(df), max_rows_per_file):
-        chunk = df.iloc[start : start + max_rows_per_file].copy()
-        part_path = output_dir / f"part-{part_count:05d}.parquet"
-        chunk.to_parquet(part_path, index=False)
-        part_count += 1
+    try:
+        if df.empty:
+            return 0
 
-    return part_count
+        part_count = 0
+        for start in range(0, len(df), max_rows_per_file):
+            part = df.iloc[start : start + max_rows_per_file]
+            part_path = output_dir / f"part-{part_count:05d}.parquet"
+            part.to_parquet(part_path, index=False)
+            part_count += 1
+
+        return part_count
+    except Exception:
+        if (
+            output_dir.exists()
+            and not output_dir.is_symlink()
+            and output_dir.parent == parent_dir
+        ):
+            shutil.rmtree(output_dir)
+        raise
 
 
-def _build_family_priceband_day(run_dir: Path, source_start: date, output_start: date, output_end: date) -> R3BOutputResult:
+
+def _build_family_priceband_day(
+    run_dir: Path,
+    output_root: Path,
+    source_start: date,
+    output_start: date,
+    output_end: date,
+) -> R3BOutputResult:
     sales = _read_parquet_dataset(run_dir, "sales_family_daily_fact")
     products = _read_parquet_dataset(run_dir, "products_normalized")
 
@@ -330,7 +394,7 @@ def _build_family_priceband_day(run_dir: Path, source_start: date, output_start:
             name="family_priceband_day",
             status="error",
             input_datasets=("sales_family_daily_fact", "products_normalized"),
-            output_path=str(run_dir / "family_priceband_day"),
+            output_path=str(output_root / "family_priceband_day"),
             issues=(f"missing sales columns: {','.join(missing_sales)}",),
         )
 
@@ -365,7 +429,7 @@ def _build_family_priceband_day(run_dir: Path, source_start: date, output_start:
     out["r3b_output_write_end"] = output_end.isoformat()
     out["r3b_built_at_utc"] = utc_now_iso()
 
-    output_dir = run_dir / "family_priceband_day"
+    output_dir = output_root / "family_priceband_day"
     part_count = _write_partitioned_parquet(out, output_dir)
 
     return R3BOutputResult(
@@ -408,7 +472,12 @@ def _weather_common_columns(df: pd.DataFrame) -> list[str]:
     return [c for c in preferred if c in df.columns]
 
 
-def _build_weather_wide(run_dir: Path, output_start: date, output_end: date) -> R3BOutputResult:
+def _build_weather_wide(
+    run_dir: Path,
+    output_root: Path,
+    output_start: date,
+    output_end: date,
+) -> R3BOutputResult:
     actuals = _read_parquet_dataset(run_dir, "weather_actuals")
     forecasts = _read_parquet_dataset(run_dir, "weather_forecasts")
     calendar = _read_parquet_dataset(run_dir, "calendar")
@@ -431,7 +500,7 @@ def _build_weather_wide(run_dir: Path, output_start: date, output_end: date) -> 
             name="weather_wide",
             status="error",
             input_datasets=("weather_actuals", "weather_forecasts", "calendar", "holidays"),
-            output_path=str(run_dir / "weather_wide"),
+            output_path=str(output_root / "weather_wide"),
             issues=tuple(issues),
         )
 
@@ -483,7 +552,7 @@ def _build_weather_wide(run_dir: Path, output_start: date, output_end: date) -> 
     weather["r3b_output_write_end"] = output_end.isoformat()
     weather["r3b_built_at_utc"] = utc_now_iso()
 
-    output_dir = run_dir / "weather_wide"
+    output_dir = output_root / "weather_wide"
     part_count = _write_partitioned_parquet(weather, output_dir)
 
     return R3BOutputResult(
@@ -496,15 +565,812 @@ def _build_weather_wide(run_dir: Path, output_start: date, output_end: date) -> 
     )
 
 
-def build_r3b_transforms(config: R3BTransformConfig) -> R3BTransformResult:
-    run_dir, source_start, output_start, output_end = _validate_config(config)
+_R3B_TRANSACTION_PREFIX = ".r3b-transaction-"
+_R3B_TRANSACTION_OWNERSHIP = (
+    Path("metadata") / "r3b_transaction_ownership.json"
+)
+_R3B_TRANSACTION_JOURNAL = (
+    Path("metadata") / "r3b_transaction_journal.json"
+)
+_R3B_OUTPUT_OWNERSHIP = ".r3b_output_ownership.json"
+_R3B_OFFICIAL_MANIFEST = (
+    Path("metadata") / "r3b_transform_manifest.json"
+)
+_R3B_PROMOTION_PHASES = {
+    "promoting_family",
+    "family_promoted",
+    "promoting_weather",
+    "weather_promoted",
+    "writing_official_manifest",
+}
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(
+            lambda: stream.read(1024 * 1024),
+            b"",
+        ):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _fsync_directory(path: Path) -> None:
+    descriptor = os.open(str(path), os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _atomic_write_json(
+    path: Path,
+    payload: dict[str, Any],
+) -> None:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    if path.is_symlink():
+        raise ValueError(
+            f"refusing JSON write through symlink: {path}"
+        )
+
+    temporary = path.with_name(
+        f".{path.name}.{uuid.uuid4().hex}.tmp"
+    )
+
+    descriptor = os.open(
+        str(temporary),
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+        0o600,
+    )
+
+    try:
+        with os.fdopen(
+            descriptor,
+            "w",
+            encoding="utf-8",
+        ) as stream:
+            json.dump(
+                _json_safe(payload),
+                stream,
+                indent=2,
+                sort_keys=True,
+            )
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+
+        os.replace(temporary, path)
+        _fsync_directory(path.parent)
+    except Exception:
+        if temporary.exists() and not temporary.is_symlink():
+            temporary.unlink()
+        raise
+
+
+def _read_json_file(path: Path) -> dict[str, Any]:
+    if not path.is_file() or path.is_symlink():
+        raise ValueError(
+            f"invalid required JSON file: {path}"
+        )
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(
+            f"JSON payload must be an object: {path}"
+        )
+    return payload
+
+
+def _assert_direct_child(
+    parent: Path,
+    child: Path,
+) -> None:
+    parent_resolved = parent.resolve(strict=True)
+    child_parent = child.parent.resolve(strict=True)
+
+    if child_parent != parent_resolved:
+        raise ValueError(
+            "path is not a direct child of the owned root: "
+            f"{child}"
+        )
+
+
+def _target_prestate(target: Path) -> dict[str, str]:
+    if target.is_symlink():
+        raise ValueError(
+            f"refusing symlink R3B output target: {target}"
+        )
+
+    if not target.exists():
+        return {"kind": "absent"}
+
+    if not target.is_dir():
+        raise ValueError(
+            f"R3B output target is not a directory: {target}"
+        )
+
+    if any(target.iterdir()):
+        raise FileExistsError(
+            "refusing populated R3B output target: "
+            f"{target}"
+        )
+
+    return {"kind": "empty_dir"}
+
+
+def _restore_target_prestate(
+    target: Path,
+    prestate: dict[str, str],
+) -> None:
+    kind = prestate.get("kind")
+
+    if kind == "absent":
+        if target.exists() or target.is_symlink():
+            raise RuntimeError(
+                "cannot restore absent target state: "
+                f"{target}"
+            )
+        return
+
+    if kind == "empty_dir":
+        if target.is_symlink():
+            raise RuntimeError(
+                "cannot restore empty directory over symlink: "
+                f"{target}"
+            )
+
+        if not target.exists():
+            target.mkdir(mode=0o700)
+            _fsync_directory(target.parent)
+            return
+
+        if not target.is_dir() or any(target.iterdir()):
+            raise RuntimeError(
+                "cannot restore empty target directory: "
+                f"{target}"
+            )
+        return
+
+    raise RuntimeError(
+        f"unknown target prestate: {prestate}"
+    )
+
+
+def _transaction_paths(
+    transaction_root: Path,
+) -> tuple[Path, Path]:
+    return (
+        transaction_root / _R3B_TRANSACTION_OWNERSHIP,
+        transaction_root / _R3B_TRANSACTION_JOURNAL,
+    )
+
+
+def _read_transaction_ownership(
+    run_dir: Path,
+    transaction_root: Path,
+) -> dict[str, Any]:
+    _assert_direct_child(run_dir, transaction_root)
+
+    if transaction_root.is_symlink():
+        raise ValueError(
+            "refusing symlink R3B transaction root: "
+            f"{transaction_root}"
+        )
+
+    ownership_path, _ = _transaction_paths(
+        transaction_root
+    )
+    ownership = _read_json_file(ownership_path)
+
+    if ownership.get("kind") != "r3b_transaction":
+        raise ValueError(
+            "invalid R3B transaction ownership kind"
+        )
+
+    if ownership.get("run_dir") != str(
+        run_dir.resolve(strict=True)
+    ):
+        raise ValueError(
+            "R3B transaction ownership run_dir mismatch"
+        )
+
+    if ownership.get("transaction_root") != str(
+        transaction_root.resolve(strict=True)
+    ):
+        raise ValueError(
+            "R3B transaction ownership root mismatch"
+        )
+
+    return ownership
+
+
+def _read_transaction_journal(
+    run_dir: Path,
+    transaction_root: Path,
+) -> dict[str, Any]:
+    ownership = _read_transaction_ownership(
+        run_dir,
+        transaction_root,
+    )
+    _, journal_path = _transaction_paths(
+        transaction_root
+    )
+    journal = _read_json_file(journal_path)
+
+    if (
+        journal.get("transaction_id")
+        != ownership.get("transaction_id")
+    ):
+        raise ValueError(
+            "R3B transaction journal ownership mismatch"
+        )
+
+    return journal
+
+
+def _write_transaction_journal(
+    transaction_root: Path,
+    journal: dict[str, Any],
+    *,
+    phase: str,
+    error: str | None = None,
+) -> dict[str, Any]:
+    updated = dict(journal)
+    updated["phase"] = phase
+    updated["updated_at_utc"] = utc_now_iso()
+
+    if error is not None:
+        updated["error"] = error
+
+    _, journal_path = _transaction_paths(
+        transaction_root
+    )
+    _atomic_write_json(journal_path, updated)
+    return updated
+
+
+def _create_transaction_root(
+    *,
+    config: R3BTransformConfig,
+    run_dir: Path,
+    prestates: dict[str, dict[str, str]],
+) -> tuple[Path, dict[str, Any]]:
+    if run_dir.is_symlink():
+        raise ValueError(
+            f"refusing symlink run directory: {run_dir}"
+        )
+
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    transaction_id = uuid.uuid4().hex
+    transaction_root = run_dir / (
+        _R3B_TRANSACTION_PREFIX + transaction_id
+    )
+    _assert_direct_child(run_dir, transaction_root)
+
+    transaction_root.mkdir(mode=0o700)
+
+    ownership_path, journal_path = _transaction_paths(
+        transaction_root
+    )
+
+    ownership = {
+        "schema_version": 1,
+        "kind": "r3b_transaction",
+        "transaction_id": transaction_id,
+        "run_id": config.run_id,
+        "run_dir": str(run_dir.resolve(strict=True)),
+        "transaction_root": str(
+            transaction_root.resolve(strict=True)
+        ),
+        "module_path": str(Path(__file__).resolve()),
+        "module_sha256": _sha256_file(
+            Path(__file__).resolve()
+        ),
+        "created_at_utc": utc_now_iso(),
+    }
+
+    journal = {
+        "schema_version": 1,
+        "transaction_id": transaction_id,
+        "run_id": config.run_id,
+        "run_dir": ownership["run_dir"],
+        "transaction_root": ownership[
+            "transaction_root"
+        ],
+        "phase": "created",
+        "prestates": prestates,
+        "outputs": {
+            name: {
+                "staged": str(transaction_root / name),
+                "target": str(run_dir / name),
+            }
+            for name in OUTPUT_DATASETS
+        },
+        "created_at_utc": utc_now_iso(),
+        "updated_at_utc": utc_now_iso(),
+    }
+
+    try:
+        _atomic_write_json(ownership_path, ownership)
+        _atomic_write_json(journal_path, journal)
+        _fsync_directory(run_dir)
+    except Exception:
+        if (
+            transaction_root.exists()
+            and not transaction_root.is_symlink()
+        ):
+            shutil.rmtree(transaction_root)
+        raise
+
+    return transaction_root, journal
+
+
+def _write_output_ownership(
+    output_dir: Path,
+    *,
+    transaction_id: str,
+    output_name: str,
+) -> None:
+    if output_dir.name != output_name:
+        raise ValueError(
+            "R3B output ownership name mismatch"
+        )
+
+    marker = output_dir / _R3B_OUTPUT_OWNERSHIP
+    _atomic_write_json(
+        marker,
+        {
+            "schema_version": 1,
+            "kind": "r3b_output",
+            "transaction_id": transaction_id,
+            "output_name": output_name,
+            "output_dir": str(
+                output_dir.resolve(strict=True)
+            ),
+            "created_at_utc": utc_now_iso(),
+        },
+    )
+
+
+def _output_owned_by_transaction(
+    output_dir: Path,
+    *,
+    transaction_id: str,
+    output_name: str,
+) -> bool:
+    if (
+        not output_dir.is_dir()
+        or output_dir.is_symlink()
+    ):
+        return False
+
+    marker = output_dir / _R3B_OUTPUT_OWNERSHIP
+    if not marker.is_file() or marker.is_symlink():
+        return False
+
+    try:
+        payload = _read_json_file(marker)
+    except Exception:
+        return False
+
+    return (
+        payload.get("kind") == "r3b_output"
+        and payload.get("transaction_id")
+        == transaction_id
+        and payload.get("output_name")
+        == output_name
+    )
+
+
+def _remove_owned_output(
+    run_dir: Path,
+    output_dir: Path,
+    *,
+    transaction_id: str,
+    output_name: str,
+) -> None:
+    _assert_direct_child(run_dir, output_dir)
+
+    if not _output_owned_by_transaction(
+        output_dir,
+        transaction_id=transaction_id,
+        output_name=output_name,
+    ):
+        raise RuntimeError(
+            "refusing removal of unowned R3B output: "
+            f"{output_dir}"
+        )
+
+    shutil.rmtree(output_dir)
+    _fsync_directory(run_dir)
+
+
+def _remove_owned_official_manifest(
+    run_dir: Path,
+    *,
+    transaction_id: str,
+) -> None:
+    manifest_path = run_dir / _R3B_OFFICIAL_MANIFEST
+
+    if not manifest_path.exists():
+        return
+
+    if manifest_path.is_symlink() or not manifest_path.is_file():
+        raise RuntimeError(
+            "invalid official R3B manifest during rollback"
+        )
+
+    payload = _read_json_file(manifest_path)
+    transaction = payload.get("transaction") or {}
+
+    if (
+        not isinstance(transaction, dict)
+        or transaction.get("transaction_id")
+        != transaction_id
+    ):
+        raise RuntimeError(
+            "refusing removal of an official R3B manifest "
+            "not owned by the active transaction"
+        )
+
+    manifest_path.unlink()
+    _fsync_directory(manifest_path.parent)
+
+
+def _cleanup_owned_transaction_root(
+    run_dir: Path,
+    transaction_root: Path,
+) -> None:
+    _read_transaction_ownership(
+        run_dir,
+        transaction_root,
+    )
+    shutil.rmtree(transaction_root)
+    _fsync_directory(run_dir)
+
+
+def _rollback_promoted_outputs(
+    run_dir: Path,
+    transaction_root: Path,
+    journal: dict[str, Any],
+) -> None:
+    transaction_id = str(
+        journal["transaction_id"]
+    )
+
+    journal = _write_transaction_journal(
+        transaction_root,
+        journal,
+        phase="rolling_back",
+    )
+
+    try:
+        _remove_owned_official_manifest(
+            run_dir,
+            transaction_id=transaction_id,
+        )
+
+        for output_name in reversed(OUTPUT_DATASETS):
+            target = run_dir / output_name
+            prestate = journal["prestates"][
+                output_name
+            ]
+
+            if target.is_symlink():
+                raise RuntimeError(
+                    "R3B rollback target became a symlink: "
+                    f"{target}"
+                )
+
+            if target.exists():
+                if _output_owned_by_transaction(
+                    target,
+                    transaction_id=transaction_id,
+                    output_name=output_name,
+                ):
+                    _remove_owned_output(
+                        run_dir,
+                        target,
+                        transaction_id=transaction_id,
+                        output_name=output_name,
+                    )
+                elif (
+                    target.is_dir()
+                    and not any(target.iterdir())
+                    and prestate.get("kind")
+                    == "empty_dir"
+                ):
+                    pass
+                else:
+                    raise RuntimeError(
+                        "R3B rollback found an unowned target: "
+                        f"{target}"
+                    )
+
+            _restore_target_prestate(
+                target,
+                prestate,
+            )
+
+        journal = _write_transaction_journal(
+            transaction_root,
+            journal,
+            phase="rolled_back",
+        )
+    except Exception as exc:
+        _write_transaction_journal(
+            transaction_root,
+            journal,
+            phase="recovery_required",
+            error=f"{type(exc).__name__}: {exc}",
+        )
+        raise
+
+
+def _recover_stale_r3b_transactions(
+    run_dir: Path,
+) -> None:
+    if not run_dir.exists():
+        return
+
+    for transaction_root in sorted(
+        run_dir.glob(
+            _R3B_TRANSACTION_PREFIX + "*"
+        )
+    ):
+        if transaction_root.is_symlink():
+            raise RuntimeError(
+                "stale R3B transaction path is a symlink: "
+                f"{transaction_root}"
+            )
+
+        if not transaction_root.is_dir():
+            raise RuntimeError(
+                "stale R3B transaction path is not a directory: "
+                f"{transaction_root}"
+            )
+
+        journal = _read_transaction_journal(
+            run_dir,
+            transaction_root,
+        )
+        phase = str(journal.get("phase"))
+
+        if phase == "recovery_required":
+            raise RuntimeError(
+                "R3B stale transaction requires manual "
+                f"recovery: {transaction_root}"
+            )
+
+        if phase in _R3B_PROMOTION_PHASES:
+            _rollback_promoted_outputs(
+                run_dir,
+                transaction_root,
+                journal,
+            )
+            _cleanup_owned_transaction_root(
+                run_dir,
+                transaction_root,
+            )
+            continue
+
+        if phase == "committed":
+            manifest_path = (
+                run_dir / _R3B_OFFICIAL_MANIFEST
+            )
+            manifest = _read_json_file(
+                manifest_path
+            )
+            transaction = (
+                manifest.get("transaction") or {}
+            )
+
+            if (
+                not isinstance(transaction, dict)
+                or transaction.get("transaction_id")
+                != journal.get("transaction_id")
+            ):
+                raise RuntimeError(
+                    "committed R3B transaction has no "
+                    "matching official manifest"
+                )
+
+            _cleanup_owned_transaction_root(
+                run_dir,
+                transaction_root,
+            )
+            continue
+
+        if phase in {
+            "created",
+            "building",
+            "staged",
+            "validated",
+            "rolled_back",
+        }:
+            _cleanup_owned_transaction_root(
+                run_dir,
+                transaction_root,
+            )
+            continue
+
+        raise RuntimeError(
+            "unknown stale R3B transaction phase: "
+            f"{phase}"
+        )
+
+
+def _validate_staged_r3b_outputs(
+    transaction_root: Path,
+) -> None:
+    try:
+        from .r3b_validation import (
+            R3BValidationConfig,
+            validate_r3b_outputs,
+        )
+    except ImportError:
+        from r3b_validation import (
+            R3BValidationConfig,
+            validate_r3b_outputs,
+        )
+
+    validation = validate_r3b_outputs(
+        R3BValidationConfig(
+            run_dir=transaction_root,
+            write_report=False,
+            strict_row_count_baseline=False,
+        )
+    )
+
+    if not validation.ok:
+        raise RuntimeError(
+            "staged R3B validation failed: "
+            + "; ".join(validation.issues)
+        )
+
+
+def _relocate_output_result(
+    result: R3BOutputResult,
+    run_dir: Path,
+) -> R3BOutputResult:
+    return R3BOutputResult(
+        name=result.name,
+        status=result.status,
+        row_count=result.row_count,
+        part_count=result.part_count,
+        input_datasets=result.input_datasets,
+        output_path=str(run_dir / result.name),
+        issues=result.issues,
+    )
+
+
+def _failure_result_without_manifest(
+    *,
+    config: R3BTransformConfig,
+    run_dir: Path,
+    manifest_path: Path,
+    outputs: list[R3BOutputResult],
+    issues: list[str],
+) -> R3BTransformResult:
+    return R3BTransformResult(
+        run_id=config.run_id,
+        run_dir=str(run_dir),
+        mode=config.mode,
+        dry_run=False,
+        ok=False,
+        outputs=tuple(outputs),
+        manifest_path=str(manifest_path),
+        safety=_safety(True),
+        issues=tuple(issues),
+    )
+
+
+def _promote_staged_output_pair(
+    *,
+    run_dir: Path,
+    transaction_root: Path,
+    journal: dict[str, Any],
+) -> dict[str, Any]:
+    transaction_id = str(
+        journal["transaction_id"]
+    )
+
+    for output_name in OUTPUT_DATASETS:
+        staged = transaction_root / output_name
+        if not staged.is_dir() or staged.is_symlink():
+            raise RuntimeError(
+                "missing or invalid staged R3B output: "
+                f"{staged}"
+            )
+
+        _write_output_ownership(
+            staged,
+            transaction_id=transaction_id,
+            output_name=output_name,
+        )
+
+    family_target = run_dir / "family_priceband_day"
+    weather_target = run_dir / "weather_wide"
+
+    try:
+        journal = _write_transaction_journal(
+            transaction_root,
+            journal,
+            phase="promoting_family",
+        )
+
+        if family_target.exists():
+            family_target.rmdir()
+
+        os.replace(
+            transaction_root / "family_priceband_day",
+            family_target,
+        )
+        _fsync_directory(run_dir)
+
+        journal = _write_transaction_journal(
+            transaction_root,
+            journal,
+            phase="family_promoted",
+        )
+
+        journal = _write_transaction_journal(
+            transaction_root,
+            journal,
+            phase="promoting_weather",
+        )
+
+        if weather_target.exists():
+            weather_target.rmdir()
+
+        os.replace(
+            transaction_root / "weather_wide",
+            weather_target,
+        )
+        _fsync_directory(run_dir)
+
+        journal = _write_transaction_journal(
+            transaction_root,
+            journal,
+            phase="weather_promoted",
+        )
+
+        return journal
+    except Exception:
+        _rollback_promoted_outputs(
+            run_dir,
+            transaction_root,
+            journal,
+        )
+        raise
+
+
+def build_r3b_transforms(
+    config: R3BTransformConfig,
+) -> R3BTransformResult:
+    (
+        run_dir,
+        source_start,
+        output_start,
+        output_end,
+    ) = _validate_config(config)
+
     metadata_dir = run_dir / "metadata"
-    manifest_path = metadata_dir / "r3b_transform_manifest.json"
+    manifest_path = (
+        metadata_dir
+        / "r3b_transform_manifest.json"
+    )
 
     if not config.execute:
         return _write_manifest(
             config=config,
             run_dir=run_dir,
+            input_run_dir=run_dir,
+            transaction_id=None,
             manifest_path=manifest_path,
             source_start=source_start,
             output_start=output_start,
@@ -513,51 +1379,323 @@ def build_r3b_transforms(config: R3BTransformConfig) -> R3BTransformResult:
             issues=[],
         )
 
+    _recover_stale_r3b_transactions(run_dir)
+
+    if manifest_path.is_symlink():
+        raise ValueError(
+            "refusing symlink official R3B manifest"
+        )
+
+    if manifest_path.exists():
+        raise FileExistsError(
+            "refusing to overwrite an existing official "
+            f"R3B manifest: {manifest_path}"
+        )
+
     issues: list[str] = []
-
     raw_root = run_dir / "raw_extracts"
+
     if not raw_root.exists():
-        issues.append(f"missing raw_extracts directory: {raw_root}")
+        issues.append(
+            f"missing raw_extracts directory: {raw_root}"
+        )
 
-    missing_raw = _require_raw_datasets(run_dir) if raw_root.exists() else list(REQUIRED_RAW_DATASETS)
+    missing_raw = (
+        _require_raw_datasets(run_dir)
+        if raw_root.exists()
+        else list(REQUIRED_RAW_DATASETS)
+    )
+
     if missing_raw:
-        issues.append("missing raw datasets: " + ",".join(missing_raw))
+        issues.append(
+            "missing raw datasets: "
+            + ",".join(missing_raw)
+        )
 
-    outputs: list[R3BOutputResult] = []
-
-    if not issues:
-        family_result = _build_family_priceband_day(run_dir, source_start, output_start, output_end)
-        outputs.append(family_result)
-        issues.extend(family_result.issues)
-
-        weather_result = _build_weather_wide(run_dir, output_start, output_end)
-        outputs.append(weather_result)
-        issues.extend(weather_result.issues)
-    else:
+    if issues:
         outputs = [
             R3BOutputResult(
                 name="family_priceband_day",
                 status="error",
-                input_datasets=("sales_family_daily_fact", "products_normalized"),
-                output_path=str(run_dir / "family_priceband_day"),
+                input_datasets=(
+                    "sales_family_daily_fact",
+                    "products_normalized",
+                ),
+                output_path=str(
+                    run_dir / "family_priceband_day"
+                ),
                 issues=tuple(issues),
             ),
             R3BOutputResult(
                 name="weather_wide",
                 status="error",
-                input_datasets=("weather_actuals", "weather_forecasts", "calendar", "holidays"),
-                output_path=str(run_dir / "weather_wide"),
+                input_datasets=(
+                    "weather_actuals",
+                    "weather_forecasts",
+                    "calendar",
+                    "holidays",
+                ),
+                output_path=str(
+                    run_dir / "weather_wide"
+                ),
                 issues=tuple(issues),
             ),
         ]
 
-    return _write_manifest(
-        config=config,
-        run_dir=run_dir,
-        manifest_path=manifest_path,
-        source_start=source_start,
-        output_start=output_start,
-        output_end=output_end,
-        outputs=outputs,
-        issues=issues,
+        return _failure_result_without_manifest(
+            config=config,
+            run_dir=run_dir,
+            manifest_path=manifest_path,
+            outputs=outputs,
+            issues=issues,
+        )
+
+    prestates = {
+        output_name: _target_prestate(
+            run_dir / output_name
+        )
+        for output_name in OUTPUT_DATASETS
+    }
+
+    transaction_root, journal = (
+        _create_transaction_root(
+            config=config,
+            run_dir=run_dir,
+            prestates=prestates,
+        )
     )
+
+    staged_outputs: list[R3BOutputResult] = []
+
+    try:
+        journal = _write_transaction_journal(
+            transaction_root,
+            journal,
+            phase="building",
+        )
+
+        family_result = (
+            _build_family_priceband_day(
+                run_dir,
+                transaction_root,
+                source_start,
+                output_start,
+                output_end,
+            )
+        )
+        staged_outputs.append(family_result)
+
+        weather_result = _build_weather_wide(
+            run_dir,
+            transaction_root,
+            output_start,
+            output_end,
+        )
+        staged_outputs.append(weather_result)
+
+        stage_issues = [
+            issue
+            for output in staged_outputs
+            for issue in output.issues
+        ]
+
+        if (
+            stage_issues
+            or any(
+                output.status != "ok"
+                for output in staged_outputs
+            )
+        ):
+            raise RuntimeError(
+                "R3B staged build failed: "
+                + "; ".join(stage_issues)
+            )
+
+        staged_manifest_path = (
+            transaction_root
+            / "metadata"
+            / "r3b_transform_manifest.json"
+        )
+
+        staged_result = _write_manifest(
+            config=config,
+            run_dir=transaction_root,
+            input_run_dir=run_dir,
+            transaction_id=str(
+                journal["transaction_id"]
+            ),
+            manifest_path=staged_manifest_path,
+            source_start=source_start,
+            output_start=output_start,
+            output_end=output_end,
+            outputs=staged_outputs,
+            issues=[],
+        )
+
+        if not staged_result.ok:
+            raise RuntimeError(
+                "R3B staged manifest is not valid"
+            )
+
+        journal = _write_transaction_journal(
+            transaction_root,
+            journal,
+            phase="staged",
+        )
+
+        _validate_staged_r3b_outputs(
+            transaction_root
+        )
+
+        journal = _write_transaction_journal(
+            transaction_root,
+            journal,
+            phase="validated",
+        )
+
+        journal = _promote_staged_output_pair(
+            run_dir=run_dir,
+            transaction_root=transaction_root,
+            journal=journal,
+        )
+
+        official_outputs = [
+            _relocate_output_result(
+                output,
+                run_dir,
+            )
+            for output in staged_outputs
+        ]
+
+        journal = _write_transaction_journal(
+            transaction_root,
+            journal,
+            phase="writing_official_manifest",
+        )
+
+        result = _write_manifest(
+            config=config,
+            run_dir=run_dir,
+            input_run_dir=run_dir,
+            transaction_id=str(
+                journal["transaction_id"]
+            ),
+            manifest_path=manifest_path,
+            source_start=source_start,
+            output_start=output_start,
+            output_end=output_end,
+            outputs=official_outputs,
+            issues=[],
+        )
+
+        if not result.ok:
+            raise RuntimeError(
+                "official R3B manifest is not valid"
+            )
+
+        journal = _write_transaction_journal(
+            transaction_root,
+            journal,
+            phase="committed",
+        )
+
+        _cleanup_owned_transaction_root(
+            run_dir,
+            transaction_root,
+        )
+
+        return result
+    except Exception as exc:
+        try:
+            if transaction_root.exists():
+                current = _read_transaction_journal(
+                    run_dir,
+                    transaction_root,
+                )
+                phase = str(current.get("phase"))
+
+                if phase in _R3B_PROMOTION_PHASES:
+                    _rollback_promoted_outputs(
+                        run_dir,
+                        transaction_root,
+                        current,
+                    )
+                    current = _read_transaction_journal(
+                        run_dir,
+                        transaction_root,
+                    )
+                    phase = str(current.get("phase"))
+
+                if phase == "recovery_required":
+                    raise RuntimeError(
+                        "R3B transaction rollback requires "
+                        "manual recovery"
+                    )
+
+                _cleanup_owned_transaction_root(
+                    run_dir,
+                    transaction_root,
+                )
+        except Exception as recovery_exc:
+            raise RuntimeError(
+                "R3B transaction failed and automatic "
+                "recovery did not complete: "
+                f"{type(recovery_exc).__name__}: "
+                f"{recovery_exc}"
+            ) from exc
+
+        failure_issues = [
+            f"{type(exc).__name__}: {exc}"
+        ]
+
+        failure_outputs = (
+            [
+                _relocate_output_result(
+                    output,
+                    run_dir,
+                )
+                for output in staged_outputs
+            ]
+            if staged_outputs
+            else [
+                R3BOutputResult(
+                    name="family_priceband_day",
+                    status="error",
+                    input_datasets=(
+                        "sales_family_daily_fact",
+                        "products_normalized",
+                    ),
+                    output_path=str(
+                        run_dir
+                        / "family_priceband_day"
+                    ),
+                    issues=tuple(
+                        failure_issues
+                    ),
+                ),
+                R3BOutputResult(
+                    name="weather_wide",
+                    status="error",
+                    input_datasets=(
+                        "weather_actuals",
+                        "weather_forecasts",
+                        "calendar",
+                        "holidays",
+                    ),
+                    output_path=str(
+                        run_dir / "weather_wide"
+                    ),
+                    issues=tuple(
+                        failure_issues
+                    ),
+                ),
+            ]
+        )
+
+        return _failure_result_without_manifest(
+            config=config,
+            run_dir=run_dir,
+            manifest_path=manifest_path,
+            outputs=failure_outputs,
+            issues=failure_issues,
+        )
